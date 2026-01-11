@@ -87,6 +87,7 @@ export * as BinPacking from './geometry/bin-packing.js';
 export * as MarchingSquares from './geometry/marching-squares.js';
 export * as SpatialIndex from './geometry/spatial-index.js';
 export * as CurveGeometry from './geometry/curve-geometry.js';
+export * as Delaunay from './geometry/delaunay-triangulation.js';
 
 // Physics
 export * as Advection from './physics/advection.js';
@@ -572,4 +573,3 @@ export {
 // RE-EXPORTS: Math Utils (additions)
 // ═══════════════════════════════════════════════════════════════════════════
 // MathUtils.hashInt, hashToFloat, hash2D, quickRandom are now available
-
