@@ -7,8 +7,7 @@
  * - Browser global (globalThis.P5JSAlgorithms)
  *
  * This is intended for future bundling or direct module use in the p5.js editor
- * or CodePen without requiring a multi-file import tree, including stippling
- * and TSP art workflows.
+ * or CodePen without requiring a multi-file import tree.
  */
 
 import * as Algorithms from '../index.js';

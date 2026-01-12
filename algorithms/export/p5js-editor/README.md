@@ -17,26 +17,12 @@ browser global.
 
 ```js
 async function setup() {
-  createCanvas(520, 520);
+  createCanvas(400, 400);
   await loadP5JSAlgorithms();
 
-  const { Sampling, TSP } = P5JSAlgorithms;
-  const points = Sampling.importanceSampling(
-    300,
-    width,
-    height,
-    (x, y) => 1 - dist(x, y, width / 2, height / 2) / (width / 2)
-  );
-
-  const relaxed = Sampling.lloydRelaxation(points, width, height, 2, 8);
-  const nn = TSP.nearestNeighbor(relaxed);
-  const optimized = TSP.twoOpt(relaxed, nn.path, 200);
-
-  background(248);
-  noFill();
-  beginShape();
-  optimized.path.forEach((idx) => vertex(relaxed[idx].x, relaxed[idx].y));
-  endShape();
+  // Example: use a noise function from the library
+  const value = P5JSAlgorithms.Noise.simplex2D(0.1, 0.2);
+  console.log(value);
 }
 ```
 

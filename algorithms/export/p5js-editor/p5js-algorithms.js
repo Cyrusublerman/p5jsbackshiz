@@ -3,8 +3,7 @@
  *
  * Drop this file into the p5.js editor as an additional file and call
  * `loadP5JSAlgorithms()` from your sketch to attach the algorithms library
- * to `globalThis.P5JSAlgorithms`. The included README shows a stippling/TSP
- * example built on Sampling + TSP modules.
+ * to `globalThis.P5JSAlgorithms`.
  */
 
 const DEFAULT_ALGO_URL =

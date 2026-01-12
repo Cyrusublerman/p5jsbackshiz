@@ -13,9 +13,6 @@ this repo's algorithms library at runtime.
 6. Update `DEFAULT_ALGO_URL` in `script.js` to point at your hosted
    `algorithms/index.js` (GitHub + jsDelivr, or any CDN you control).
 
-The default example uses importance sampling, Lloyd relaxation, and a TSP tour
-to render a continuous stippling path.
-
 ## Notes
 
 - The loader uses dynamic `import()` so it expects an ES module URL.

@@ -7,40 +7,17 @@ async function loadP5JSAlgorithms(url = DEFAULT_ALGO_URL) {
   return module;
 }
 
-function radialDensity(x, y, width, height) {
-  const cx = width * 0.5;
-  const cy = height * 0.5;
-  const dx = (x - cx) / cx;
-  const dy = (y - cy) / cy;
-  const dist = Math.min(1, Math.sqrt(dx * dx + dy * dy));
-  return 1 - dist;
-}
-
 async function setup() {
-  createCanvas(520, 520);
-  background(248);
-  stroke(20);
-  noFill();
+  createCanvas(400, 400);
+  background(240);
 
   const algorithms = await loadP5JSAlgorithms();
-  const { Sampling, TSP } = algorithms;
-
-  const points = Sampling.importanceSampling(
-    300,
-    width,
-    height,
-    (x, y) => radialDensity(x, y, width, height)
-  );
-
-  const relaxed = Sampling.lloydRelaxation(points, width, height, 2, 8);
-  const nn = TSP.nearestNeighbor(relaxed);
-  const optimized = TSP.twoOpt(relaxed, nn.path, 200);
-
-  beginShape();
-  optimized.path.forEach((idx) => {
-    vertex(relaxed[idx].x, relaxed[idx].y);
-  });
-  endShape();
-
   console.log('Algorithms loaded:', algorithms);
+
+  if (algorithms?.Noise?.simplex2D) {
+    const value = algorithms.Noise.simplex2D(0.1, 0.2);
+    text(`simplex2D: ${value.toFixed(3)}`, 20, 40);
+  } else {
+    text('Algorithms loaded.', 20, 40);
+  }
 }
