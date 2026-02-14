@@ -427,6 +427,7 @@ export class UI {
       }
       sel.addEventListener('change', () => {
         setter(sel.value);
+        node.invalidate(this.state.stack);
         this.state.needsRender = true;
         this.onRender();
       });
@@ -449,12 +450,28 @@ export class UI {
       num.step = def.step;
       num.value = Number(val).toFixed(def.step < 1 ? 2 : 0);
 
+      // Progressive preview: fast render during drag, full on release
       sl.addEventListener('input', () => {
         const v = parseFloat(sl.value);
         setter(v);
         num.value = v.toFixed(def.step < 1 ? 2 : 0);
+        node.invalidate(this.state.stack);
         this.state.needsRender = true;
+        if (this.state.quality !== 'final') {
+          this._savedScale = this._savedScale || this.state.previewScale;
+          this.state.previewScale = Math.min(this._savedScale, 0.25);
+        }
         this.onRender();
+      });
+
+      sl.addEventListener('change', () => {
+        if (this._savedScale) {
+          this.state.previewScale = this._savedScale;
+          this._savedScale = null;
+          this.state.needsRender = true;
+          node.invalidate(this.state.stack);
+          this.onRender();
+        }
       });
 
       num.addEventListener('change', () => {
@@ -462,6 +479,7 @@ export class UI {
         setter(v);
         sl.value = v;
         num.value = v.toFixed(def.step < 1 ? 2 : 0);
+        node.invalidate(this.state.stack);
         this.state.needsRender = true;
         this.onRender();
       });

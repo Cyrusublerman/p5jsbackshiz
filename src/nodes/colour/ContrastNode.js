@@ -9,19 +9,36 @@ export class ContrastNode extends EffectNode {
       contrast: { value: 0, min: -1, max: 1, step: 0.01, label: 'CONTRAST' },
       pivot:    { value: 0.5, min: 0, max: 1, step: 0.01, label: 'PIVOT' }
     });
+    this.isLUT = true;
+  }
+
+  _mapValue(v) {
+    const { lift, gamma, gain, contrast, pivot } = this.params;
+    const inv = 1 / gamma;
+    let x = v / 255 * gain + lift;
+    x = Math.pow(Math.max(0, x), inv);
+    if (contrast) x = pivot + (x - pivot) * (1 + contrast);
+    return Math.round(Math.max(0, Math.min(1, x)) * 255);
   }
 
   apply(s, d, w, h) {
-    const { lift, gamma, gain, contrast, pivot } = this.params;
-    const inv = 1 / gamma;
+    const lut = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) lut[i] = this._mapValue(i);
     for (let i = 0, n = w * h * 4; i < n; i += 4) {
-      for (let c = 0; c < 3; c++) {
-        let v = s[i + c] / 255 * gain + lift;
-        v = Math.pow(Math.max(0, v), inv);
-        if (contrast) v = pivot + (v - pivot) * (1 + contrast);
-        d[i + c] = Math.round(Math.max(0, Math.min(1, v)) * 255);
-      }
+      d[i]     = lut[s[i]];
+      d[i + 1] = lut[s[i + 1]];
+      d[i + 2] = lut[s[i + 2]];
       d[i + 3] = s[i + 3];
+    }
+  }
+
+  buildLUT(lutR, lutG, lutB) {
+    const lut = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) lut[i] = this._mapValue(i);
+    for (let i = 0; i < 256; i++) {
+      lutR[i] = lut[lutR[i]];
+      lutG[i] = lut[lutG[i]];
+      lutB[i] = lut[lutB[i]];
     }
   }
 }

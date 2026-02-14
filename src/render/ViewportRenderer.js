@@ -3,10 +3,26 @@ export class ViewportRenderer {
     this.p = p5inst;
     this.state = state;
     this.resultBuffer = null;
+    // Reusable offscreen canvas + ImageData
+    this._oc = null;
+    this._ocCtx = null;
+    this._ocW = 0;
+    this._ocH = 0;
+    this._imgData = null;
   }
 
   setResult(result) {
     this.resultBuffer = result;
+  }
+
+  _ensureOffscreen(w, h) {
+    if (!this._oc || this._ocW !== w || this._ocH !== h) {
+      this._oc = new OffscreenCanvas(w, h);
+      this._ocCtx = this._oc.getContext('2d');
+      this._ocW = w;
+      this._ocH = h;
+      this._imgData = this._ocCtx.createImageData(w, h);
+    }
   }
 
   draw() {
@@ -17,11 +33,10 @@ export class ViewportRenderer {
     if (!this.resultBuffer) return;
 
     const { pixels, width: rw, height: rh } = this.resultBuffer;
-    const id = new ImageData(new Uint8ClampedArray(pixels), rw, rh);
-    const oc = document.createElement('canvas');
-    oc.width = rw;
-    oc.height = rh;
-    oc.getContext('2d').putImageData(id, 0, 0);
+
+    this._ensureOffscreen(rw, rh);
+    this._imgData.data.set(pixels);
+    this._ocCtx.putImageData(this._imgData, 0, 0);
 
     let dw, dh, ox, oy;
 
@@ -40,9 +55,9 @@ export class ViewportRenderer {
     }
 
     p.drawingContext.imageSmoothingEnabled = true;
-    p.drawingContext.drawImage(oc, ox, oy, dw, dh);
+    p.drawingContext.drawImage(this._oc, ox, oy, dw, dh);
 
-    // Border rect
+    // Border
     p.noFill();
     p.stroke(85);
     p.strokeWeight(1);

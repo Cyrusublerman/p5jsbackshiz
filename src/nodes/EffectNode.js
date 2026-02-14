@@ -14,10 +14,42 @@ export class EffectNode {
     for (const [k, v] of Object.entries(paramDefs)) {
       this.params[k] = v.value;
     }
+
+    // Cache for dirty-node optimisation
+    this._cache = null;
+    this._cacheValid = false;
+
+    // LUT fusion protocol — override in subclasses
+    this.isLUT = false;
   }
 
+  /** Override in subclasses to apply the effect. */
   apply(src, dst, w, h, ctx) {
     dst.set(src);
+  }
+
+  /**
+   * LUT fusion: compose this node's transform into per-channel LUTs.
+   * Override in LUT-eligible nodes. Called with identity LUTs on first
+   * node in chain; each subsequent node composes its transform.
+   */
+  buildLUT(lutR, lutG, lutB) {
+    // no-op default
+  }
+
+  /** Invalidate this node's cache and all downstream caches. */
+  invalidate(stack) {
+    this._cacheValid = false;
+    this._cache = null;
+    if (stack) {
+      const idx = stack.indexOf(this);
+      if (idx >= 0) {
+        for (let i = idx + 1; i < stack.length; i++) {
+          stack[i]._cacheValid = false;
+          stack[i]._cache = null;
+        }
+      }
+    }
   }
 
   toJSON() {

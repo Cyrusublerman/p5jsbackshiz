@@ -9,9 +9,10 @@ export class LevelsNode extends EffectNode {
       outBlack:   { value: 0, min: 0, max: 255, step: 1, label: 'BLACK OUT' },
       outWhite:   { value: 255, min: 0, max: 255, step: 1, label: 'WHITE OUT' }
     });
+    this.isLUT = true;
   }
 
-  apply(s, d, w, h) {
+  _buildInternalLUT() {
     const { blackPoint, whitePoint, midGamma, outBlack, outWhite } = this.params;
     const rng = Math.max(whitePoint - blackPoint, 1);
     const oR = outWhite - outBlack;
@@ -22,11 +23,25 @@ export class LevelsNode extends EffectNode {
         outBlack + Math.pow(Math.max(0, Math.min(1, (i - blackPoint) / rng)), inv) * oR
       );
     }
+    return lut;
+  }
+
+  apply(s, d, w, h) {
+    const lut = this._buildInternalLUT();
     for (let i = 0, n = w * h * 4; i < n; i += 4) {
       d[i]     = lut[s[i]];
       d[i + 1] = lut[s[i + 1]];
       d[i + 2] = lut[s[i + 2]];
       d[i + 3] = s[i + 3];
+    }
+  }
+
+  buildLUT(lutR, lutG, lutB) {
+    const lut = this._buildInternalLUT();
+    for (let i = 0; i < 256; i++) {
+      lutR[i] = lut[lutR[i]];
+      lutG[i] = lut[lutG[i]];
+      lutB[i] = lut[lutB[i]];
     }
   }
 }
