@@ -39,9 +39,8 @@ export class FlowFieldNode extends EffectNode {
           sx -= dx * ss;
           sy -= dy * ss;
         }
-        const c = Sampler.sample(s, w, h, sx, sy, sm);
         const i = (y * w + x) * 4;
-        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
+        Sampler.sampleDst(s, w, h, sx, sy, sm, d, i);
       }
     }
   }

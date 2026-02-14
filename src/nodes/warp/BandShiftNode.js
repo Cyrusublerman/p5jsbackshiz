@@ -40,9 +40,8 @@ export class BandShiftNode extends EffectNode {
       for (let x = 0; x < w; x++) {
         const bi = Math.min(Math.floor((isH ? y : x) / Math.max(1, bandSize)), num - 1);
         const o = off[bi];
-        const c = Sampler.sample(s, w, h, isH ? x + o : x, isH ? y : y + o, 'bilinear');
         const i = (y * w + x) * 4;
-        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
+        Sampler.bilinearDst(s, w, h, isH ? x + o : x, isH ? y : y + o, d, i);
       }
     }
   }

@@ -31,9 +31,8 @@ export class RadialRippleNode extends EffectNode {
         const off = Math.sin(dist / w * frequency * Math.PI * 2 + phase) *
                     amplitude * Math.exp(-(dist / md) * falloff);
         const ang = Math.atan2(dy, dx);
-        const c = Sampler.sample(s, w, h, x + Math.cos(ang) * off, y + Math.sin(ang) * off, sm);
         const i = (y * w + x) * 4;
-        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
+        Sampler.sampleDst(s, w, h, x + Math.cos(ang) * off, y + Math.sin(ang) * off, sm, d, i);
       }
     }
   }

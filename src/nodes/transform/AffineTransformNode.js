@@ -26,14 +26,13 @@ export class AffineTransformNode extends EffectNode {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         let px = x - cx - tx, py = y - cy - ty;
-        const c = Sampler.sample(
+        const i = (y * w + x) * 4;
+        Sampler.sampleDst(
           s, w, h,
           (px * cosR - py * sinR) * isx + cx,
           (px * sinR + py * cosR) * isy + cy,
-          sm
+          sm, d, i
         );
-        const i = (y * w + x) * 4;
-        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
       }
     }
   }

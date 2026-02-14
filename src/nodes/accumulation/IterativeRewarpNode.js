@@ -38,12 +38,24 @@ export class IterativeRewarpNode extends EffectNode {
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const px = x - cx, py = y - cy;
-          const c = Sampler.sample(s, w, h,
-            px * cosR - py * sinR + cx + ox,
-            px * sinR + py * cosR + cy + oy, sm);
           const idx = y * w + x;
-          aR[idx] += c[0] * wt; aG[idx] += c[1] * wt;
-          aB[idx] += c[2] * wt; aA[idx] += c[3] * wt;
+          const srcX = px * cosR - py * sinR + cx + ox;
+          const srcY = px * sinR + py * cosR + cy + oy;
+          // Inline sample for accumulation (no dst write, need values)
+          const sx0 = Math.floor(srcX), sy0 = Math.floor(srcY);
+          const fdx = srcX - sx0, fdy = srcY - sy0;
+          const scx0 = sx0 < 0 ? 0 : sx0 >= w ? w-1 : sx0;
+          const scx1 = sx0+1 < 0 ? 0 : sx0+1 >= w ? w-1 : sx0+1;
+          const scy0 = sy0 < 0 ? 0 : sy0 >= h ? h-1 : sy0;
+          const scy1 = sy0+1 < 0 ? 0 : sy0+1 >= h ? h-1 : sy0+1;
+          const si00 = (scy0*w+scx0)*4, si10 = (scy0*w+scx1)*4;
+          const si01 = (scy1*w+scx0)*4, si11 = (scy1*w+scx1)*4;
+          const ifdx = 1-fdx, ifdy = 1-fdy;
+          const w00 = ifdx*ifdy, w10 = fdx*ifdy, w01 = ifdx*fdy, w11 = fdx*fdy;
+          aR[idx] += (s[si00]*w00+s[si10]*w10+s[si01]*w01+s[si11]*w11) * wt;
+          aG[idx] += (s[si00+1]*w00+s[si10+1]*w10+s[si01+1]*w01+s[si11+1]*w11) * wt;
+          aB[idx] += (s[si00+2]*w00+s[si10+2]*w10+s[si01+2]*w01+s[si11+2]*w11) * wt;
+          aA[idx] += (s[si00+3]*w00+s[si10+3]*w10+s[si01+3]*w01+s[si11+3]*w11) * wt;
           aW[idx] += wt;
         }
       }
