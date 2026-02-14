@@ -19,6 +19,25 @@ export class GreyscaleNode extends EffectNode {
     }
   }
 
+  glsl() {
+    const { wr, wg, wb } = this.params;
+    return {
+      fragment: `#version 300 es
+        precision highp float;
+        in vec2 v_uv;
+        out vec4 fragColor;
+        uniform sampler2D u_tex;
+        uniform vec2 u_resolution;
+        uniform float u_wr, u_wg, u_wb;
+        void main() {
+          vec4 c = texture(u_tex, v_uv);
+          float l = dot(c.rgb, vec3(u_wr, u_wg, u_wb));
+          fragColor = vec4(l, l, l, c.a);
+        }`,
+      uniforms: { u_wr: wr, u_wg: wg, u_wb: wb }
+    };
+  }
+
   buildLUT(lutR, lutG, lutB) {
     const { wr, wg, wb } = this.params;
     const tmpR = new Uint8Array(256);

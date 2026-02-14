@@ -13,6 +13,22 @@ export class InvertNode extends EffectNode {
     }
   }
 
+  glsl() {
+    return {
+      fragment: `#version 300 es
+        precision highp float;
+        in vec2 v_uv;
+        out vec4 fragColor;
+        uniform sampler2D u_tex;
+        uniform vec2 u_resolution;
+        void main() {
+          vec4 c = texture(u_tex, v_uv);
+          fragColor = vec4(1.0 - c.rgb, c.a);
+        }`,
+      uniforms: {}
+    };
+  }
+
   buildLUT(lutR, lutG, lutB) {
     for (let i = 0; i < 256; i++) {
       lutR[i] = 255 - lutR[i];
