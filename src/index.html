@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DISTORT — Image Processing Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="hdr1">
+    <div class="hc inv">DISTORT</div>
+    <div class="hc"><span class="dim">TM=</span><span class="hi" id="h-clock">00:00:00</span></div>
+    <div class="hc"><span class="dim">SEED</span><input type="text" id="seed-input" value="42"></div>
+    <div class="hc click" id="btn-rseed" title="Random seed">&#x27F3;</div>
+    <div class="hc-sp"></div>
+    <div class="hc"><span class="dim">IMG</span><span class="hi" id="h-img">NONE</span></div>
+    <div class="hc"><span class="dim">MODE</span><span class="hi" id="h-mode">FINAL</span></div>
+    <div class="hc"><span class="dim">REN</span><span class="hi" id="h-ren">&mdash;</span></div>
+    <div class="hc"><span class="dim">N=</span><span class="hi" id="h-nodes">0</span></div>
+    <div class="hc"><span class="dim">ZOOM</span><span class="hi" id="h-zoom">FIT</span></div>
+  </div>
+
+  <div id="hdr2">
+    <div class="hc" style="font-size:10px;letter-spacing:1px;"><span class="dim">PROCESS PIPELINE</span></div>
+    <div class="hc"><span class="dim">g</span> <span class="hi" id="h2-g">0</span></div>
+    <div class="hc"><span class="dim">ux</span><span class="hi" id="h2-ux">0.000</span></div>
+    <div class="hc"><span class="dim">uy</span><span class="hi" id="h2-uy">0.000</span></div>
+    <div class="hc-sp"></div>
+    <div class="hc inv" id="h2-work" style="cursor:pointer;font-size:10px;">WORK</div>
+    <div class="hc" style="font-size:10px;">DPO</div>
+  </div>
+
+  <div id="left">
+    <div class="sdiv"><span>EFFECT STACK</span><button class="sdiv-btn" id="add-btn">+ ADD</button></div>
+    <div id="stack"></div>
+  </div>
+
+  <div id="vp">
+    <div id="reticle"></div>
+    <div id="statpanel"></div>
+    <div id="dropzone"><span>LOAD IMAGE</span></div>
+    <div id="empty"><div class="elbl">DROP IMAGE / PRESS 1</div></div>
+  </div>
+
+  <div id="fnbar">
+    <div class="fk" id="fk1"><span class="fn">1</span>LOAD</div>
+    <div class="fk" id="fk2"><span class="fn">2</span>PREVIEW</div>
+    <div class="fk act" id="fk3"><span class="fn">3</span>FINAL</div>
+    <div class="fk" id="fk4"><span class="fn">4</span>FIT</div>
+    <div class="fk" id="fk5"><span class="fn">5</span>1:1</div>
+    <div class="fk" id="fk6"><span class="fn">6</span>EXPORT</div>
+    <div class="fk" id="fk7"><span class="fn">7</span>RECIPE</div>
+    <div class="fk" id="fk8"><span class="fn">8</span>LOAD R</div>
+    <div class="fk" id="fk9"><span class="fn">F1</span>SCANBND</div>
+    <div class="fk" id="fk10"><span class="fn">F2</span>LIQUID</div>
+    <div class="fk" id="fk11"><span class="fn">F3</span>DROWNED</div>
+  </div>
+</div>
+
+<div id="amenu"></div>
+<input type="file" id="file-input" accept="image/*">
+<input type="file" id="recipe-input" accept=".json">
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
