@@ -142,6 +142,10 @@ export class UI {
     fk('fk9', () => this._preset('SCAN'));
     fk('fk10', () => this._preset('LIQUID'));
     fk('fk11', () => this._preset('DROWNED'));
+    fk('fk12', () => this._preset('DATAMOSH'));
+    fk('fk13', () => this._preset('ENGRAVE'));
+    fk('fk14', () => this._preset('WAVEFORM'));
+    fk('fk15', () => this._preset('SIGNAL'));
   }
 
   /* ── Keyboard shortcuts ── */
