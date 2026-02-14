@@ -1,0 +1,140 @@
+/* styles.css - Friday, April 11, 2025 */
+:root {
+  --space: 16px;
+  --border-color: #ccc;
+  --primary-action-bg: #007bff;
+  --primary-action-hover-bg: #0056b3;
+  --shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+  --transition: all 0.2s ease-in-out;
+  --focus-outline-color: var(--primary-action-bg);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Space Mono", monospace; /* Ensure font is linked in HTML */
+  background-color: #f9f9f9; padding: var(--space);
+  line-height: 1.6; color: #333;
+}
+.container {
+  max-width: 1200px; margin: 0 auto; display: grid;
+  grid-template-columns: 300px 1fr; gap: var(--space);
+}
+@media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+
+h1 {
+  grid-column: 1 / -1; text-align: center; margin-bottom: var(--space);
+  padding-bottom: var(--space); border-bottom: 1px solid var(--border-color);
+  font-weight: 400; color: #111;
+}
+.controls { display: flex; flex-direction: column; gap: var(--space); }
+.box {
+  background: #fff; border: 1px solid var(--border-color); padding: var(--space);
+  box-shadow: var(--shadow); border-radius: 4px;
+}
+.box h2 {
+  margin-top: 0; margin-bottom: var(--space); font-size: 1em; font-weight: 700;
+  color: #111; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px;
+}
+label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.9em; }
+label input[type="checkbox"], label input[type="radio"] { margin-right: 5px; vertical-align: middle; }
+
+input[type="file"], input[type="number"], input[type="text"],
+input[type="color"], select, textarea {
+  width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid var(--border-color);
+  border-radius: 3px; font-family: inherit; font-size: 0.9em;
+  background-color: #fff; vertical-align: middle;
+}
+input[type="color"] { width: auto; min-width: 40px; height: 36px; padding: 2px; }
+input[type="text"]#custom-hex-input { font-family: monospace; }
+input[type="file"] { padding: 4px; }
+textarea { min-height: 60px; resize: vertical; }
+
+/* --- Focus Styles --- */
+*:focus { outline: none; }
+input[type="file"]:focus-visible, input[type="number"]:focus-visible, input[type="text"]:focus-visible,
+input[type="color"]:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--focus-outline-color); outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); border-color: var(--focus-outline-color);
+}
+
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--space); }
+button {
+  flex: 1 1 auto; min-width: 80px; background: #fff; border: 1px solid var(--border-color);
+  border-radius: 3px; padding: 8px 16px; font-family: inherit; font-size: 0.9em;
+  cursor: pointer; transition: var(--transition); box-shadow: var(--shadow);
+  text-align: center; color: #333;
+}
+button:hover, button:focus-visible {
+  background: #f0f0f0; transform: translateY(-1px);
+  box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.15);
+}
+button:active { transform: translateY(0); box-shadow: var(--shadow); background: #e0e0e0; }
+
+/* --- Primary Button Style --- */
+button#process-button {
+  background-color: var(--primary-action-bg); color: white; font-weight: bold;
+  border-color: var(--primary-action-bg);
+}
+button#process-button:hover, button#process-button:focus-visible {
+  background-color: var(--primary-action-hover-bg); border-color: var(--primary-action-hover-bg);
+  /* Keep hover transform/shadow if desired */
+  transform: translateY(-1px); box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.15);
+}
+button#process-button:active { background-color: var(--primary-action-bg); transform: translateY(0); box-shadow: var(--shadow); }
+
+.canvas-container {
+  background: #eee; padding: var(--space); border: 1px solid var(--border-color);
+  box-shadow: var(--shadow); border-radius: 4px; min-height: 400px;
+  display: flex; align-items: center; justify-content: center; overflow: auto;
+}
+canvas {
+  display: block; max-width: 100%; object-fit: contain; background-color: #fff;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+canvas.eyedropper-active { cursor: crosshair !important; }
+
+/* --- Corrected .hidden rule --- */
+.hidden {
+  display: none; /* REMOVED !important */
+}
+
+/* --- Styles for Custom Palette Editor --- */
+.palette-display-area {
+  display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px;
+  background: #f0f0f0; padding: 5px; border: 1px solid #ccc; border-radius: 3px;
+}
+.palette-display-area .swatch {
+  width: 24px; height: 24px; border: 1px solid #555; display: inline-flex;
+  align-items: center; justify-content: center; position: relative;
+  cursor: default; overflow: hidden; border-radius: 2px;
+}
+.palette-display-area .remove-color-btn {
+  position: absolute; top: -3px; right: -3px; width: 14px; height: 14px;
+  background: rgba(220, 53, 69, 0.9); color: white; border: 1px solid rgba(150, 30, 40, 0.9);
+  border-radius: 50%; font-size: 10px; line-height: 12px; text-align: center;
+  font-weight: bold; cursor: pointer; opacity: 0; transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease; z-index: 1; padding: 0;
+}
+.palette-display-area .swatch:hover .remove-color-btn { opacity: 1; transform: scale(1); }
+
+/* --- Loading Overlay --- */
+.processing { position: relative; cursor: wait; }
+.processing::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.7); z-index: 10; pointer-events: auto;
+}
+.processing::after {
+  content: "Processing..."; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.8); color: white;
+  padding: 10px 20px; border-radius: 4px; z-index: 11; font-size: 1.1em;
+  pointer-events: none;
+}
+
+/* --- Status Message Style --- */
+#status-message {
+    margin-top: 0; padding: 8px; background-color: #f8f9fa; border: none;
+    border-radius: 3px; font-size: 0.9em; text-align: center;
+    word-wrap: break-word; min-height: 1.5em;
+}

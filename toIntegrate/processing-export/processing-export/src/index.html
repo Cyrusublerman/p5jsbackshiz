@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>p5.js Animation Recorder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #fafafa;
+            color: #222;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        #canvas-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            aspect-ratio: 1;
+        }
+
+        .control-panel {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            max-height: 800px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+        }
+
+        input[type="number"],
+        input[type="range"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            background: #fafafa;
+        }
+
+        input[type="range"] {
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-size: 12px;
+            color: #888;
+            padding: 4px 0;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: #222;
+            color: #fff;
+            border: none;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #444;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            font-size: 11px;
+            padding: 8px;
+            background: #f0f0f0;
+            border-left: 2px solid #222;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status.recording {
+            background: #fff3cd;
+            border-left-color: #ff6b6b;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .code-section {
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+
+        .code-label {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        textarea {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+            resize: vertical;
+            min-height: 250px;
+            width: 100%;
+        }
+
+        .error-message {
+            color: #d32f2f;
+            font-size: 12px;
+            padding: 8px;
+            background: #ffebee;
+            border-left: 2px solid #d32f2f;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .control-panel {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="canvas-container"></div>
+        <div class="control-panel">
+            <div class="control-group">
+                <label for="framerate">Framerate (fps)</label>
+                <input type="number" id="framerate" min="1" max="60" value="30">
+                <div class="value-display" id="framerateDisplay">30 fps</div>
+            </div>
+
+            <div class="control-group">
+                <label for="frameCount">Total Frames</label>
+                <input type="number" id="frameCount" min="1" max="1800" value="120">
+                <div class="value-display" id="frameCountDisplay">120 frames (~4.0s)</div>
+            </div>
+
+            <div class="control-group">
+                <label for="duration">Duration (s)</label>
+                <input type="range" id="duration" min="0.5" max="30" step="0.5" value="4">
+                <div class="value-display" id="durationDisplay">4.0 seconds</div>
+            </div>
+
+            <button id="recordBtn">Record</button>
+            <button id="downloadBtn" disabled>Download GIF</button>
+
+            <div class="status" id="status">Ready</div>
+
+            <div class="code-section">
+                <label class="code-label">Paste p5.js Code</label>
+                <div class="error-message" id="errorMessage"></div>
+                <textarea id="codeInput" placeholder="paste any p5.js code with setup() and draw() functions (or just draw)..."></textarea>
+                <button id="loadCodeBtn" style="margin-top: 10px;">Load Code</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+
+    <script>
+        class FrameCapture {
+            constructor(width, height, framerate, frameCount) {
+                this.width = width;
+                this.height = height;
+                this.framerate = framerate;
+                this.frameCount = frameCount;
+                this.frames = [];
+                this.isRecording = false;
+            }
+
+            reset() {
+                this.frames = [];
+            }
+
+            addFrame(canvas) {
+                if (this.frames.length < this.frameCount) {
+                    this.frames.push(canvas.getContext('2d').getImageData(0, 0, this.width, this.height));
+                }
+            }
+
+            isComplete() {
+                return this.frames.length >= this.frameCount;
+            }
+
+            getFrameCount() {
+                return this.frames.length;
+            }
+
+            async generateGIF() {
+                return new Promise((resolve) => {
+                    const gif = new GIF({
+                        workers: 2,
+                        quality: 10,
+                        width: this.width,
+                        height: this.height,
+                        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
+                    });
+
+                    const frameDuration = 1000 / this.framerate;
+
+                    this.frames.forEach(imageData => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = this.width;
+                        canvas.height = this.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.putImageData(imageData, 0, 0);
+                        gif.addFrame(canvas, { delay: frameDuration });
+                    });
+
+                    gif.on('finished', (blob) => {
+                        resolve(blob);
+                    });
+
+                    gif.render();
+                });
+            }
+        }
+
+        class CodeManager {
+            constructor() {
+                this.userSetup = null;
+                this.userDraw = null;
+            }
+
+            parseCode(code) {
+                try {
+                    // Try multiple patterns for setup function
+                    const setupPatterns = [
+                        /function\s+setup\s*\(\s*\)\s*\{([\s\S]*?)\n\}/,
+                        /setup\s*=\s*function\s*\(\s*\)\s*\{([\s\S]*?)\}/,
+                        /const\s+setup\s*=\s*\([^)]*\)\s*=>\s*\{([\s\S]*?)\}/,
+                        /setup\s*=\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}/
+                    ];
+
+                    // Try multiple patterns for draw function
+                    const drawPatterns = [
+                        /function\s+draw\s*\(\s*\)\s*\{([\s\S]*)\}$/m,
+                        /draw\s*=\s*function\s*\(\s*\)\s*\{([\s\S]*)\}$/m,
+                        /const\s+draw\s*=\s*\([^)]*\)\s*=>\s*\{([\s\S]*)\}$/m,
+                        /draw\s*=\s*\(\s*\)\s*=>\s*\{([\s\S]*)\}$/m
+                    ];
+
+                    let setupBody = null;
+                    let drawBody = null;
+
+                    // Find setup
+                    for (let pattern of setupPatterns) {
+                        const match = code.match(pattern);
+                        if (match) {
+                            setupBody = match[1];
+                            break;
+                        }
+                    }
+
+                    // Find draw
+                    for (let pattern of drawPatterns) {
+                        const match = code.match(pattern);
+                        if (match) {
+                            drawBody = match[1];
+                            break;
+                        }
+                    }
+
+                    // If no draw found, treat entire code as draw
+                    if (!drawBody) {
+                        drawBody = code;
+                    }
+
+                    // Create setup function
+                    if (setupBody) {
+                        this.userSetup = new Function('p', setupBody);
+                    } else {
+                        this.userSetup = new Function('p', '');
+                    }
+
+                    // Create draw function
+                    this.userDraw = new Function('p', 'ui', drawBody);
+
+                    return true;
+                } catch (error) {
+                    throw new Error(`Parse error: ${error.message}`);
+                }
+            }
+
+            getSetupFunction() {
+                return this.userSetup;
+            }
+
+            getDrawFunction() {
+                return this.userDraw;
+            }
+        }
+
+        class UIController {
+            constructor() {
+                this.framerateInput = document.getElementById('framerate');
+                this.frameCountInput = document.getElementById('frameCount');
+                this.durationInput = document.getElementById('duration');
+                this.recordBtn = document.getElementById('recordBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.status = document.getElementById('status');
+
+                this.codeInput = document.getElementById('codeInput');
+                this.loadCodeBtn = document.getElementById('loadCodeBtn');
+                this.errorMessage = document.getElementById('errorMessage');
+
+                this.frameCapture = null;
+                this.isRecording = false;
+                this.codeManager = new CodeManager();
+
+                this.attachListeners();
+                this.loadDefaultCode();
+            }
+
+            loadDefaultCode() {
+                const defaultCode = `// Use 'p.' prefix for all p5 functions (instance mode)
+// Supports: function setup() { } or setup = function() { }
+//           function draw() { } or draw = function() { }
+// Or just paste any p5.js draw code
+
+function setup() {
+    // runs once - p is available
+}
+
+function draw() {
+    // p5 functions available via 'p' object
+    p.background(250);
+    
+    const time = p.frameCount / 30;
+    p.stroke(0);
+    p.strokeWeight(1);
+    p.noFill();
+
+    for (let i = 0; i < 5; i++) {
+        p.beginShape();
+        for (let x = 0; x < p.width; x += 5) {
+            const y = p.height / 2 + Math.sin((x + time * 100) * 0.01 + i) * 50;
+            p.vertex(x, y);
+        }
+        p.endShape();
+    }
+}`;
+                this.codeInput.value = defaultCode;
+            }
+
+            attachListeners() {
+                this.framerateInput.addEventListener('change', () => this.updateDisplay());
+                this.frameCountInput.addEventListener('change', () => this.updateDisplay());
+                this.durationInput.addEventListener('input', () => this.updateFromDuration());
+                this.recordBtn.addEventListener('click', () => this.toggleRecording());
+                this.downloadBtn.addEventListener('click', () => this.downloadGIF());
+                this.loadCodeBtn.addEventListener('click', () => this.loadCode());
+            }
+
+            loadCode() {
+                try {
+                    this.codeManager.parseCode(this.codeInput.value);
+                    this.errorMessage.classList.remove('show');
+                    this.setStatus('Code loaded. Click Record to start.');
+                    window.codeManager = this.codeManager;
+                    window.needsReload = true;
+                } catch (error) {
+                    this.errorMessage.textContent = error.message;
+                    this.errorMessage.classList.add('show');
+                }
+            }
+
+            updateDisplay() {
+                const fps = parseInt(this.framerateInput.value);
+                const frames = parseInt(this.frameCountInput.value);
+                const duration = (frames / fps).toFixed(1);
+
+                document.getElementById('framerateDisplay').textContent = `${fps} fps`;
+                document.getElementById('frameCountDisplay').textContent = `${frames} frames (~${duration}s)`;
+                document.getElementById('durationDisplay').textContent = `${duration} seconds`;
+            }
+
+            updateFromDuration() {
+                const duration = parseFloat(this.durationInput.value);
+                const fps = parseInt(this.framerateInput.value);
+                const frames = Math.round(duration * fps);
+
+                this.frameCountInput.value = frames;
+                document.getElementById('durationDisplay').textContent = `${duration} seconds`;
+                document.getElementById('frameCountDisplay').textContent = `${frames} frames (~${duration}s)`;
+            }
+
+            toggleRecording() {
+                if (this.isRecording) {
+                    this.stopRecording();
+                } else {
+                    this.startRecording();
+                }
+            }
+
+            startRecording() {
+                const fps = parseInt(this.framerateInput.value);
+                const frameCount = parseInt(this.frameCountInput.value);
+
+                this.frameCapture = new FrameCapture(800, 800, fps, frameCount);
+                this.isRecording = true;
+                this.recordBtn.textContent = 'Stop Recording';
+                this.recordBtn.style.background = '#ff6b6b';
+                this.downloadBtn.disabled = true;
+                this.loadCodeBtn.disabled = true;
+                this.status.classList.add('recording');
+                this.setStatus(`Recording: 0/${frameCount}`);
+            }
+
+            stopRecording() {
+                this.isRecording = false;
+                this.recordBtn.textContent = 'Record';
+                this.recordBtn.style.background = '';
+                this.downloadBtn.disabled = false;
+                this.loadCodeBtn.disabled = false;
+                this.status.classList.remove('recording');
+                this.setStatus('Recording complete. Ready to download.');
+            }
+
+            setStatus(message) {
+                this.status.textContent = message;
+            }
+
+            updateStatus() {
+                if (this.frameCapture && this.isRecording) {
+                    this.setStatus(`Recording: ${this.frameCapture.getFrameCount()}/${this.frameCapture.frameCount}`);
+                }
+            }
+
+            async downloadGIF() {
+                this.recordBtn.disabled = true;
+                this.downloadBtn.disabled = true;
+                this.setStatus('Generating GIF...');
+
+                const blob = await this.frameCapture.generateGIF();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `animation-${Date.now()}.gif`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                this.recordBtn.disabled = false;
+                this.downloadBtn.disabled = false;
+                this.setStatus('GIF downloaded.');
+            }
+        }
+
+        let ui;
+        let canvas;
+        let needsReload = false;
+        let codeManager = new CodeManager();
+
+        function sketch(p) {
+            p.setup = function() {
+                canvas = p.createCanvas(800, 800);
+                canvas.parent('canvas-container');
+                
+                if (codeManager.getSetupFunction()) {
+                    try {
+                        codeManager.getSetupFunction()(p);
+                    } catch (error) {
+                        console.error('Setup error:', error);
+                    }
+                }
+            };
+
+            p.draw = function() {
+                if (window.needsReload) {
+                    window.location.reload();
+                }
+
+                if (codeManager.getDrawFunction()) {
+                    try {
+                        codeManager.getDrawFunction()(p, ui);
+                    } catch (error) {
+                        console.error('Draw error:', error);
+                    }
+                }
+
+                // Capture frame if recording
+                if (ui && ui.isRecording && ui.frameCapture) {
+                    const htmlCanvas = p.canvas;
+                    ui.frameCapture.addFrame(htmlCanvas);
+                    ui.updateStatus();
+
+                    if (ui.frameCapture.isComplete()) {
+                        ui.stopRecording();
+                    }
+                }
+            };
+        }
+
+        new p5(sketch);
+        ui = new UIController();
+        ui.updateDisplay();
+    </script>
+</body>
+</html>
