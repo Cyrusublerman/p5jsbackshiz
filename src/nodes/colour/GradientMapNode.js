@@ -10,7 +10,8 @@ export class GradientMapNode extends EffectNode {
       lightG: { value: 200, min: 0, max: 255, step: 1, label: 'LIGHT G' },
       lightB: { value: 150, min: 0, max: 255, step: 1, label: 'LIGHT B' }
     });
-    this.isLUT = true;
+    // NOT LUT-eligible: reads all 3 channels (luminance) to produce output
+    this.isLUT = false;
   }
 
   apply(s, d, w, h) {

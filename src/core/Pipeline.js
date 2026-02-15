@@ -40,13 +40,15 @@ export class Pipeline {
 
     // Dirty-node cache: find first invalid node
     let startIdx = 0;
+    let allCached = true;
     for (let i = 0; i < active.length; i++) {
       if (!active[i]._cacheValid || !active[i]._cache || active[i]._cache.length !== bufSize) {
         startIdx = i;
+        allCached = false;
         break;
       }
-      startIdx = active.length;
     }
+    if (allCached) startIdx = active.length;
 
     let bufA;
     if (startIdx > 0 && startIdx <= active.length) {

@@ -7,7 +7,10 @@ export class GreyscaleNode extends EffectNode {
       wg: { value: 0.587, min: 0, max: 1, step: 0.01, label: 'G WEIGHT' },
       wb: { value: 0.114, min: 0, max: 1, step: 0.01, label: 'B WEIGHT' }
     });
-    this.isLUT = true;
+    // NOT LUT-eligible: greyscale is a cross-channel operation
+    // (output depends on all 3 input channels, not just one).
+    // Per-channel LUTs cannot express this correctly.
+    this.isLUT = false;
   }
 
   apply(s, d, w, h) {
@@ -36,21 +39,5 @@ export class GreyscaleNode extends EffectNode {
         }`,
       uniforms: { u_wr: wr, u_wg: wg, u_wb: wb }
     };
-  }
-
-  buildLUT(lutR, lutG, lutB) {
-    const { wr, wg, wb } = this.params;
-    const tmpR = new Uint8Array(256);
-    const tmpG = new Uint8Array(256);
-    const tmpB = new Uint8Array(256);
-    for (let i = 0; i < 256; i++) {
-      tmpR[i] = lutR[i]; tmpG[i] = lutG[i]; tmpB[i] = lutB[i];
-    }
-    // Greyscale: output = wr*R + wg*G + wb*B for all channels
-    // For LUT fusion, we approximate: each channel independently weighted
-    for (let i = 0; i < 256; i++) {
-      const grey = Math.round(tmpR[i] * wr + tmpG[i] * wg + tmpB[i] * wb);
-      lutR[i] = lutG[i] = lutB[i] = Math.max(0, Math.min(255, grey));
-    }
   }
 }
