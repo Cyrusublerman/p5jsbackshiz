@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Luminance Flow</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  :root{
+    --bg:#08080a;--card:#111114;--border:#1c1c22;--fg:#c8c8d0;--dim:#555;
+    --a1:#f472b6;--a2:#38bdf8;--a3:#a78bfa;--a4:#34d399;--a5:#fb923c;--a6:#facc15;
+    --panel-h:45vh;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,sans-serif;font-size:13px;overflow:hidden;height:100dvh;display:flex;flex-direction:column;touch-action:none}
+
+  /* ── Canvas ── */
+  #canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;min-height:0}
+  #canvas-wrap canvas{max-width:100%;max-height:100%;object-fit:contain}
+
+  /* ── Top Bar ── */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;z-index:20}
+  .topbar .title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  .topbar .actions{display:flex;gap:6px}
+  .topbar button{background:var(--bg);border:1px solid var(--border);color:var(--fg);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+  .topbar button:active{background:#1a1a20}
+  .topbar button.active{border-color:var(--a2);color:var(--a2)}
+
+  /* ── Bottom Panel ── */
+  .panel-wrap{position:relative;flex-shrink:0;z-index:10}
+  .panel-handle{height:28px;display:flex;align-items:center;justify-content:center;background:var(--card);border-top:1px solid var(--border);cursor:grab}
+  .panel-handle .grip{width:36px;height:4px;border-radius:2px;background:#333}
+  .panel{height:var(--panel-h);overflow-y:auto;background:var(--card);padding:0 0 40px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .panel.collapsed{height:0;overflow:hidden}
+
+  /* ── Panel Sections ── */
+  .sec{border-bottom:1px solid var(--border)}
+  .sec-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;user-select:none}
+  .sec-head:active{background:#0e0e12}
+  .sec-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:6px}
+  .sec-title .dot{width:5px;height:5px;border-radius:50%}
+  .sec-chevron{font-size:14px;color:#333;transition:transform .2s}
+  .sec.open .sec-chevron{transform:rotate(180deg)}
+  .sec-body{display:none;padding:4px 14px 14px}
+  .sec.open .sec-body{display:block}
+
+  /* ── Controls ── */
+  .ctrl{display:flex;align-items:center;gap:8px;margin-bottom:6px;min-height:32px}
+  .ctrl label{flex:1;font-size:11px;color:#777;white-space:nowrap}
+  .ctrl input[type="range"]{flex:2;height:28px;accent-color:var(--a2);-webkit-appearance:none;background:transparent}
+  .ctrl input[type="range"]::-webkit-slider-runnable-track{height:3px;background:#222;border-radius:2px}
+  .ctrl input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--fg);margin-top:-9px;border:2px solid var(--bg)}
+  .ctrl .val{width:36px;text-align:right;font-size:10px;color:#666;font-family:inherit;flex-shrink:0}
+  .ctrl select{flex:2;background:var(--bg);color:var(--fg);border:1px solid var(--border);padding:6px 8px;border-radius:6px;font-size:12px}
+  .ctrl-cb{display:flex;align-items:center;gap:8px;margin-bottom:6px;min-height:28px}
+  .ctrl-cb input{width:18px;height:18px;accent-color:var(--a2)}
+  .ctrl-cb label{font-size:11px;color:#777}
+  .sep{height:1px;background:var(--border);margin:6px 0}
+
+  /* ── Drop Zone ── */
+  #drop-zone{margin:0 14px 8px;padding:16px;border:1px dashed #2a2a2a;border-radius:8px;text-align:center;color:#444;font-size:11px;cursor:pointer}
+  #drop-zone:active,#drop-zone.over{border-color:var(--a2);color:var(--a2)}
+  #file-input{display:none}
+  #img-info{font-size:9px;color:#333;text-align:center;padding:0 14px 6px}
+
+  /* ── Desktop ── */
+  @media(min-width:768px){
+    body{flex-direction:row}
+    #canvas-wrap{order:1;flex:1}
+    .panel-wrap{order:2;width:300px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border)}
+    .panel-handle{display:none}
+    .panel{height:100%!important;flex:1}
+    .panel.collapsed{height:100%!important;overflow-y:auto}
+    .topbar{order:0;position:absolute;top:0;left:0;right:300px;z-index:20}
+    :root{--panel-h:100%}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="title">Luminance Flow</span>
+  <div class="actions">
+    <button id="togglePanel">☰</button>
+    <button id="saveBtn">Save</button>
+  </div>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<div class="panel-wrap">
+  <div class="panel-handle"><div class="grip"></div></div>
+  <div class="panel" id="panel">
+
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">Tap to load image</div>
+    <input type="file" id="file-input" accept="image/*">
+    <div id="img-info">No image — Perlin noise</div>
+
+    <!-- IMAGE -->
+    <div class="sec open">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a4)"></span>Image</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Scale</label><select id="imgScale"><option value="0.25">¼×</option><option value="0.5" selected>½×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+        <div class="ctrl-cb"><input type="checkbox" id="showImage"><label>Show source</label></div>
+      </div>
+    </div>
+
+    <!-- PATTERN -->
+    <div class="sec open">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a4)"></span>Pattern</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Type</label><select id="patternType"><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option><option value="diagonal">Diagonal</option><option value="grid">Grid</option><option value="radial">Radial</option><option value="concentric">Concentric</option></select></div>
+        <div class="ctrl"><label>Spacing</label><input type="range" id="spacing" min="1" max="40" value="8"><span class="val">8</span></div>
+        <div class="ctrl"><label>Stroke</label><input type="range" id="strokeW" min="0.1" max="4" step="0.1" value="0.7"><span class="val">0.7</span></div>
+        <div class="ctrl"><label>Step</label><input type="range" id="resolution" min="1" max="10" value="2"><span class="val">2</span></div>
+      </div>
+    </div>
+
+    <!-- DAMPING -->
+    <div class="sec open">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a6)"></span>Damping</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Damping</label><input type="range" id="damping" min="0.01" max="1" step="0.01" value="0.95"><span class="val">0.95</span></div>
+      </div>
+    </div>
+
+    <!-- MAGNETISM -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a3)"></span>Magnetism</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="magMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Compress</label><input type="range" id="magCompress" min="0" max="0.99" step="0.01" value="0.95"><span class="val">0.95</span></div>
+        <div class="ctrl"><label>Expand</label><input type="range" id="magExpand" min="1" max="8" step="0.1" value="3"><span class="val">3.0</span></div>
+      </div>
+    </div>
+
+    <!-- GRADIENT PUSH -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Gradient Push</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="gradMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Strength</label><input type="range" id="gradStr" min="0" max="500" step="1" value="100"><span class="val">100</span></div>
+      </div>
+    </div>
+
+    <!-- TANGENT PUSH -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Tangent Push</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="tangMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Strength</label><input type="range" id="tangStr" min="0" max="500" step="1" value="100"><span class="val">100</span></div>
+      </div>
+    </div>
+
+    <!-- ORIGIN RADIAL -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Origin Radial</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="originMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Strength</label><input type="range" id="originStr" min="0" max="3" step="0.05" value="0.5"><span class="val">0.50</span></div>
+        <div class="ctrl-cb"><input type="checkbox" id="animateOrigin"><label>Animate</label></div>
+        <div class="ctrl"><label>Orbit R</label><input type="range" id="orbitR" min="0" max="400" value="120"><span class="val">120</span></div>
+        <div class="ctrl"><label>Speed</label><input type="range" id="orbitSpeed" min="0.1" max="5" step="0.1" value="0.8"><span class="val">0.8</span></div>
+        <div class="ctrl"><label>Mode</label><select id="originMode"><option value="circular">Circular</option><option value="lissajous">Lissajous</option><option value="noise">Perlin</option></select></div>
+      </div>
+    </div>
+
+    <!-- FIXED ANGLE -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Fixed Angle</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="angleMix" min="0" max="1" step="0.01" value="1"><span class="val">1.00</span></div>
+        <div class="ctrl"><label>Amplitude</label><input type="range" id="amplitude" min="0" max="80" value="15"><span class="val">15</span></div>
+        <div class="ctrl"><label>X Factor</label><input type="range" id="xFactor" min="-2" max="2" step="0.05" value="1"><span class="val">1.00</span></div>
+        <div class="ctrl"><label>Y Factor</label><input type="range" id="yFactor" min="-2" max="2" step="0.05" value="0.5"><span class="val">0.50</span></div>
+        <div class="ctrl"><label>Angle</label><input type="range" id="dispAngle" min="0" max="360" value="90"><span class="val">90</span></div>
+      </div>
+    </div>
+
+    <!-- SINE WAVES -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Sine Waves</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="sineMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Amplitude</label><input type="range" id="sineAmp" min="0" max="60" step="0.5" value="10"><span class="val">10.0</span></div>
+        <div class="sep"></div>
+        <div class="ctrl"><label>W1 Freq</label><input type="range" id="s1Freq" min="0.1" max="400" step="0.1" value="8"><span class="val">8.0</span></div>
+        <div class="ctrl"><label>W1 Mix</label><input type="range" id="s1Mix" min="0" max="1" step="0.01" value="1"><span class="val">1.00</span></div>
+        <div class="ctrl"><label>W2 Freq</label><input type="range" id="s2Freq" min="0.1" max="500" step="0.1" value="24"><span class="val">24.0</span></div>
+        <div class="ctrl"><label>W2 Mix</label><input type="range" id="s2Mix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>W3 Freq</label><input type="range" id="s3Freq" min="0.1" max="600" step="0.1" value="55"><span class="val">55.0</span></div>
+        <div class="ctrl"><label>W3 Mix</label><input type="range" id="s3Mix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="sep"></div>
+        <div class="ctrl"><label>Phase Spd</label><input type="range" id="sinePhaseSpd" min="0" max="0.2" step="0.001" value="0"><span class="val">0.000</span></div>
+        <div class="ctrl-cb"><input type="checkbox" id="sineLumScale"><label>Lum scales amp</label></div>
+      </div>
+    </div>
+
+    <!-- FLOW FIELD -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a1)"></span>Flow Field</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Mix</label><input type="range" id="flowMix" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Strength</label><input type="range" id="flowStr" min="0" max="100" value="20"><span class="val">20</span></div>
+        <div class="ctrl"><label>Noise Scl</label><input type="range" id="flowNS" min="0.001" max="0.1" step="0.001" value="0.008"><span class="val">0.008</span></div>
+        <div class="ctrl"><label>Curl</label><input type="range" id="flowCurl" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+      </div>
+    </div>
+
+    <!-- STEERING -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a2)"></span>Steering</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>→ Gradient</label><input type="range" id="steerGrad" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>→ Tangent</label><input type="range" id="steerTang" min="0" max="1" step="0.01" value="0"><span class="val">0.00</span></div>
+        <div class="ctrl"><label>Dead Zone</label><input type="range" id="deadZone" min="0" max="0.2" step="0.001" value="0.02"><span class="val">0.020</span></div>
+        <div class="ctrl-cb"><input type="checkbox" id="edgeMagScale"><label>Edge mag scales</label></div>
+        <div class="ctrl-cb"><input type="checkbox" id="lumScale"><label>Lum scales</label></div>
+      </div>
+    </div>
+
+    <!-- GLOBAL -->
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title"><span class="dot" style="background:var(--a5)"></span>Global</span><span class="sec-chevron">▾</span></div>
+      <div class="sec-body">
+        <div class="ctrl"><label>Time Spd</label><input type="range" id="timeSpeed" min="0" max="0.05" step="0.001" value="0.005"><span class="val">0.005</span></div>
+        <div class="ctrl"><label>Lum Exp</label><input type="range" id="lumExp" min="0.2" max="4" step="0.1" value="1"><span class="val">1.0</span></div>
+        <div class="ctrl"><label>BG Alpha</label><input type="range" id="bgAlpha" min="0" max="255" value="255"><span class="val">255</span></div>
+        <div class="ctrl-cb"><input type="checkbox" id="colorMode"><label>Colour by lum</label></div>
+        <div class="ctrl"><label>Palette</label><select id="palette"><option value="mono">Mono</option><option value="thermal">Thermal</option><option value="ocean">Ocean</option><option value="neon">Neon</option></select></div>
+        <div class="ctrl-cb"><input type="checkbox" id="showVF"><label>Show vector field</label></div>
+        <div class="ctrl-cb"><input type="checkbox" id="showFlow"><label>Show flow</label></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   UI: Accordion + Panel Toggle
+   ═══════════════════════════════════════════════════ */
+document.querySelectorAll('.sec-head').forEach(h => {
+  h.addEventListener('click', () => h.parentElement.classList.toggle('open'));
+});
+document.getElementById('togglePanel').addEventListener('click', () => {
+  document.getElementById('panel').classList.toggle('collapsed');
+});
+
+/* ═══════════════════════════════════════════════════
+   ParamManager
+   ═══════════════════════════════════════════════════ */
+class ParamManager {
+  constructor() {
+    this.c = {};
+    const ids = [
+      'spacing','strokeW','resolution','damping',
+      'magMix','magCompress','magExpand',
+      'gradMix','gradStr','tangMix','tangStr',
+      'originMix','originStr','orbitR','orbitSpeed',
+      'angleMix','amplitude','xFactor','yFactor','dispAngle',
+      'sineMix','sineAmp','s1Freq','s1Mix','s2Freq','s2Mix','s3Freq','s3Mix','sinePhaseSpd',
+      'flowMix','flowStr','flowNS','flowCurl',
+      'steerGrad','steerTang','deadZone',
+      'timeSpeed','lumExp','bgAlpha'
+    ];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      this.c[id] = parseFloat(el.value);
+      const vs = el.parentElement.querySelector('.val');
+      el.addEventListener('input', () => {
+        this.c[id] = parseFloat(el.value);
+        if (vs) {
+          const s = el.getAttribute('step');
+          vs.textContent = (s && s.includes('.'))
+            ? this.c[id].toFixed(s.split('.')[1].length) : this.c[id];
+        }
+      });
+    }
+  }
+  g(k) { return this.c[k]; }
+  s(id) { return document.getElementById(id).value; }
+  b(id) { return document.getElementById(id).checked; }
+}
+
+/* ═══════════════════════════════════════════════════
+   VectorFieldMap — polar from Sobel
+   ═══════════════════════════════════════════════════ */
+class VectorFieldMap {
+  constructor() { this.w=0;this.h=0;this.ready=false;this.lum=null;this.mag=null;
+    this.cosA=null;this.sinA=null;this.tanCos=null;this.tanSin=null;this.maxMag=0; }
+
+  build(px, w, h, dz) {
+    this.w=w; this.h=h;
+    const n=w*h, L=new Float32Array(n);
+    for(let i=0;i<n;i++){const j=i*4; L[i]=(0.2126*px[j]+0.7152*px[j+1]+0.0722*px[j+2])/255;}
+    const gx=new Float32Array(n), gy=new Float32Array(n);
+    for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+      const i=y*w+x;
+      gx[i]=-L[(y-1)*w+x-1]+L[(y-1)*w+x+1]-2*L[y*w+x-1]+2*L[y*w+x+1]-L[(y+1)*w+x-1]+L[(y+1)*w+x+1];
+      gy[i]=-L[(y-1)*w+x-1]-2*L[(y-1)*w+x]-L[(y-1)*w+x+1]+L[(y+1)*w+x-1]+2*L[(y+1)*w+x]+L[(y+1)*w+x+1];
+    }
+    this.lum=L;
+    this.mag=new Float32Array(n); this.cosA=new Float32Array(n); this.sinA=new Float32Array(n);
+    this.tanCos=new Float32Array(n); this.tanSin=new Float32Array(n);
+    let mx=0;
+    for(let i=0;i<n;i++){const m=Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);if(m>mx)mx=m;}
+    this.maxMag=mx;
+    const dzF=Math.max(dz*2,0.001);
+    for(let i=0;i<n;i++){
+      const rm=Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
+      let t=0;if(rm>dz){t=Math.min((rm-dz)/dzF,1);t=t*t*(3-2*t);}
+      this.mag[i]=rm*t;
+      if(rm>0.0001){this.cosA[i]=gx[i]/rm;this.sinA[i]=gy[i]/rm;}
+      this.tanCos[i]=-this.sinA[i]; this.tanSin[i]=this.cosA[i];
+    }
+    this.ready=true;
+  }
+
+  sample(x,y) {
+    if(!this.ready) return{lum:.5,mag:0,cosA:0,sinA:0,tanCos:0,tanSin:1};
+    const ix=Math.max(0,Math.min(~~x,this.w-1)), iy=Math.max(0,Math.min(~~y,this.h-1)), i=iy*this.w+ix;
+    return{lum:this.lum[i],mag:this.mag[i],cosA:this.cosA[i],sinA:this.sinA[i],tanCos:this.tanCos[i],tanSin:this.tanSin[i]};
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ForceSystem — pure generators returning {fx,fy}
+   ═══════════════════════════════════════════════════ */
+class ForceSystem {
+  constructor(vf,p){this.vf=vf;this.p=p;}
+  fixedAngle(lum,amp,xF,yF,cA,sA){return{fx:cA*lum*amp*xF,fy:sA*lum*amp*yF};}
+  originVec(bx,by,ox,oy,lum,str){const vx=bx-ox,vy=by-oy,d=Math.sqrt(vx*vx+vy*vy);if(d<.01)return{fx:0,fy:0};const s=lum*str*30;return{fx:(vx/d)*s,fy:(vy/d)*s};}
+  gradPush(vf,str){return{fx:vf.cosA*vf.mag*str,fy:vf.sinA*vf.mag*str};}
+  tangPush(vf,str){return{fx:vf.tanCos*vf.mag*str,fy:vf.tanSin*vf.mag*str};}
+  flow(bx,by,t,ns,curl,str,lum){
+    const a=this.p.noise(bx*ns,by*ns,t)*Math.PI*4;
+    let nx=Math.cos(a),ny=Math.sin(a);
+    if(curl>0){const rx=-ny,ry=nx;nx=nx*(1-curl)+rx*curl;ny=ny*(1-curl)+ry*curl;}
+    const m=Math.sqrt(nx*nx+ny*ny)+.0001;
+    return{fx:(nx/m)*str*lum,fy:(ny/m)*str*lum};
+  }
+  sine(idx,pNx,pNy,phase,amp,lumS,lum,pm){
+    const m1=pm.g('s1Mix'),m2=pm.g('s2Mix'),m3=pm.g('s3Mix');
+    let w=0;
+    if(m1>0)w+=Math.sin(idx*pm.g('s1Freq')*.01+phase)*m1;
+    if(m2>0)w+=Math.sin(idx*pm.g('s2Freq')*.01+phase*1.3)*m2;
+    if(m3>0)w+=Math.sin(idx*pm.g('s3Freq')*.01+phase*.7)*m3;
+    let d=w*amp;if(lumS)d*=lum;
+    return{fx:pNx*d,fy:pNy*d};
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Steering — modulate composite direction
+   ═══════════════════════════════════════════════════ */
+class Steering {
+  static apply(fx,fy,vf,sg,st,emS,lS,maxM){
+    let outX=fx,outY=fy;
+    const mag=Math.sqrt(fx*fx+fy*fy);
+    if(mag<.001)return{fx:0,fy:0};
+
+    // Steer direction
+    const ts=sg+st;
+    if(ts>.001&&vf.mag>.001){
+      const na=Math.atan2(fy,fx);
+      let tC,tS;
+      if(sg>0&&st>0){const w=sg/ts;tC=vf.cosA*w+vf.tanCos*(1-w);tS=vf.sinA*w+vf.tanSin*(1-w);const m=Math.sqrt(tC*tC+tS*tS)+.0001;tC/=m;tS/=m;}
+      else if(sg>0){tC=vf.cosA;tS=vf.sinA;}else{tC=vf.tanCos;tS=vf.tanSin;}
+      const ta=Math.atan2(tS,tC),bl=Math.min(ts,1);
+      let df=ta-na;while(df>Math.PI)df-=Math.PI*2;while(df<-Math.PI)df+=Math.PI*2;
+      const fa=na+df*bl;
+      outX=Math.cos(fa)*mag;outY=Math.sin(fa)*mag;
+    }
+
+    // Edge magnitude scale
+    if(emS&&maxM>.001){
+      const s=vf.mag/maxM;
+      outX*=s; outY*=s;
+    }
+
+    // Lum scale
+    if(lS){outX*=vf.lum;outY*=vf.lum;}
+
+    return{fx:outX,fy:outY};
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   OriginAnimator
+   ═══════════════════════════════════════════════════ */
+class OriginAnimator {
+  constructor(cx,cy,p){this.cx=cx;this.cy=cy;this.x=cx;this.y=cy;this.p=p;}
+  recenter(cx,cy){this.cx=cx;this.cy=cy;}
+  update(t,r,spd,mode){
+    const ph=t*spd;
+    if(mode==='circular'){this.x=this.cx+Math.cos(ph)*r;this.y=this.cy+Math.sin(ph)*r;}
+    else if(mode==='lissajous'){this.x=this.cx+Math.cos(ph*3)*r;this.y=this.cy+Math.sin(ph*2)*r;}
+    else{this.x=this.cx+(this.p.noise(t*spd*.5,0)-.5)*r*2;this.y=this.cy+(this.p.noise(0,t*spd*.5)-.5)*r*2;}
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ColorMapper
+   ═══════════════════════════════════════════════════ */
+class ColorMapper{constructor(){this.p={mono:l=>[l*255,l*255,l*255],thermal:l=>[l*255,l*80,(1-l)*200],ocean:l=>[(1-l)*30,l*120+80,l*200+55],neon:l=>[l*255,(1-l)*255,180+l*75]};}get(l,n){return(this.p[n]||this.p.mono)(l);}}
+
+/* ═══════════════════════════════════════════════════
+   LineGenerator
+   ═══════════════════════════════════════════════════ */
+class LineGenerator {
+  constructor(vf){this.vf=vf;}
+  generate(type,w,h,sp){
+    if(type==='radial'||type==='concentric')return this._rc(type,w,h,sp);
+    return this._build(type,w,h,this._pos(type,w,h,sp));
+  }
+  _pos(type,w,h,sp){
+    const o=[];
+    if(type==='horizontal'||type==='grid')for(let y=0;y<h;y+=sp)o.push(y);
+    else if(type==='vertical')for(let x=0;x<w;x+=sp)o.push(x);
+    else if(type==='diagonal')for(let d=-h;d<w+h;d+=sp)o.push(d);
+    return o;
+  }
+  _build(type,w,h,pos){
+    const out=[],n=pos.length;
+    for(let i=0;i<n;i++){
+      const p=pos[i],pts=[];
+      if(type==='horizontal'||type==='grid')for(let x=0;x<w;x++)pts.push({x,y:p});
+      else if(type==='vertical')for(let y=0;y<h;y++)pts.push({x:p,y});
+      else if(type==='diagonal')for(let t=0;t<w+h;t++){const x=p+t*.707,y=t*.707;if(x>=0&&x<w&&y>=0&&y<h)pts.push({x,y});}
+      if(pts.length>2)out.push({pts,idx:i});
+    }
+    if(type==='grid'){const sp=n>1?pos[1]-pos[0]:10;for(let x=0;x<w;x+=sp){const pts=[];for(let y=0;y<h;y++)pts.push({x,y});out.push({pts,idx:-1});}}
+    return out;
+  }
+  _rc(type,w,h,sp){
+    const out=[],PI2=Math.PI*2,cx=w/2,cy=h/2,mr=Math.sqrt(cx*cx+cy*cy);
+    if(type==='radial'){const as=sp*.02;for(let a=0;a<PI2;a+=as){const pts=[];for(let r=0;r<mr;r+=2)pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});out.push({pts,idx:out.length});}}
+    else{for(let r=sp;r<mr;r+=sp){const pts=[],sg=Math.max(60,~~(r*.5));for(let j=0;j<=sg;j++){const a=(j/sg)*PI2;pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});}out.push({pts,idx:out.length});}}
+    return out;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   DisplacementMatrix — persistent across frames
+   ═══════════════════════════════════════════════════ */
+class DisplacementMatrix {
+  constructor(){this.data=[];this.nLines=0;this.nPts=[];}
+
+  resize(lines, res) {
+    const nl = lines.length;
+    const newData = [];
+    const newNPts = [];
+    for (let l = 0; l < nl; l++) {
+      const np = Math.ceil(lines[l].pts.length / res);
+      newNPts.push(np);
+      const arr = new Float32Array(np * 2); // [fx0,fy0, fx1,fy1, ...]
+      // Copy old data if dimensions match
+      if (l < this.nLines && np === this.nPts[l] && this.data[l]) {
+        arr.set(this.data[l].subarray(0, Math.min(this.data[l].length, np*2)));
+      }
+      newData.push(arr);
+    }
+    this.data = newData;
+    this.nLines = nl;
+    this.nPts = newNPts;
+  }
+
+  damp(factor) {
+    for (let l = 0; l < this.nLines; l++) {
+      const d = this.data[l];
+      for (let i = 0; i < d.length; i++) d[i] *= factor;
+    }
+  }
+
+  getFx(l,p) { return this.data[l][p*2]; }
+  getFy(l,p) { return this.data[l][p*2+1]; }
+  addFx(l,p,v) { this.data[l][p*2] += v; }
+  addFy(l,p,v) { this.data[l][p*2+1] += v; }
+  setFx(l,p,v) { this.data[l][p*2] = v; }
+  setFy(l,p,v) { this.data[l][p*2+1] = v; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Renderer — pipeline: damp → generate → constrain → modulate → draw
+   ═══════════════════════════════════════════════════ */
+class Renderer {
+  constructor(vf,lineGen,forces,colors,p5){
+    this.vf=vf;this.lineGen=lineGen;this.fs=forces;this.cm=colors;this.p=p5;
+    this.dm=new DisplacementMatrix();
+  }
+
+  render(pm,origin,t){
+    const p=this.p, w=p.width, h=p.height;
+    const res=pm.g('resolution'), lExp=pm.g('lumExp');
+    const type=pm.s('patternType');
+    const lines=this.lineGen.generate(type,w,h,pm.g('spacing'));
+
+    // Resize matrix if topology changed
+    this.dm.resize(lines, res);
+    const dm=this.dm;
+
+    // ═══ STAGE 1: DAMP ═══
+    dm.damp(1 - pm.g('damping'));
+
+    // Pre-calc force params
+    const cA=Math.cos(pm.g('dispAngle')*Math.PI/180), sA=Math.sin(pm.g('dispAngle')*Math.PI/180);
+    const sPhase=t*60*pm.g('sinePhaseSpd');
+    const fs=this.fs;
+
+    // Perpendicular axis for line type
+    let pAx,pAy;
+    if(type==='horizontal'||type==='grid'){pAx=0;pAy=1;}
+    else if(type==='vertical'){pAx=1;pAy=0;}
+    else if(type==='diagonal'){pAx=-0.707;pAy=0.707;}
+    else{pAx=0;pAy=1;}
+
+    // ═══ STAGE 2: GENERATORS ═══
+    for(let l=0;l<lines.length;l++){
+      const pts=lines[l].pts;
+      const nPts=dm.nPts[l];
+      for(let pi=0;pi<nPts;pi++){
+        const i=pi*res;
+        if(i>=pts.length) break;
+        const bx=pts[i].x, by=pts[i].y;
+        const vf=this.vf.sample(bx,by);
+        const lum=Math.pow(vf.lum,lExp);
+
+        // Per-point perpendicular
+        const iPr=Math.max(0,i-res), iNx=Math.min(pts.length-1,i+res);
+        const tx=pts[iNx].x-pts[iPr].x, ty=pts[iNx].y-pts[iPr].y;
+        const tm=Math.sqrt(tx*tx+ty*ty)+.001;
+        const pNx=-ty/tm, pNy=tx/tm;
+
+        let fx=0, fy=0, v;
+
+        // Fixed angle
+        const aMix=pm.g('angleMix');
+        if(aMix>0 && pm.g('amplitude')>0){
+          v=fs.fixedAngle(lum,pm.g('amplitude'),pm.g('xFactor'),pm.g('yFactor'),cA,sA);
+          fx+=v.fx*aMix; fy+=v.fy*aMix;
+        }
+
+        // Origin radial
+        const oMix=pm.g('originMix');
+        if(oMix>0 && pm.g('originStr')>0){
+          v=fs.originVec(bx,by,origin.x,origin.y,lum,pm.g('originStr'));
+          fx+=v.fx*oMix; fy+=v.fy*oMix;
+        }
+
+        // Gradient push
+        const gMix=pm.g('gradMix');
+        if(gMix>0 && pm.g('gradStr')>0){
+          v=fs.gradPush(vf,pm.g('gradStr'));
+          fx+=v.fx*gMix; fy+=v.fy*gMix;
+        }
+
+        // Tangent push
+        const tMix=pm.g('tangMix');
+        if(tMix>0 && pm.g('tangStr')>0){
+          v=fs.tangPush(vf,pm.g('tangStr'));
+          fx+=v.fx*tMix; fy+=v.fy*tMix;
+        }
+
+        // Flow field
+        const fMix=pm.g('flowMix');
+        if(fMix>0 && pm.g('flowStr')>0){
+          v=fs.flow(bx,by,t,pm.g('flowNS'),pm.g('flowCurl'),pm.g('flowStr'),lum);
+          fx+=v.fx*fMix; fy+=v.fy*fMix;
+        }
+
+        // Sine waves
+        const sMix=pm.g('sineMix');
+        if(sMix>0 && pm.g('sineAmp')>0){
+          v=fs.sine(i,pNx,pNy,sPhase,pm.g('sineAmp'),pm.b('sineLumScale'),lum,pm);
+          fx+=v.fx*sMix; fy+=v.fy*sMix;
+        }
+
+        // Add to persistent matrix (force × dt ≈ force since we run per frame)
+        dm.addFx(l,pi,fx);
+        dm.addFy(l,pi,fy);
+      }
+    }
+
+    // ═══ STAGE 3: CONSTRAINTS — Magnetism ═══
+    // Direct position constraint: computes target perpendicular positions
+    // per column and SETS the perpendicular displacement component.
+    // Immune to damping because it writes absolute positions, not incremental forces.
+    const magMix=pm.g('magMix');
+    const canMag=magMix>0 && (type==='horizontal'||type==='vertical'||type==='diagonal');
+
+    if(canMag){
+      const compress=pm.g('magCompress');
+      const expand=pm.g('magExpand');
+      const parAx=pAy, parAy=-pAx; // parallel axis (90° rotation of perp)
+
+      // Filter ordered lines (exclude grid verticals which have idx=-1)
+      const ordered=[];
+      for(let l=0;l<lines.length;l++){if(lines[l].idx>=0)ordered.push(l);}
+      const nOrd=ordered.length;
+
+      if(nOrd>1){
+        const maxSamp=Math.max(...ordered.map(l=>dm.nPts[l]));
+
+        for(let pi=0;pi<maxSamp;pi++){
+          // Gather base perp positions and current displacement components
+          const baseP=[], curPar=[], curPerp=[];
+          for(let oi=0;oi<nOrd;oi++){
+            const li=ordered[oi];
+            const si=Math.min(pi,dm.nPts[li]-1);
+            const idx=si*res;
+            if(idx>=lines[li].pts.length){
+              baseP.push(oi>0?baseP[oi-1]+pm.g('spacing'):0);
+              curPerp.push(0);curPar.push(0);continue;
+            }
+            const bx=lines[li].pts[idx].x, by=lines[li].pts[idx].y;
+            baseP.push(bx*pAx+by*pAy);
+            const dfx=dm.getFx(li,si), dfy=dm.getFy(li,si);
+            curPerp.push(dfx*pAx+dfy*pAy);
+            curPar.push(dfx*parAx+dfy*parAy);
+          }
+
+          // Compute target gaps from luminance at BASE midpoints (stable)
+          const targetGaps=[];
+          for(let oi=0;oi<nOrd-1;oi++){
+            const li0=ordered[oi], li1=ordered[oi+1];
+            const si0=Math.min(pi,dm.nPts[li0]-1), si1=Math.min(pi,dm.nPts[li1]-1);
+            const idx0=si0*res, idx1=si1*res;
+            if(idx0>=lines[li0].pts.length||idx1>=lines[li1].pts.length){
+              targetGaps.push(pm.g('spacing'));continue;
+            }
+            const b0=lines[li0].pts[idx0], b1=lines[li1].pts[idx1];
+            const mx=(b0.x+b1.x)/2, my=(b0.y+b1.y)/2;
+            const midLum=Math.pow(this.vf.sample(mx,my).lum,lExp);
+
+            const baseGap=baseP[oi+1]-baseP[oi];
+            // white(1) → gap*(1-compress), black(0) → gap*expand
+            const factor=midLum*(1-compress)+(1-midLum)*expand;
+            targetGaps.push(Math.max(baseGap*factor, 0.3));
+          }
+
+          // Rebuild positions: center-anchored from cumulative target gaps
+          const totalTarget=targetGaps.reduce((a,b)=>a+b,0);
+          const baseCenter=(baseP[0]+baseP[nOrd-1])/2;
+          const newStart=baseCenter-totalTarget/2;
+          const newPerp=[newStart];
+          for(let oi=0;oi<nOrd-1;oi++) newPerp.push(newPerp[oi]+targetGaps[oi]);
+
+          // Blend and write back
+          for(let oi=0;oi<nOrd;oi++){
+            const li=ordered[oi];
+            const si=Math.min(pi,dm.nPts[li]-1);
+            const idx=si*res;
+            if(idx>=lines[li].pts.length)continue;
+
+            const oldPerp=baseP[oi]+curPerp[oi];
+            const tgtPerp=newPerp[oi];
+            const finalPerp=oldPerp+(tgtPerp-oldPerp)*magMix;
+            const newDispPerp=finalPerp-baseP[oi];
+
+            // Reconstruct: preserve parallel component, replace perpendicular
+            dm.setFx(li,si, curPar[oi]*parAx + newDispPerp*pAx);
+            dm.setFy(li,si, curPar[oi]*parAy + newDispPerp*pAy);
+          }
+        }
+      }
+    }
+
+    // ═══ STAGE 4: MODULATORS — steer + scale composite ═══
+    const sg=pm.g('steerGrad'), st=pm.g('steerTang');
+    const emS=pm.b('edgeMagScale'), lS=pm.b('lumScale');
+    const doMod=sg>.001||st>.001||emS||lS;
+
+    if(doMod){
+      for(let l=0;l<lines.length;l++){
+        const pts=lines[l].pts;
+        for(let pi=0;pi<dm.nPts[l];pi++){
+          const i=pi*res;
+          if(i>=pts.length)break;
+          const vf=this.vf.sample(pts[i].x,pts[i].y);
+          let fx=dm.getFx(l,pi), fy=dm.getFy(l,pi);
+          const r=Steering.apply(fx,fy,vf,sg,st,emS,lS,this.vf.maxMag);
+          // Lerp: each modulator's mix is already inside Steering.apply
+          // but we need lerp for steer
+          if(sg>.001||st>.001){
+            const bl=Math.min(sg+st,1);
+            dm.setFx(l,pi, fx+(r.fx-fx)*bl);
+            dm.setFy(l,pi, fy+(r.fy-fy)*bl);
+          } else {
+            dm.setFx(l,pi, r.fx);
+            dm.setFy(l,pi, r.fy);
+          }
+        }
+      }
+    }
+
+    // ═══ STAGE 5: RENDER ═══
+    p.strokeWeight(pm.g('strokeW'));
+    p.noFill();
+    const doColor=pm.b('colorMode'), pal=pm.s('palette');
+
+    for(let l=0;l<lines.length;l++){
+      const pts=lines[l].pts;
+      p.beginShape();
+      for(let pi=0;pi<dm.nPts[l];pi++){
+        const i=pi*res;
+        if(i>=pts.length)break;
+        const bx=pts[i].x, by=pts[i].y;
+        const lum=Math.pow(this.vf.sample(bx,by).lum,lExp);
+
+        if(doColor){const c=this.cm.get(lum,pal);p.stroke(c[0],c[1],c[2],200);}
+        else p.stroke(255,50+lum*200);
+
+        p.curveVertex(bx+dm.getFx(l,pi), by+dm.getFy(l,pi));
+      }
+      p.endShape();
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   DebugOverlay
+   ═══════════════════════════════════════════════════ */
+class DebugOverlay {
+  constructor(vf,fs,p){this.vf=vf;this.fs=fs;this.p=p;}
+  drawVF(w,h){
+    const p=this.p,step=14,mx=this.vf.maxMag;if(mx<.001)return;
+    p.strokeWeight(.5);
+    for(let x=0;x<w;x+=step)for(let y=0;y<h;y+=step){
+      const s=this.vf.sample(x,y),nm=s.mag/mx,len=nm*step*.8;
+      if(len<.3)continue;
+      const hu=(Math.atan2(s.sinA,s.cosA)/Math.PI+1)*.5;
+      p.stroke((Math.cos(hu*6.28)*.5+.5)*255,(Math.cos(hu*6.28+2.09)*.5+.5)*255,(Math.cos(hu*6.28+4.19)*.5+.5)*255,60+nm*100);
+      p.line(x,y,x+s.cosA*len,y+s.sinA*len);
+    }
+  }
+  drawFlow(w,h,t,ns,curl){
+    const p=this.p,step=18;p.stroke(0,255,120,40);p.strokeWeight(.5);
+    for(let x=0;x<w;x+=step)for(let y=0;y<h;y+=step){
+      const f=this.fs.flow(x,y,t,ns,curl,1,1);
+      p.line(x,y,x+f.fx*step*.6,y+f.fy*step*.6);
+    }
+  }
+  drawOrigin(ox,oy){
+    const p=this.p;p.noFill();p.stroke(255,80,80,160);p.strokeWeight(1);
+    p.ellipse(ox,oy,12,12);p.line(ox-7,oy,ox+7,oy);p.line(ox,oy-7,ox,oy+7);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Bootstrap
+   ═══════════════════════════════════════════════════ */
+let app=null, rawImg=null, rawW=0, rawH=0;
+
+new p5(p => {
+  let pm,vf,lg,fs,cm,rend,oa,dov,srcImg=null,cw,ch,t=0;
+
+  function resizeTo(tw,th){cw=tw;ch=th;p.resizeCanvas(cw,ch);oa.recenter(cw/2,ch/2);}
+
+  function applyImage(img,scale){
+    const tw=Math.round(rawW*scale),th=Math.round(rawH*scale);
+    resizeTo(tw,th);
+    const oc=document.createElement('canvas');oc.width=tw;oc.height=th;
+    const ctx=oc.getContext('2d');ctx.drawImage(img,0,0,tw,th);
+    const id=ctx.getImageData(0,0,tw,th);
+    const p5i=p.createImage(tw,th);p5i.loadPixels();
+    for(let i=0;i<id.data.length;i++)p5i.pixels[i]=id.data[i];
+    p5i.updatePixels();srcImg=p5i;
+    vf.build(id.data,tw,th,pm.g('deadZone'));
+    // Reset displacement matrix on new image
+    rend.dm.nLines=0;
+    document.getElementById('img-info').textContent=rawW+'\u00d7'+rawH+' \u2192 '+tw+'\u00d7'+th+' ('+scale+'x)';
+  }
+
+  p.setup=()=>{
+    const wr=document.getElementById('canvas-wrap');
+    cw=wr.clientWidth;ch=wr.clientHeight;
+    p.createCanvas(cw,ch).parent('canvas-wrap');
+    pm=new ParamManager();vf=new VectorFieldMap();lg=new LineGenerator(vf);
+    fs=new ForceSystem(vf,p);cm=new ColorMapper();
+    rend=new Renderer(vf,lg,fs,cm,p);
+    oa=new OriginAnimator(cw/2,ch/2,p);dov=new DebugOverlay(vf,fs,p);
+
+    const px=new Uint8ClampedArray(cw*ch*4);
+    for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
+      const v=p.noise(x*.008,y*.008)*255,i=(y*cw+x)*4;
+      px[i]=px[i+1]=px[i+2]=v;px[i+3]=255;
+    }
+    vf.build(px,cw,ch,pm.g('deadZone'));
+    app={p,vf,applyImage,pm};
+  };
+
+  p.draw=()=>{
+    p.background(10,pm.g('bgAlpha'));
+    t+=pm.g('timeSpeed');
+    if(pm.b('showImage')&&srcImg){p.tint(255,50);p.image(srcImg,0,0,cw,ch);p.noTint();}
+    if(pm.b('animateOrigin'))oa.update(t*60,pm.g('orbitR'),pm.g('orbitSpeed'),pm.s('originMode'));
+    else{oa.x=cw/2;oa.y=ch/2;}
+    rend.render(pm,oa,t);
+    if(pm.b('showVF'))dov.drawVF(cw,ch);
+    if(pm.b('showFlow'))dov.drawFlow(cw,ch,t,pm.g('flowNS'),pm.g('flowCurl'));
+    if(pm.b('animateOrigin'))dov.drawOrigin(oa.x,oa.y);
+  };
+});
+
+/* ═══ Image Loading ═══ */
+function loadImg(file){
+  const r=new FileReader();
+  r.onload=e=>{if(!app)return;const img=new Image();img.onload=()=>{rawImg=img;rawW=img.naturalWidth;rawH=img.naturalHeight;app.applyImage(rawImg,parseFloat(document.getElementById('imgScale').value));};img.src=e.target.result;};
+  r.readAsDataURL(file);
+}
+document.getElementById('imgScale').addEventListener('change',()=>{if(rawImg&&app)app.applyImage(rawImg,parseFloat(document.getElementById('imgScale').value));});
+document.getElementById('deadZone').addEventListener('change',()=>{if(rawImg&&app)app.applyImage(rawImg,parseFloat(document.getElementById('imgScale').value));});
+
+const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])loadImg(e.dataTransfer.files[0]);});
+fi.addEventListener('change',e=>{if(e.target.files[0])loadImg(e.target.files[0]);});
+document.getElementById('saveBtn').addEventListener('click',()=>{if(app)app.p.saveCanvas('luminance-flow','png');});
+</script>
+</body>
+</html>

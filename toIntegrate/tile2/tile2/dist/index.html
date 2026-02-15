@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Tile2</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+
+    name="viewport"
+
+    content="width=device-width, initial-scale=1.0"
+
+  />
+
+  <title>Pixel Tiler - Advanced Animation Tool</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+  <link
+
+    href="https://fonts.googleapis.com/css2?family=Syne+Mono:wght@400&display=swap"
+
+    rel="stylesheet"
+
+  />
+
+</head>
+
+<body>
+
+  <div class="tool-container">
+
+    <div class="tool-header">
+
+      <h1>Pixel Tiler - Advanced</h1>
+
+    </div>
+
+    <div class="status" id="status">Ready — Upload images to begin</div>
+
+    <!-- Upload Images -->
+
+    <div class="tool-section">
+
+      <div class="section-title">Upload Images</div>
+
+      <div class="section-content">
+
+        <div id="imageList" class="image-list"></div>
+
+        <input
+
+          type="file"
+
+          id="multiImageUploader"
+
+          accept="image/*"
+
+          multiple
+
+          style="display: none;"
+
+          onchange="handleMultipleImages && handleMultipleImages(event)"
+
+        />
+
+        <div class="controls-row">
+
+          <button
+
+            class="btn"
+
+            onclick="document.getElementById('multiImageUploader').click()"
+
+          >
+
+            + Add Images
+
+          </button>
+
+          <span class="hint">
+
+            Tip: use CORS-enabled images or upload via your hosting to avoid
+
+            cross-origin issues.
+
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Animation Controls -->
+
+    <div class="tool-section">
+
+      <div class="section-title">Animation Mode</div>
+
+      <div class="section-content">
+
+        <div class="controls-grid">
+
+          <label class="control">
+
+            <span>Mode</span>
+
+            <select id="modeSelect" onchange="updateModeSettings && updateModeSettings()">
+
+              <option value="classic">Classic (Fixed Combinations)</option>
+
+              <option value="equation">Equation-Based Animation</option>
+
+            </select>
+
+          </label>
+
+          <label class="control">
+
+            <span>Effect</span>
+
+            <select id="effect">
+
+              <option value="passthrough">Passthrough</option>
+
+              <option value="crossfade">Crossfade</option>
+
+              <option value="multiply">Multiply</option>
+
+              <option value="difference">Difference</option>
+
+            </select>
+
+          </label>
+
+          <label class="control">
+
+            <span>FPS</span>
+
+            <input id="fps" type="number" value="24" min="1" max="120" />
+
+          </label>
+
+          <label class="control">
+
+            <span>Gamma</span>
+
+            <input id="gamma" type="number" step="0.1" value="1.0" />
+
+          </label>
+
+          <label class="control">
+
+            <span>Exposure (stops)</span>
+
+            <input id="exposure" type="number" step="0.1" value="0" />
+
+          </label>
+
+          <label class="control">
+
+            <span>Scale</span>
+
+            <input id="scale" type="number" step="0.1" value="1" />
+
+          </label>
+
+          <label class="control">
+
+            <span>Pan X</span>
+
+            <input id="panX" type="number" step="1" value="0" />
+
+          </label>
+
+          <label class="control">
+
+            <span>Pan Y</span>
+
+            <input id="panY" type="number" step="1" value="0" />
+
+          </label>
+
+        </div>
+
+        <div id="classicMode" class="mode-settings">
+
+          <div class="controls-grid">
+
+            <label class="control">
+
+              <span>Combination Mode</span>
+
+              <select id="combinationSelect">
+
+                <option value="single">Single (1 combination)</option>
+
+                <option value="pairs">All Pairs</option>
+
+                <option value="triples">Triples</option>
+
+                <option value="permutation">All Permutations</option>
+
+              </select>
+
+            </label>
+
+            <label class="control">
+
+              <span>Shuffle</span>
+
+              <select id="shuffleSelect">
+
+                <option value="none">None</option>
+
+                <option value="by-seed">By Seed</option>
+
+                <option value="random">Random Each Run</option>
+
+              </select>
+
+            </label>
+
+            <label class="control">
+
+              <span>Seed</span>
+
+              <input id="seedInput" type="number" step="1" value="1" />
+
+            </label>
+
+          </div>
+
+        </div>
+
+        <div id="equationMode" class="mode-settings" hidden>
+
+          <div class="equation-wrap">
+
+            <label class="control block">
+
+              <span>Equation</span>
+
+              <input
+
+                id="equationInput"
+
+                type="text"
+
+                placeholder="e.g., r(θ) = a·θ^k·e^{b·θ^m} + c"
+
+              />
+
+            </label>
+
+            <div class="params-grid">
+
+              <label class="control">
+
+                <span>a</span>
+
+                <input id="paramA" type="number" step="0.01" value="1" />
+
+              </label>
+
+              <label class="control">
+
+                <span>b</span>
+
+                <input id="paramB" type="number" step="0.01" value="0.02" />
+
+              </label>
+
+              <label class="control">
+
+                <span>c</span>
+
+                <input id="paramC" type="number" step="0.01" value="0" />
+
+              </label>
+
+              <label class="control">
+
+                <span>k</span>
+
+                <input id="paramK" type="number" step="0.01" value="1" />
+
+              </label>
+
+              <label class="control">
+
+                <span>m</span>
+
+                <input id="paramM" type="number" step="0.01" value="1" />
+
+              </label>
+
+            </div
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>

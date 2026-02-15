@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Paint image</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <div class="interface">
+  <div class="panel controls">
+    <div class="header">
+      <h1>GENERATIVE_PAINTER_V1.0</h1>
+      <div class="status-line">STATUS: <span id="status-text">IDLE</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">01_SOURCE</div>
+      <div class="row">
+        <label>IMG_SRC:</label>
+        <input type="file" id="img-upload" accept="image/*">
+      </div>
+      <div class="row">
+        <label>MAP_SRC:</label>
+        <input type="file" id="map-upload" accept="image/*">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">02_PALETTE_HEX</div>
+      <textarea id="palette-input" spellcheck="false">#000000, #FFFFFF, #FF0000</textarea>
+      <button id="btn-update-palette">[ LOAD_PALETTE ]</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">03_BRUSH_CONFIG</div>
+      
+      <div class="row">
+        <label>MIN_SIZE: <span id="val-min-size">10</span>px</label>
+        <input type="range" id="min-size" min="1" max="100" value="10">
+      </div>
+      
+      <div class="row">
+        <label>MAX_SIZE: <span id="val-max-size">50</span>px</label>
+        <input type="range" id="max-size" min="10" max="200" value="50">
+      </div>
+
+      <div class="row">
+        <label>OPACITY: <span id="val-opacity">10-50</span></label>
+        <input type="range" id="min-opacity" min="1" max="255" value="10">
+        <input type="range" id="max-opacity" min="1" max="255" value="50">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">04_LOGIC</div>
+      
+      <div class="row">
+        <label>SPEED: <span id="val-speed">20</span></label>
+        <input type="range" id="speed" min="1" max="200" value="20">
+      </div>
+      
+      <div class="row">
+        <label>LAYER_LIMIT: <span id="val-limit">15</span></label>
+        <input type="range" id="layer-limit" min="1" max="100" value="15">
+      </div>
+      
+      <div class="stat-box">
+        AVG_LAYERS: <span id="stat-avg-layers">0.00</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btn-reset">[ RESET ]</button>
+      <button id="btn-pause">[ RUN/PAUSE ]</button>
+      <button id="btn-save">[ SAVE_OUTPUT ]</button>
+    </div>
+  </div>
+
+  <div class="panel viewport" id="canvas-container">
+    <div class="placeholder">
+      > WAITING_FOR_INPUT...<br>
+      > DROP_IMG_HERE
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>
