@@ -153,6 +153,7 @@ body::after {
 .nc.solo .nn { color: var(--text-hi); text-decoration: underline; }
 .nc.dragging { opacity: 0.2; }
 .nc.dragover { background: var(--cell); }
+.nc.selected { border-left: 2px solid var(--indicator-on); }
 
 .nh {
   display: flex;
@@ -519,6 +520,155 @@ body::after {
 .mi .md { color: var(--text-dim); font-size: 9px; }
 
 #file-input, #recipe-input, #mask-input, #modmap-input { display: none; }
+
+/* ── Render progress bar ── */
+#render-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--indicator-on);
+  width: 0%;
+  transition: width 0.1s linear;
+  z-index: 6;
+}
+
+/* ── Add-menu search ── */
+#amenu-search {
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-hi);
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 3px 6px;
+  outline: none;
+  height: 20px;
+}
+#amenu-search:focus { border-color: var(--text-dim); }
+#amenu-search::placeholder { color: var(--text-vdim); }
+
+/* ── Parameter dice button ── */
+.nb.dice { font-size: 9px; opacity: 0.4; }
+.nb.dice:hover { opacity: 1; }
+
+/* ── Preset submenu ── */
+#preset-menu {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--border-hi);
+  z-index: 200;
+  display: none;
+  min-width: 140px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+  bottom: 26px;
+}
+#preset-menu.show { display: block; }
+
+/* ── Variation grid modal ── */
+#var-grid {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+#var-grid.show { display: flex; }
+#var-grid .vg-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+#var-grid .vg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+#var-grid .vg-cell {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  position: relative;
+}
+#var-grid .vg-cell:hover { border-color: var(--text-hi); }
+#var-grid .vg-cell canvas { display: block; width: 100%; height: auto; }
+#var-grid .vg-seed {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+#var-grid .vg-close {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 4px 16px;
+  cursor: pointer;
+}
+#var-grid .vg-close:hover { background: var(--inverse-bg); color: var(--inverse-text); }
+
+/* ── Transport bar ── */
+#transport {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  height: 22px;
+  background: var(--cell);
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+  grid-column: 1 / -1;
+}
+#transport.show { display: flex; }
+#transport button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 4px;
+  height: 16px;
+}
+#transport button:hover { background: var(--cell); }
+#transport .t-scrub {
+  flex: 1;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  outline: none;
+}
+#transport .t-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 12px;
+  background: var(--text);
+  border: none;
+  cursor: pointer;
+}
+#transport .t-info { min-width: 80px; text-align: right; color: var(--text); }
+
+/* ── Panel resize handle ── */
+#panel-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+#left { position: relative; }
 
 /* ── Mask section ── */
 .mask-sec {

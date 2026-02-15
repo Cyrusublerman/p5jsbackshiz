@@ -36,6 +36,27 @@ export class LevelsNode extends EffectNode {
     }
   }
 
+  glsl() {
+    const { blackPoint, whitePoint, midGamma, outBlack, outWhite } = this.params;
+    return {
+      fragment: `#version 300 es
+        precision highp float;
+        in vec2 v_uv; out vec4 fragColor;
+        uniform sampler2D u_tex; uniform vec2 u_resolution;
+        uniform float u_bp, u_wp, u_gamma, u_ob, u_ow;
+        void main() {
+          vec4 c = texture(u_tex, v_uv);
+          float rng = max(u_wp - u_bp, 1.0) / 255.0;
+          float oR = (u_ow - u_ob) / 255.0;
+          float inv = 1.0 / u_gamma;
+          vec3 t = clamp((c.rgb - u_bp/255.0) / rng, 0.0, 1.0);
+          vec3 out_c = u_ob/255.0 + pow(t, vec3(inv)) * oR;
+          fragColor = vec4(out_c, c.a);
+        }`,
+      uniforms: { u_bp: blackPoint, u_wp: whitePoint, u_gamma: midGamma, u_ob: outBlack, u_ow: outWhite }
+    };
+  }
+
   buildLUT(lutR, lutG, lutB) {
     const lut = this._buildInternalLUT();
     for (let i = 0; i < 256; i++) {

@@ -7,8 +7,9 @@ export class MedianFilterNode extends EffectNode {
     });
   }
 
-  apply(s, d, w, h) {
-    const r = this.params.radius;
+  apply(s, d, w, h, ctx) {
+    let r = this.params.radius;
+    if (ctx && ctx.quality === 'preview') r = Math.max(1, Math.round(r * 0.5));
     const size = (2 * r + 1) * (2 * r + 1);
     const mid = size >> 1;
     const buf = new Uint8Array(size);

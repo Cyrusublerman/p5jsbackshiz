@@ -35,6 +35,7 @@
   <div id="left">
     <div class="sdiv"><span>EFFECT STACK</span><button class="sdiv-btn" id="add-btn">+ ADD</button></div>
     <div id="stack"></div>
+    <div id="panel-resize"></div>
   </div>
 
   <div id="vp">
@@ -42,6 +43,7 @@
     <div id="statpanel"></div>
     <div id="dropzone"><span>LOAD IMAGE</span></div>
     <div id="empty"><div class="elbl">DROP IMAGE / PRESS 1</div></div>
+    <div id="render-progress"></div>
   </div>
 
   <div id="fnbar">
@@ -54,17 +56,29 @@
     <div class="fk" id="fk7"><span class="fn">7</span>RECIPE</div>
     <div class="fk" id="fk8"><span class="fn">8</span>LOAD R</div>
     <div class="fk" id="fk-modmap"><span class="fn">M</span>MAP</div>
-    <div class="fk" id="fk9"><span class="fn">F1</span>SCANBND</div>
-    <div class="fk" id="fk10"><span class="fn">F2</span>LIQUID</div>
-    <div class="fk" id="fk11"><span class="fn">F3</span>DROWNED</div>
-    <div class="fk" id="fk12"><span class="fn">F4</span>DATAMSH</div>
-    <div class="fk" id="fk13"><span class="fn">F5</span>ENGRAVE</div>
-    <div class="fk" id="fk14"><span class="fn">F6</span>WAVFRM</div>
-    <div class="fk" id="fk15"><span class="fn">F7</span>SIGNAL</div>
+    <div class="fk" id="fk-presets"><span class="fn">F1</span>PRESETS</div>
+    <div class="fk" id="fk-vargrid"><span class="fn">V</span>VARY</div>
+  </div>
+
+  <div id="transport">
+    <button id="t-prev" title="Previous frame">&#9664;&#9664;</button>
+    <button id="t-step-back" title="Step back">&#9664;</button>
+    <button id="t-play" title="Play/Pause">&#9654;</button>
+    <button id="t-step-fwd" title="Step forward">&#9654;</button>
+    <button id="t-next" title="Last frame">&#9654;&#9654;</button>
+    <input type="range" class="t-scrub" id="t-scrub" min="0" max="0" value="0">
+    <span class="t-info" id="t-info-frame">0/0</span>
+    <span class="t-info" id="t-info-fps">24fps</span>
   </div>
 </div>
 
 <div id="amenu"></div>
+<div id="preset-menu"></div>
+<div id="var-grid">
+  <div class="vg-title">VARIATION GRID — CLICK TO ADOPT</div>
+  <div class="vg-grid" id="vg-grid"></div>
+  <button class="vg-close" id="vg-close">CLOSE</button>
+</div>
 <input type="file" id="file-input" accept="image/*">
 <input type="file" id="recipe-input" accept=".json">
 <input type="file" id="mask-input" accept="image/*">

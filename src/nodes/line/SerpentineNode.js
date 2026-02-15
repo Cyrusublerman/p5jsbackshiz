@@ -98,9 +98,14 @@ export class SerpentineNode extends EffectNode {
       }
     }
 
-    // Render to offscreen canvas
-    const oc = new OffscreenCanvas(w, h);
-    const c = oc.getContext('2d');
+    // Render to offscreen canvas (cached)
+    if (!this._oc || this._ocW !== w || this._ocH !== h) {
+      this._oc = new OffscreenCanvas(w, h);
+      this._ocCtx = this._oc.getContext('2d');
+      this._ocW = w; this._ocH = h;
+    }
+    const oc = this._oc;
+    const c = this._ocCtx;
     const bg = p.bgColor;
     c.fillStyle = `rgb(${bg},${bg},${bg})`;
     c.fillRect(0, 0, w, h);

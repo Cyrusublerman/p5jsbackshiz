@@ -9,6 +9,7 @@ export class AppState {
     this.globalSeed = 42;
     this.stack = [];
     this.soloNodeId = null;
+    this.selectedNodeIdx = -1; // for keyboard nav
     this.zoom = 'fit';
     this.zoomLevel = 1;
     this.panX = 0;
@@ -17,28 +18,53 @@ export class AppState {
     this.needsRender = true;
     this.rendering = false;
 
-    /**
-     * Modulation maps — uploaded images used to drive parameters spatially.
-     * Key: user-assigned name (string)
-     * Value: { sourcePixels: Uint8ClampedArray, sourceW, sourceH, name }
-     * At render time, Pipeline rescales these to pipeline dimensions
-     * and extracts single-channel luminance for each.
-     */
+    // ── Modulation maps ──
     this.modulationMaps = {};
+
+    // ── Multi-frame / animation ──
+    this.frames = [];          // Uint8ClampedArray[] — RGBA per frame
+    this.frameCount = 0;
+    this.currentFrame = 0;
+    this.fps = 24;
+    this.isPlaying = false;
+
+    // ── Render progress ──
+    this.renderProgress = 0;   // 0..1, updated by Pipeline per node
   }
 
-  /** Add a modulation map from an image. */
+  /** Set single-frame source (backwards compatible). */
+  setSource(pixels, w, h) {
+    this.sourcePixels = pixels;
+    this.sourceW = w;
+    this.sourceH = h;
+    this.frames = [pixels];
+    this.frameCount = 1;
+    this.currentFrame = 0;
+  }
+
+  /** Set multi-frame source. */
+  setFrames(framesArray, w, h) {
+    this.frames = framesArray;
+    this.frameCount = framesArray.length;
+    this.currentFrame = 0;
+    this.sourceW = w;
+    this.sourceH = h;
+    this.sourcePixels = framesArray[0];
+  }
+
+  /** Seek to frame index. */
+  seekFrame(idx) {
+    this.currentFrame = Math.max(0, Math.min(this.frameCount - 1, idx));
+    if (this.frames[this.currentFrame]) {
+      this.sourcePixels = this.frames[this.currentFrame];
+      this.needsRender = true;
+    }
+  }
+
   addModulationMap(name, pixels, w, h) {
     this.modulationMaps[name] = { sourcePixels: pixels, sourceW: w, sourceH: h, name };
   }
 
-  /** Remove a modulation map. */
-  removeModulationMap(name) {
-    delete this.modulationMaps[name];
-  }
-
-  /** Get list of modulation map names. */
-  getModMapNames() {
-    return Object.keys(this.modulationMaps);
-  }
+  removeModulationMap(name) { delete this.modulationMaps[name]; }
+  getModMapNames() { return Object.keys(this.modulationMaps); }
 }

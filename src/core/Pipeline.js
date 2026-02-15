@@ -154,6 +154,9 @@ export class Pipeline {
       node._cache.set(bufB);
       node._cacheValid = true;
 
+      // Report progress
+      s.renderProgress = (ni + 1) / active.length;
+
       [bufA, bufB] = [bufB, bufA];
     }
 

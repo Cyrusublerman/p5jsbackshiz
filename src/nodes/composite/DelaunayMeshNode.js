@@ -25,9 +25,15 @@ export class DelaunayMeshNode extends EffectNode {
     // Simple Delaunay via Bowyer-Watson
     const tris = this._triangulate(pts);
 
-    // Render: fill each triangle with average colour from source
-    const oc = new OffscreenCanvas(w, h);
-    const c = oc.getContext('2d');
+    // Render (cached canvas)
+    if (!this._oc || this._ocW !== w || this._ocH !== h) {
+      this._oc = new OffscreenCanvas(w, h);
+      this._ocCtx = this._oc.getContext('2d');
+      this._ocW = w; this._ocH = h;
+    }
+    const oc = this._oc;
+    const c = this._ocCtx;
+    c.clearRect(0, 0, w, h);
 
     if (colorMode === 'flat') {
       for (const tri of tris) {
