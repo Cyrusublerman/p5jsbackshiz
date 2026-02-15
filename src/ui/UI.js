@@ -8,6 +8,7 @@ export class UI {
   constructor(state, onRender) {
     this.state = state;
     this.onRender = onRender;
+    this._maskTargetNode = null;  // node currently receiving mask upload
     this.statusPanel = new StatusPanel(document.getElementById('statpanel'));
     this.reticle = new Reticle(document.getElementById('reticle'));
     this._menu();
@@ -16,6 +17,7 @@ export class UI {
     this._dragDrop();
     this._clock();
     this._keyboard();
+    this._modMapUpload();
   }
 
   /* ── Clock ── */
@@ -139,6 +141,7 @@ export class UI {
     fk('fk6', () => this._exportPNG());
     fk('fk7', () => this._exportJSON());
     fk('fk8', () => document.getElementById('recipe-input').click());
+    fk('fk-modmap', () => document.getElementById('modmap-input').click());
     fk('fk9', () => this._preset('SCAN'));
     fk('fk10', () => this._preset('LIQUID'));
     fk('fk11', () => this._preset('DROWNED'));
@@ -161,6 +164,62 @@ export class UI {
       else if (key === '6') document.getElementById('fk6').click();
       else if (key === '7') document.getElementById('fk7').click();
       else if (key === '8') document.getElementById('fk8').click();
+    });
+  }
+
+  /* ── Modulation map upload ── */
+  _modMapUpload() {
+    document.getElementById('modmap-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const name = file.name.replace(/\.[^.]+$/, '').substring(0, 16);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const id = ctx.getImageData(0, 0, img.width, img.height);
+          this.state.addModulationMap(name, new Uint8ClampedArray(id.data), img.width, img.height);
+          this.refreshStack(); // refresh to show new map in dropdowns
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = null;
+    });
+
+    // Mask image upload handler
+    document.getElementById('mask-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const node = this._maskTargetNode;
+      if (!file || !node) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const id = ctx.getImageData(0, 0, img.width, img.height);
+          node.mask._sourcePixels = new Uint8ClampedArray(id.data);
+          node.mask._sourceW = img.width;
+          node.mask._sourceH = img.height;
+          node.mask.source = 'upload';
+          node.mask.enabled = true;
+          node.invalidate(this.state.stack);
+          this.state.needsRender = true;
+          this.refreshStack();
+          this.onRender();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = null;
+      this._maskTargetNode = null;
     });
   }
 
@@ -384,8 +443,29 @@ export class UI {
         this.onRender();
       });
 
-      hdr.append(nidx, sq, hb, nm, soloBtn, expBtn, delBtn);
+      // Mask toggle button
+      const maskBtn = document.createElement('button');
+      maskBtn.className = 'nb mask-btn' + (node.mask.enabled ? ' on' : '');
+      maskBtn.textContent = 'M';
+      maskBtn.title = 'Toggle mask';
+      maskBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        node.mask.enabled = !node.mask.enabled;
+        if (node.mask.enabled && node.mask.source === 'none') node.mask.source = 'luminance';
+        node.invalidate(this.state.stack);
+        this.state.needsRender = true;
+        this.refreshStack();
+        this.onRender();
+      });
+
+      hdr.append(nidx, sq, hb, nm, soloBtn, maskBtn, expBtn, delBtn);
       card.appendChild(hdr);
+
+      // Mask controls section
+      const maskSec = document.createElement('div');
+      maskSec.className = 'mask-sec' + (node.mask.enabled && node.expanded ? '' : ' hide');
+      this._maskControls(maskSec, node);
+      card.appendChild(maskSec);
 
       // Parameters panel
       const params = document.createElement('div');
@@ -396,14 +476,143 @@ export class UI {
         { value: node.opacity, min: 0, max: 1, step: 0.01, label: 'OPACITY' },
         (v) => { node.opacity = v; });
 
-      // Node-specific params
+      // Node-specific params (with modulation support)
       for (const [k, def] of Object.entries(node.paramDefs)) {
         this._p(params, node, k, def, (v) => { node.params[k] = v; });
+        // Add modulation row for numeric (non-select) params
+        if (def.type !== 'select' && def.modulatable !== false) {
+          this._modRow(params, node, k, def);
+        }
       }
 
       card.appendChild(params);
       el.appendChild(card);
     });
+  }
+
+  /* ── Mask controls for a node ── */
+  _maskControls(container, node) {
+    // Source selector
+    const srcRow = document.createElement('div');
+    srcRow.className = 'pr';
+    const srcLbl = document.createElement('span');
+    srcLbl.className = 'pl';
+    srcLbl.textContent = 'SOURCE';
+    const srcSel = document.createElement('select');
+    srcSel.className = 'psel';
+    for (const opt of ['luminance', 'gradient', 'upload']) {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt.toUpperCase();
+      if (node.mask.source === opt) o.selected = true;
+      srcSel.appendChild(o);
+    }
+    srcSel.addEventListener('change', () => {
+      if (srcSel.value === 'upload') {
+        this._maskTargetNode = node;
+        document.getElementById('mask-input').click();
+      } else {
+        node.mask.source = srcSel.value;
+        node.invalidate(this.state.stack);
+        this.state.needsRender = true;
+        this.onRender();
+      }
+    });
+    srcRow.append(srcLbl, srcSel);
+    container.appendChild(srcRow);
+
+    // Invert toggle
+    const invRow = document.createElement('div');
+    invRow.className = 'pr';
+    const invLbl = document.createElement('span');
+    invLbl.className = 'pl';
+    invLbl.textContent = 'INVERT';
+    const invSq = document.createElement('span');
+    invSq.className = 'sq' + (node.mask.invert ? ' on' : '');
+    invSq.style.cursor = 'pointer';
+    invSq.addEventListener('click', () => {
+      node.mask.invert = !node.mask.invert;
+      node.invalidate(this.state.stack);
+      this.state.needsRender = true;
+      this.refreshStack();
+      this.onRender();
+    });
+    invRow.append(invLbl, invSq);
+    container.appendChild(invRow);
+
+    // Feather slider
+    this._p(container, node, '_feather',
+      { value: node.mask.feather, min: 0, max: 20, step: 0.5, label: 'FEATHER' },
+      (v) => {
+        node.mask.feather = v;
+        node.invalidate(this.state.stack);
+      });
+  }
+
+  /* ── Modulation row per parameter ── */
+  _modRow(container, node, key, def) {
+    const mapNames = this.state.getModMapNames();
+    if (mapNames.length === 0) return; // no maps uploaded, skip
+
+    const mod = node.modulation[key] || { mapId: '', amount: 0 };
+    const row = document.createElement('div');
+    row.className = 'mod-row' + (mod.mapId ? '' : ' hide');
+
+    const lbl = document.createElement('span');
+    lbl.className = 'pl';
+    lbl.textContent = '\u2192 MOD';
+
+    const sel = document.createElement('select');
+    sel.className = 'psel';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = 'NONE';
+    if (!mod.mapId) noneOpt.selected = true;
+    sel.appendChild(noneOpt);
+    for (const name of mapNames) {
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name.toUpperCase();
+      if (mod.mapId === name) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => {
+      if (sel.value) {
+        node.modulation[key] = { mapId: sel.value, amount: node.modulation[key]?.amount || 1 };
+      } else {
+        delete node.modulation[key];
+      }
+      node.invalidate(this.state.stack);
+      this.state.needsRender = true;
+      this.refreshStack();
+      this.onRender();
+    });
+
+    const amtSl = document.createElement('input');
+    amtSl.type = 'range'; amtSl.className = 'ps';
+    amtSl.min = 0; amtSl.max = 1; amtSl.step = 0.01;
+    amtSl.value = mod.amount || 0;
+    amtSl.addEventListener('input', () => {
+      if (!node.modulation[key]) node.modulation[key] = { mapId: sel.value, amount: 0 };
+      node.modulation[key].amount = parseFloat(amtSl.value);
+      node.invalidate(this.state.stack);
+      this.state.needsRender = true;
+      this.onRender();
+    });
+
+    row.append(lbl, sel, amtSl);
+    container.appendChild(row);
+
+    // Add a small dot indicator on the param label to show mod is available
+    // Find the preceding .pr row and append a dot
+    const prevRow = container.lastElementChild?.previousElementSibling;
+    if (prevRow && prevRow.classList.contains('pr')) {
+      const dot = document.createElement('span');
+      dot.className = 'mod-dot' + (mod.mapId ? ' on' : '');
+      dot.title = 'Modulation map';
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        row.classList.toggle('hide');
+      });
+      prevRow.querySelector('.pl')?.appendChild(dot);
+    }
   }
 
   /* ── Parameter row factory ── */

@@ -33,7 +33,9 @@ export class FilmGrainNode extends EffectNode {
         const lum = (s[i] * 0.299 + s[i + 1] * 0.587 + s[i + 2] * 0.114) / 255;
         // Film grain is stronger in midtones, weaker in shadows/highlights
         const lumWeight = 1 - lumResp * Math.abs(lum - 0.5) * 2;
-        const str = scale * lumWeight * 255;
+        const localAmount = this.getModulated('amount', y * w + x, ctx);
+        const localScale = localAmount / 100;
+        const str = localScale * lumWeight * 255;
         d[i]     = Math.max(0, Math.min(255, s[i]     + noiseR[gi] * str));
         d[i + 1] = Math.max(0, Math.min(255, s[i + 1] + noiseG[gi] * str));
         d[i + 2] = Math.max(0, Math.min(255, s[i + 2] + noiseB[gi] * str));

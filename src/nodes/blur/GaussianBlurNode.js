@@ -10,9 +10,10 @@ export class GaussianBlurNode extends EffectNode {
   }
 
   apply(s, d, w, h, ctx) {
+    const hasSigmaMod = this.modulation.sigma && this.modulation.sigma.mapId && ctx && ctx.modMaps;
     let sig = this.params.sigma;
     let p = this.params.passes;
-    if (ctx.quality === 'preview') { sig *= 0.5; p = 1; }
+    if (ctx && ctx.quality === 'preview') { sig *= 0.5; p = 1; }
     const rad = Math.ceil(sig * 3);
     const k = this._k(sig, rad);
     let cur = new Uint8ClampedArray(s);
@@ -20,6 +21,24 @@ export class GaussianBlurNode extends EffectNode {
     for (let pass = 0; pass < p; pass++) {
       this._cH(cur, tmp, w, h, k, rad);
       this._cV(tmp, cur, w, h, k, rad);
+    }
+    if (hasSigmaMod) {
+      // Per-pixel blend between blurred and original based on sigma modulation map
+      const modMap = ctx.modMaps[this.modulation.sigma.mapId];
+      const amt = this.modulation.sigma.amount;
+      if (modMap) {
+        for (let i = 0, n = w * h * 4; i < n; i += 4) {
+          const pi = i >> 2;
+          const mv = (modMap[pi] / 255) * amt;
+          const inv = 1 - mv;
+          // mv=1 → full blur, mv=0 → original
+          d[i]     = s[i]     * inv + cur[i]     * mv;
+          d[i + 1] = s[i + 1] * inv + cur[i + 1] * mv;
+          d[i + 2] = s[i + 2] * inv + cur[i + 2] * mv;
+          d[i + 3] = cur[i + 3];
+        }
+        return;
+      }
     }
     d.set(cur);
   }

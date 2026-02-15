@@ -11,8 +11,10 @@ export class ChromaticAbNode extends EffectNode {
     });
   }
 
-  apply(s, d, w, h) {
+  apply(s, d, w, h, ctx) {
     const { redShift, blueShift, centreX, centreY } = this.params;
+    const hasRedMod = this.modulation.redShift?.mapId && ctx?.modMaps;
+    const hasBlueMod = this.modulation.blueShift?.mapId && ctx?.modMaps;
     const cx = centreX * w, cy = centreY * h;
 
     for (let y = 0; y < h; y++) {
@@ -23,8 +25,11 @@ export class ChromaticAbNode extends EffectNode {
         const t = dist / (maxDist || 1);
 
         const i = (y * w + x) * 4;
+        const pi = i >> 2;
         // Red channel: shifted outward
-        const rOff = t * redShift;
+        const localRedShift = hasRedMod ? this.getModulated('redShift', pi, ctx) : redShift;
+        const localBlueShift = hasBlueMod ? this.getModulated('blueShift', pi, ctx) : blueShift;
+        const rOff = t * localRedShift;
         const rAng = dist > 0.001 ? Math.atan2(dy, dx) : 0;
         const rx = Math.max(0, Math.min(w - 1, Math.round(x + Math.cos(rAng) * rOff)));
         const ry = Math.max(0, Math.min(h - 1, Math.round(y + Math.sin(rAng) * rOff)));
@@ -34,7 +39,7 @@ export class ChromaticAbNode extends EffectNode {
         d[i + 1] = s[i + 1];
 
         // Blue channel: shifted
-        const bOff = t * blueShift;
+        const bOff = t * localBlueShift;
         const bx = Math.max(0, Math.min(w - 1, Math.round(x + Math.cos(rAng) * bOff)));
         const by = Math.max(0, Math.min(h - 1, Math.round(y + Math.sin(rAng) * bOff)));
         d[i + 2] = s[(by * w + bx) * 4 + 2];

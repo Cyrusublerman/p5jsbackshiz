@@ -518,4 +518,46 @@ body::after {
 .mi:hover { background: var(--inverse-bg); color: var(--inverse-text); }
 .mi .md { color: var(--text-dim); font-size: 9px; }
 
-#file-input, #recipe-input { display: none; }
+#file-input, #recipe-input, #mask-input, #modmap-input { display: none; }
+
+/* ── Mask section ── */
+.mask-sec {
+  padding: 3px 4px 5px 30px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+}
+.mask-sec.hide { display: none; }
+.mask-sec .pr { height: 17px; }
+.mask-sec .pl { color: var(--text-dim); width: 52px; }
+
+.nb.mask-btn { font-size: 9px; letter-spacing: 0.5px; }
+.nb.mask-btn.on { color: var(--indicator-on); background: var(--border); }
+
+/* ── Modulation indicator ── */
+.mod-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--indicator-off);
+  margin-left: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.mod-dot.on { background: var(--indicator-on); }
+
+.mod-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+  padding-left: 30px;
+  font-size: 9px;
+}
+.mod-row.hide { display: none; }
+.mod-row .pl { width: 52px; color: var(--text-dim); font-size: 9px; }
+.mod-row .psel { font-size: 9px; height: 14px; flex: 1; }
+.mod-row .ps { flex: 1; }
