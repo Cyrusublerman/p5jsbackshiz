@@ -19,7 +19,8 @@ export class EffectNode {
     this._cache = null;
     this._cacheValid = false;
 
-    // ── LUT fusion protocol ──
+    // isLUT is deprecated — Pipeline is strictly sequential.
+    // Kept as no-op field for backwards compatibility with node subclasses.
     this.isLUT = false;
 
     // ── Per-node mask ──

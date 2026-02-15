@@ -2,11 +2,22 @@ import { Sampler } from './Sampler.js';
 import { hashSeed } from './SeededRNG.js';
 import { pool } from './BufferPool.js';
 
+/**
+ * Pipeline — strictly sequential render loop.
+ *
+ * Guarantee: node N always receives the output of node N-1 as input.
+ * No node-specific optimisation paths (LUT fusion, batching, reordering).
+ * Correctness is architectural, not per-node.
+ *
+ * Performance comes from:
+ * - BufferPool: zero-alloc buffer recycling
+ * - Dirty-node cache: skip unchanged prefix of the stack
+ * - Progressive preview: lower resolution during interaction
+ * - Worker thread: off-main-thread execution
+ */
 export class Pipeline {
   constructor(state) {
     this.s = state;
-    this._lastW = 0;
-    this._lastH = 0;
   }
 
   render() {
@@ -19,9 +30,8 @@ export class Pipeline {
     const w = Math.round(s.sourceW * sc);
     const h = Math.round(s.sourceH * sc);
     const bufSize = w * h * 4;
-    const pixelCount = w * h;
 
-    // Downscale or copy source
+    // ── Source ──
     let src;
     if (prev && sc < 1) {
       src = pool.acquire(bufSize);
@@ -31,14 +41,15 @@ export class Pipeline {
       src.set(s.sourcePixels);
     }
 
+    // ── Active nodes ──
     const active = s.soloNodeId !== null
       ? s.stack.filter(n => n.id === s.soloNodeId && n.enabled)
       : s.stack.filter(n => n.enabled);
 
-    // Build rescaled modulation maps (single-channel luminance at pipeline res)
+    // ── Modulation maps ──
     const modMaps = this._buildModMaps(w, h);
 
-    // Dirty-node cache: find first invalid node
+    // ── Dirty-node cache: find first invalid node ──
     let startIdx = 0;
     let allCached = true;
     for (let i = 0; i < active.length; i++) {
@@ -50,11 +61,11 @@ export class Pipeline {
     }
     if (allCached) startIdx = active.length;
 
+    // Resume from cache or start from source
     let bufA;
     if (startIdx > 0 && startIdx <= active.length) {
-      const cached = active[startIdx - 1]._cache;
       bufA = pool.acquire(bufSize);
-      bufA.set(cached);
+      bufA.set(active[startIdx - 1]._cache);
       pool.release(src);
     } else {
       bufA = src;
@@ -62,9 +73,9 @@ export class Pipeline {
     }
 
     let bufB = pool.acquire(bufSize);
-
     const t0 = performance.now();
 
+    // ── Sequential render: each node reads bufA, writes bufB, then swap ──
     for (let ni = startIdx; ni < active.length; ni++) {
       const node = active[ni];
       const hasMask = node.mask.enabled && node.mask.source !== 'none';
@@ -81,61 +92,21 @@ export class Pipeline {
         modMaps: hasModulation ? modMaps : null
       };
 
-      // Build mask at pipeline resolution
-      if (hasMask) {
-        node.buildMask(bufA, w, h);
-      }
+      // Build mask if needed
+      if (hasMask) node.buildMask(bufA, w, h);
 
-      // LUT fusion: skip if node has mask (can't fuse masked nodes)
-      if (node.isLUT && node.opacity >= 1 && !hasMask) {
-        let fusionEnd = ni;
-        while (fusionEnd + 1 < active.length &&
-               active[fusionEnd + 1].isLUT &&
-               active[fusionEnd + 1].opacity >= 1 &&
-               active[fusionEnd + 1].enabled &&
-               !(active[fusionEnd + 1].mask.enabled && active[fusionEnd + 1].mask.source !== 'none')) {
-          fusionEnd++;
-        }
-        if (fusionEnd > ni) {
-          const lutR = new Uint8Array(256);
-          const lutG = new Uint8Array(256);
-          const lutB = new Uint8Array(256);
-          for (let i = 0; i < 256; i++) { lutR[i] = lutG[i] = lutB[i] = i; }
-          for (let fi = ni; fi <= fusionEnd; fi++) active[fi].buildLUT(lutR, lutG, lutB);
-          for (let i = 0; i < bufSize; i += 4) {
-            bufB[i]     = lutR[bufA[i]];
-            bufB[i + 1] = lutG[bufA[i + 1]];
-            bufB[i + 2] = lutB[bufA[i + 2]];
-            bufB[i + 3] = bufA[i + 3];
-          }
-          for (let fi = ni; fi <= fusionEnd; fi++) {
-            if (!active[fi]._cache || active[fi]._cache.length !== bufSize) {
-              active[fi]._cache = new Uint8ClampedArray(bufSize);
-            }
-            active[fi]._cache.set(bufB);
-            active[fi]._cacheValid = true;
-          }
-          [bufA, bufB] = [bufB, bufA];
-          ni = fusionEnd;
-          continue;
-        }
-      }
+      // Apply: always sequential — node reads bufA (previous output), writes to bufB or tmp
+      const needsBlend = (node.opacity < 1) || (hasMask && node.mask.data);
 
-      // Apply node
-      const needsMaskBlend = hasMask && node.mask.data;
-      const needsOpacityBlend = node.opacity < 1;
-
-      if (needsMaskBlend || needsOpacityBlend) {
-        // Render node output into tmp buffer
+      if (needsBlend) {
         const tmp = pool.acquire(bufSize);
         node.apply(bufA, tmp, w, h, ctx);
 
-        // Blend: per-pixel effective opacity = scalar opacity * mask value
-        const maskData = needsMaskBlend ? node.mask.data : null;
+        const maskData = hasMask ? node.mask.data : null;
         const scalarOp = node.opacity;
 
         for (let i = 0; i < bufSize; i += 4) {
-          const pi = i >> 2; // pixel index
+          const pi = i >> 2;
           const maskVal = maskData ? maskData[pi] / 255 : 1;
           const op = scalarOp * maskVal;
           const inv = 1 - op;
@@ -149,16 +120,17 @@ export class Pipeline {
         node.apply(bufA, bufB, w, h, ctx);
       }
 
-      // Cache
+      // Cache this node's output
       if (!node._cache || node._cache.length !== bufSize) {
         node._cache = new Uint8ClampedArray(bufSize);
       }
       node._cache.set(bufB);
       node._cacheValid = true;
 
-      // Report progress
+      // Progress
       s.renderProgress = (ni + 1) / active.length;
 
+      // Swap: bufB becomes next node's input (bufA)
       [bufA, bufB] = [bufB, bufA];
     }
 
@@ -167,8 +139,6 @@ export class Pipeline {
     s.lastRenderTime = performance.now() - t0;
     s.rendering = false;
     s.needsRender = false;
-    this._lastW = w;
-    this._lastH = h;
 
     return { pixels: bufA, width: w, height: h, _pooled: true };
   }
@@ -177,7 +147,6 @@ export class Pipeline {
     if (result && result._pooled) pool.release(result.pixels);
   }
 
-  /** Build single-channel modulation maps at pipeline resolution. */
   _buildModMaps(w, h) {
     const s = this.s;
     const maps = {};
