@@ -154,6 +154,13 @@ body::after {
 .nc.dragging { opacity: 0.2; }
 .nc.dragover { background: var(--cell); }
 .nc.selected { border-left: 2px solid var(--indicator-on); }
+.nc.dragover-before { border-top: 2px solid var(--text-hi); }
+.nc.dragover-after { border-bottom: 2px solid var(--text-hi); }
+.nc.dragover-swap { background: var(--cell); outline: 1px solid var(--text-dim); }
+
+/* Drop zone after all nodes */
+.nc-dropafter { min-height: 40px; flex: 1; }
+.nc-dropafter.dragover-after { border-top: 2px solid var(--text-hi); background: rgba(255,255,255,0.02); }
 
 .nh {
   display: flex;
@@ -246,7 +253,8 @@ body::after {
 .pl {
   font-size: 10px;
   color: var(--text-dim);
-  width: 68px;
+  width: 60px;
+  min-width: 40px;
   flex-shrink: 0;
   text-transform: uppercase;
   overflow: hidden;
@@ -273,16 +281,19 @@ body::after {
 .ps::-webkit-slider-thumb:hover { background: var(--text-hi); }
 
 .pv {
-  width: 50px;
+  width: 40px;
+  min-width: 32px;
+  max-width: 50px;
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text-hi);
   font-family: var(--font);
   font-size: 10px;
-  padding: 0 4px;
+  padding: 0 2px;
   text-align: right;
   outline: none;
   height: 15px;
+  flex-shrink: 1;
 }
 .pv:focus { border-color: var(--text-dim); }
 
@@ -298,6 +309,7 @@ body::after {
   height: 15px;
 }
 .psel option { background: var(--bg); color: var(--text); }
+.psel { position: relative; z-index: 2; }
 
 /* ── Viewport ── */
 #vp {
@@ -307,97 +319,8 @@ body::after {
 }
 #vp canvas { display: block; }
 
-/* ── Reticle ── */
-#reticle {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 4;
-}
-
-.ret-hd, .ret-vd { position: absolute; }
-.ret-hd {
-  height: 1px;
-  top: 50%;
-  background: repeating-linear-gradient(
-    90deg, var(--text-vdim) 0, var(--text-vdim) 6px,
-    transparent 6px, transparent 12px
-  );
-}
-.ret-hd.left  { left: 0; right: 50%; margin-right: 40px; }
-.ret-hd.right { left: 50%; right: 0; margin-left: 40px; }
-.ret-vd {
-  width: 1px;
-  left: 50%;
-  background: repeating-linear-gradient(
-    0deg, var(--text-vdim) 0, var(--text-vdim) 6px,
-    transparent 6px, transparent 12px
-  );
-}
-.ret-vd.top { top: 0; bottom: 50%; margin-bottom: 40px; }
-.ret-vd.btm { top: 50%; bottom: 0; margin-top: 40px; }
-
-.ret-ring {
-  position: absolute;
-  border: 1px solid var(--text-vdim);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-.ret-ring.r1 { width: 40px; height: 40px; }
-.ret-ring.r2 { width: 80px; height: 80px; border-style: dashed; }
-.ret-ring.r3 { width: 140px; height: 140px; border-style: dotted; opacity: 0.4; }
-
-/* ── Axis labels & scale marks ── */
-.ax-lbl {
-  position: absolute;
-  font-size: 9px;
-  color: var(--text-dim);
-  pointer-events: none;
-  z-index: 5;
-}
-.ax-vx { top: 50%; left: 50%; margin-top: -50px; margin-left: 8px; }
-.ax-vy { top: 50%; left: 50%; margin-left: 50px; margin-top: 4px; }
-
-.scale-marks {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  font-size: 9px;
-  color: var(--text-dim);
-  pointer-events: none;
-  z-index: 5;
-}
-.scale-marks span { display: flex; align-items: center; gap: 4px; }
-.scale-marks .tick { width: 8px; height: 1px; background: var(--text-dim); }
-
-.ast {
-  position: absolute;
-  color: var(--text-dim);
-  font-size: 14px;
-  pointer-events: none;
-  z-index: 5;
-}
-
-/* ── Telemetry labels ── */
-.tl {
-  position: absolute;
-  font-size: 10px;
-  color: var(--text-dim);
-  pointer-events: none;
-  z-index: 5;
-  line-height: 1.6;
-}
-.tl .v { color: var(--text); }
-.tl-tl { top: 8px; left: 8px; }
-.tl-tr { top: 8px; right: 8px; text-align: right; }
-.tl-bl { bottom: 8px; left: 8px; }
-.tl-br { bottom: 8px; right: 8px; text-align: right; }
+/* ── Reticle removed (viewport is clean) ── */
+#reticle { display: none; }
 
 /* ── Status panel (right side of viewport) ── */
 #statpanel {

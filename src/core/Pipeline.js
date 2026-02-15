@@ -42,9 +42,17 @@ export class Pipeline {
     }
 
     // ── Active nodes ──
-    const active = s.soloNodeId !== null
-      ? s.stack.filter(n => n.id === s.soloNodeId && n.enabled)
-      : s.stack.filter(n => n.enabled);
+    // Solo = process all enabled nodes up to and including the solo'd node, skip after
+    let active;
+    if (s.soloNodeId !== null) {
+      active = [];
+      for (const n of s.stack) {
+        if (n.enabled) active.push(n);
+        if (n.id === s.soloNodeId) break;
+      }
+    } else {
+      active = s.stack.filter(n => n.enabled);
+    }
 
     // ── Modulation maps ──
     const modMaps = this._buildModMaps(w, h);
