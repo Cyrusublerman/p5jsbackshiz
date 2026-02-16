@@ -1,0 +1,22 @@
+{
+  "01_Edge_Gradient_Differential_Operators": 13,
+  "02_Image_Segmentation_Region_Extraction": 9,
+  "03_Raster_Vector_Conversion": 12,
+  "04_Sampling_Point_Distribution": 15,
+  "05_Space_Filling_Curves": 17,
+  "06_Polygon_Grid_Domain_Subdivision": 15,
+  "07_TSP_Based_Space_Filling": 7,
+  "08_Reaction_Diffusion_PDE": 16,
+  "09_Orientation_Fields_Flow": 3,
+  "10_Curve_Theory_Stroke_Geometry": 13,
+  "11_Optimisation_Numerical_Methods": 15,
+  "12_Triangulation_Meshing_Geometry": 6,
+  "13_Distance_Morphology_Topology": 9,
+  "15_Colour_Perceptual_Models": 8,
+  "16_Graphs_Connectivity_Pathfinding": 7,
+  "17_Noise_Functions": 3,
+  "18_Pattern_Generation": 1,
+  "19_Interference_Optics": 5,
+  "20_Physics_Simulation": 4,
+  "Point Distribution": 0
+}

@@ -1,0 +1,72 @@
+{
+  "toIntegrate/luminance-distortion.html": {
+    "VectorFieldMap": [
+      288,
+      290,
+      780
+    ],
+    "DisplacementMatrix": [
+      446,
+      448,
+      491
+    ],
+    "gradPush": [
+      335,
+      555
+    ],
+    "tangPush": [
+      336,
+      562
+    ],
+    "originVec": [
+      334,
+      548
+    ],
+    "sample\\(": [
+      321,
+      527,
+      635,
+      681,
+      710,
+      731
+    ],
+    "flow\\(": [
+      337,
+      569,
+      741
+    ],
+    "drawVF": [
+      727,
+      801
+    ],
+    "drawFlow": [
+      738,
+      802
+    ]
+  },
+  "toIntegrate/index (1).html": {
+    "lumAt": [
+      566,
+      722,
+      880,
+      941
+    ]
+  },
+  "src/nodes/line/LuminanceFlowNode.js": {
+    "VectorFieldMap": [
+      5,
+      11,
+      141
+    ],
+    "DisplacementMatrix": [
+      6
+    ],
+    "sample\\(": [
+      55,
+      175,
+      205
+    ]
+  },
+  "src/nodes/warp/FlowFieldNode.js": {},
+  "src/nodes/warp/AdvectionNode.js": {}
+}

@@ -1,0 +1,168 @@
+{
+  "COLOUR / TONE": {
+    "count": 16,
+    "types": [
+      "greyscale",
+      "levels",
+      "contrast",
+      "curves",
+      "hsladjust",
+      "channelmixer",
+      "colourbalance",
+      "temptint",
+      "vibrance",
+      "gradientmap",
+      "invert",
+      "quantise",
+      "posterize",
+      "dither",
+      "histogrameq",
+      "clahe"
+    ]
+  },
+  "BLUR": {
+    "count": 6,
+    "types": [
+      "boxblur",
+      "gaussblur",
+      "motionblur",
+      "radialblur",
+      "median",
+      "bilateral"
+    ]
+  },
+  "SHARPEN": {
+    "count": 2,
+    "types": [
+      "unsharpmask",
+      "highpass"
+    ]
+  },
+  "TRANSFORM": {
+    "count": 1,
+    "types": [
+      "affine"
+    ]
+  },
+  "WARP": {
+    "count": 3,
+    "types": [
+      "flowfield",
+      "bandshift",
+      "advection"
+    ]
+  },
+  "REFRACTION": {
+    "count": 2,
+    "types": [
+      "ripple",
+      "lensbubbles"
+    ]
+  },
+  "DISTORTION": {
+    "count": 5,
+    "types": [
+      "pixelate",
+      "polarcoords",
+      "spherize",
+      "twirl",
+      "chromaticab"
+    ]
+  },
+  "ACCUMULATION": {
+    "count": 1,
+    "types": [
+      "iterrewarp"
+    ]
+  },
+  "LINE RENDER": {
+    "count": 3,
+    "types": [
+      "lumflow",
+      "serpentine",
+      "statichalftone"
+    ]
+  },
+  "EDGE": {
+    "count": 4,
+    "types": [
+      "sobel",
+      "canny",
+      "laplacian",
+      "dog"
+    ]
+  },
+  "PATTERN": {
+    "count": 4,
+    "types": [
+      "truchet",
+      "grating",
+      "moire",
+      "halftonepattern"
+    ]
+  },
+  "NOISE": {
+    "count": 2,
+    "types": [
+      "perlinoverlay",
+      "domainwarp"
+    ]
+  },
+  "PHYSICS": {
+    "count": 3,
+    "types": [
+      "reactiondiffusion",
+      "wavedistortion",
+      "cellularautomata"
+    ]
+  },
+  "GENERATIVE": {
+    "count": 1,
+    "types": [
+      "paintstroke"
+    ]
+  },
+  "COMPOSITE": {
+    "count": 3,
+    "types": [
+      "tileblend",
+      "stipple",
+      "delaunaymesh"
+    ]
+  },
+  "TEXTURE": {
+    "count": 3,
+    "types": [
+      "filmgrain",
+      "vignette",
+      "scanlines"
+    ]
+  },
+  "MORPHOLOGY": {
+    "count": 2,
+    "types": [
+      "dilateerode",
+      "openclose"
+    ]
+  },
+  "SEGMENTATION": {
+    "count": 1,
+    "types": [
+      "otsuthreshold"
+    ]
+  },
+  "GEOMETRIC": {
+    "count": 3,
+    "types": [
+      "voronoi",
+      "contour",
+      "sdfshape"
+    ]
+  },
+  "OPTICS": {
+    "count": 1,
+    "types": [
+      "interference"
+    ]
+  }
+}

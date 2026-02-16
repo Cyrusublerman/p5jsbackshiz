@@ -1,0 +1,308 @@
+{
+  "toIntegrate/luminance-distortion.html": [
+    {
+      "line": 253,
+      "text": "class ParamManager {"
+    },
+    {
+      "line": 290,
+      "text": "class VectorFieldMap {"
+    },
+    {
+      "line": 321,
+      "text": "sample(x,y) {"
+    },
+    {
+      "line": 331,
+      "text": "class ForceSystem {"
+    },
+    {
+      "line": 334,
+      "text": "originVec(bx,by,ox,oy,lum,str){const vx=bx-ox,vy=by-oy,d=Math.sqrt(vx*vx+vy*vy);if(d<.01)return{fx:0,fy:0};const s=lum*str*30;return{fx:(vx/d)*s,fy:(vy/d)*s};}"
+    },
+    {
+      "line": 335,
+      "text": "gradPush(vf,str){return{fx:vf.cosA*vf.mag*str,fy:vf.sinA*vf.mag*str};}"
+    },
+    {
+      "line": 336,
+      "text": "tangPush(vf,str){return{fx:vf.tanCos*vf.mag*str,fy:vf.tanSin*vf.mag*str};}"
+    },
+    {
+      "line": 337,
+      "text": "flow(bx,by,t,ns,curl,str,lum){"
+    },
+    {
+      "line": 358,
+      "text": "class Steering {"
+    },
+    {
+      "line": 359,
+      "text": "static apply(fx,fy,vf,sg,st,emS,lS,maxM){"
+    },
+    {
+      "line": 393,
+      "text": "class OriginAnimator {"
+    },
+    {
+      "line": 407,
+      "text": "class ColorMapper{constructor(){this.p={mono:l=>[l*255,l*255,l*255],thermal:l=>[l*255,l*80,(1-l)*200],ocean:l=>[(1-l)*30,l*120+80,l*200+55],neon:l=>[l*255,(1-l)*255,180+l*75]};}get(l,n){return(this.p[n]||this.p.mono)(l);}}"
+    },
+    {
+      "line": 412,
+      "text": "class LineGenerator {"
+    },
+    {
+      "line": 448,
+      "text": "class DisplacementMatrix {"
+    },
+    {
+      "line": 488,
+      "text": "class Renderer {"
+    },
+    {
+      "line": 527,
+      "text": "const vf=this.vf.sample(bx,by);"
+    },
+    {
+      "line": 548,
+      "text": "v=fs.originVec(bx,by,origin.x,origin.y,lum,pm.g('originStr'));"
+    },
+    {
+      "line": 555,
+      "text": "v=fs.gradPush(vf,pm.g('gradStr'));"
+    },
+    {
+      "line": 562,
+      "text": "v=fs.tangPush(vf,pm.g('tangStr'));"
+    },
+    {
+      "line": 569,
+      "text": "v=fs.flow(bx,by,t,pm.g('flowNS'),pm.g('flowCurl'),pm.g('flowStr'),lum);"
+    },
+    {
+      "line": 635,
+      "text": "const midLum=Math.pow(this.vf.sample(mx,my).lum,lExp);"
+    },
+    {
+      "line": 681,
+      "text": "const vf=this.vf.sample(pts[i].x,pts[i].y);"
+    },
+    {
+      "line": 683,
+      "text": "const r=Steering.apply(fx,fy,vf,sg,st,emS,lS,this.vf.maxMag);"
+    },
+    {
+      "line": 710,
+      "text": "const lum=Math.pow(this.vf.sample(bx,by).lum,lExp);"
+    },
+    {
+      "line": 725,
+      "text": "class DebugOverlay {"
+    },
+    {
+      "line": 727,
+      "text": "drawVF(w,h){"
+    },
+    {
+      "line": 731,
+      "text": "const s=this.vf.sample(x,y),nm=s.mag/mx,len=nm*step*.8;"
+    },
+    {
+      "line": 738,
+      "text": "drawFlow(w,h,t,ns,curl){"
+    },
+    {
+      "line": 741,
+      "text": "const f=this.fs.flow(x,y,t,ns,curl,1,1);"
+    },
+    {
+      "line": 759,
+      "text": "function resizeTo(tw,th){cw=tw;ch=th;p.resizeCanvas(cw,ch);oa.recenter(cw/2,ch/2);}"
+    },
+    {
+      "line": 761,
+      "text": "function applyImage(img,scale){"
+    },
+    {
+      "line": 801,
+      "text": "if(pm.b('showVF'))dov.drawVF(cw,ch);"
+    },
+    {
+      "line": 802,
+      "text": "if(pm.b('showFlow'))dov.drawFlow(cw,ch,t,pm.g('flowNS'),pm.g('flowCurl'));"
+    },
+    {
+      "line": 808,
+      "text": "function loadImg(file){"
+    }
+  ],
+  "toIntegrate/index (1).html": [
+    {
+      "line": 524,
+      "text": "class LinePoint {"
+    },
+    {
+      "line": 537,
+      "text": "class LuminanceField {"
+    },
+    {
+      "line": 566,
+      "text": "lumAt(cx, cy) {"
+    },
+    {
+      "line": 579,
+      "text": "class FitMapper {"
+    },
+    {
+      "line": 609,
+      "text": "class DragModel {"
+    },
+    {
+      "line": 624,
+      "text": "class CurveUtil {"
+    },
+    {
+      "line": 625,
+      "text": "static apply(t, type, str) {"
+    },
+    {
+      "line": 638,
+      "text": "class Easing {"
+    },
+    {
+      "line": 639,
+      "text": "static apply(t, type) {"
+    },
+    {
+      "line": 652,
+      "text": "class TensionSolver {"
+    },
+    {
+      "line": 653,
+      "text": "static apply(points, tc) {"
+    },
+    {
+      "line": 691,
+      "text": "class FlowWaveFront {"
+    },
+    {
+      "line": 722,
+      "text": "let lum = lumField.lumAt(cx, cy);"
+    },
+    {
+      "line": 754,
+      "text": "class WaveFrontFlowEngine {"
+    },
+    {
+      "line": 860,
+      "text": "class ParallelStaticEngine {"
+    },
+    {
+      "line": 880,
+      "text": "let lum = lumField.lumAt(cx, cy);"
+    },
+    {
+      "line": 882,
+      "text": "const curved = CurveUtil.apply(1 - lum, sc.ampCurve, sc.ampCurveStrength);"
+    },
+    {
+      "line": 910,
+      "text": "class SerpentineEngine {"
+    },
+    {
+      "line": 941,
+      "text": "let lum = lumField.lumAt(p.x, p.y);"
+    },
+    {
+      "line": 959,
+      "text": "TensionSolver.apply(this.points, tensionCfg);"
+    },
+    {
+      "line": 969,
+      "text": "class Renderer {"
+    },
+    {
+      "line": 1010,
+      "text": "class SvgBuilder {"
+    },
+    {
+      "line": 1029,
+      "text": "class ExportManager {"
+    },
+    {
+      "line": 1091,
+      "text": "? Easing.apply(f / Math.max(1, totalF - 1), easing) : 1.0;"
+    },
+    {
+      "line": 1120,
+      "text": "class App {"
+    },
+    {
+      "line": 1236,
+      "text": "class UIController {"
+    },
+    {
+      "line": 1411,
+      "text": "function setup() {"
+    },
+    {
+      "line": 1493,
+      "text": "const prog = f < totalF ? Easing.apply(f / Math.max(1, totalF - 1), easing) : 1.0;"
+    },
+    {
+      "line": 1522,
+      "text": "function draw() { APP.draw(); }"
+    }
+  ],
+  "src/nodes/line/LuminanceFlowNode.js": [
+    {
+      "line": 11,
+      "text": "class VectorFieldMap {"
+    },
+    {
+      "line": 55,
+      "text": "sample(x, y) {"
+    },
+    {
+      "line": 64,
+      "text": "class LineGenerator {"
+    },
+    {
+      "line": 121,
+      "text": "export class LuminanceFlowNode extends EffectNode {"
+    },
+    {
+      "line": 136,
+      "text": "apply(src, dst, w, h, ctx) {"
+    },
+    {
+      "line": 175,
+      "text": "const s = vf.sample(bx, by);"
+    },
+    {
+      "line": 205,
+      "text": "const lum = Math.pow(vf.sample(bx, by).lum, p.lumExp);"
+    }
+  ],
+  "src/nodes/warp/FlowFieldNode.js": [
+    {
+      "line": 5,
+      "text": "export class FlowFieldNode extends EffectNode {"
+    },
+    {
+      "line": 18,
+      "text": "apply(s, d, w, h, ctx) {"
+    }
+  ],
+  "src/nodes/warp/AdvectionNode.js": [
+    {
+      "line": 5,
+      "text": "export class AdvectionNode extends EffectNode {"
+    },
+    {
+      "line": 15,
+      "text": "apply(s, d, w, h, ctx) {"
+    }
+  ]
+}

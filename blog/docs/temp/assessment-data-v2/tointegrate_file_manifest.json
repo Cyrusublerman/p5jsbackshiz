@@ -1,0 +1,326 @@
+[
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/LICENSE.txt",
+    "ext": ".txt",
+    "bytes": 1122,
+    "lines": 22,
+    "sha256": "d227301dbcad3de833e9ce104cc64fc34bbeb40286217347a3010dc7433e3202",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/README.md",
+    "ext": ".md",
+    "bytes": 149,
+    "lines": 7,
+    "sha256": "94d2a0eb472f882be34d00d320b73f70a73763047740cedf353348ed056e2821",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/dist/index.html",
+    "ext": ".html",
+    "bytes": 5590,
+    "lines": 123,
+    "sha256": "56f5430b29b01d95bfd9cef953717b1117af2c70f1700e2d8162d872faa6d941",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/dist/script.js",
+    "ext": ".js",
+    "bytes": 45713,
+    "lines": 712,
+    "sha256": "1e4503873c7aaffd1240439013a9617a7f6a205b0df9082e9c14da5af28aedfe",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/dist/style.css",
+    "ext": ".css",
+    "bytes": 5957,
+    "lines": 140,
+    "sha256": "ef8fff24ad672382309c1dd80dbda1eba83963da0fb41e4af29e27e710e30f67",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/src/index.html",
+    "ext": ".html",
+    "bytes": 5347,
+    "lines": 106,
+    "sha256": "a2d9dfd5f7629fa04812cbae6bd15a0d3892f15aad1c5399103ae0453200d058",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/src/script.js",
+    "ext": ".js",
+    "bytes": 45713,
+    "lines": 712,
+    "sha256": "1e4503873c7aaffd1240439013a9617a7f6a205b0df9082e9c14da5af28aedfe",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/colourquantiser/colourquantiser/src/style.css",
+    "ext": ".css",
+    "bytes": 5957,
+    "lines": 140,
+    "sha256": "ef8fff24ad672382309c1dd80dbda1eba83963da0fb41e4af29e27e710e30f67",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/distortion-pipeline.html",
+    "ext": ".html",
+    "bytes": 47227,
+    "lines": 373,
+    "sha256": "cd39981118bae391d228501b4ce14dddfe3cffe207d8aa4177c4d7dd8c10952d",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/index (1).html",
+    "ext": ".html",
+    "bytes": 61846,
+    "lines": 1526,
+    "sha256": "2fec503dbf3803caeb7a6e7533fd13676b1d003844611a1439c09ee77831c1f2",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/info.md",
+    "ext": ".md",
+    "bytes": 51,
+    "lines": 2,
+    "sha256": "f82522a8f89be5cccd497f1231584600305ceb88abde96a77132c24b16e06bde",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/lones/lones/LICENSE.txt",
+    "ext": ".txt",
+    "bytes": 1122,
+    "lines": 22,
+    "sha256": "debd84034a52d08a6363ea7e94638c9042de1d395837230578bd4c7daa281295",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/lones/lones/README.md",
+    "ext": ".md",
+    "bytes": 139,
+    "lines": 7,
+    "sha256": "a066c59d8d04192d5e1b2761721d42bf7e08b64742d52a692de3c80468e83e9f",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/lones/lones/dist/index.html",
+    "ext": ".html",
+    "bytes": 20147,
+    "lines": 472,
+    "sha256": "22e5cd5c40a39af48d67bf75646897e0ccecc41c8dce883c55ebac5aede55ce3",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/lones/lones/src/index.html",
+    "ext": ".html",
+    "bytes": 19993,
+    "lines": 456,
+    "sha256": "2c8bd314816f5a1235a9a98cdaa69e2b69ef363c85bd9e1c3a6c5fe58a47664d",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/luminance-distortion.html",
+    "ext": ".html",
+    "bytes": 41931,
+    "lines": 825,
+    "sha256": "1adfa0799d036ff633ccd85c2d58d9bb59fba761a24707fcd50ddc94f329a58b",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/LICENSE.txt",
+    "ext": ".txt",
+    "bytes": 1122,
+    "lines": 22,
+    "sha256": "73d0d7d74d7c63fcd1957acbefee8043325bbeb3c8c428d4f4d5f05c2a8b0e58",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/README.md",
+    "ext": ".md",
+    "bytes": 145,
+    "lines": 7,
+    "sha256": "d60479bd081be2796ba0672e0b7a1a9a756ce9728c88838af144ce966f8d3cb2",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/dist/index.html",
+    "ext": ".html",
+    "bytes": 2768,
+    "lines": 96,
+    "sha256": "e55ab38f1f76f3de343a20b9599af12074be3d9f9843173867944f65fd12501e",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/dist/script.js",
+    "ext": ".js",
+    "bytes": 7404,
+    "lines": 290,
+    "sha256": "49a4effba03c2629a6ddf9bc5e7aaf4bcb83328e20c73a3ce6f6f0bdfc98c9e5",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/dist/style.css",
+    "ext": ".css",
+    "bytes": 2878,
+    "lines": 181,
+    "sha256": "a45d846869f8e5536546173575834c0466766fd456e0bc429d5b85b0723b9390",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/src/index.html",
+    "ext": ".html",
+    "bytes": 2530,
+    "lines": 80,
+    "sha256": "b8c35f9792b4588f39abfb1cf8b7871ab68cce9ac010b802fd5fb3dd7d473731",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/src/script.js",
+    "ext": ".js",
+    "bytes": 7405,
+    "lines": 291,
+    "sha256": "eae076a15c05bb9666d2269e8d2c21086898fa885b5258a54b4412693301c0a7",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/paint-image/paint-image/src/style.css",
+    "ext": ".css",
+    "bytes": 2879,
+    "lines": 182,
+    "sha256": "d31b66276983915126f70bc45d2727e117f21b2eaf1513fdb920d0d6388fdc06",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/processing-export/processing-export/LICENSE.txt",
+    "ext": ".txt",
+    "bytes": 1122,
+    "lines": 22,
+    "sha256": "3a044d158824e93623291dc52fc24f43a98729d71ca74f247e468c60d443db80",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/processing-export/processing-export/README.md",
+    "ext": ".md",
+    "bytes": 151,
+    "lines": 7,
+    "sha256": "faca7ef8bb5c9cf53b540391b3e296e4f80dcba92378cffe36ba13ac73522e20",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/processing-export/processing-export/dist/index.html",
+    "ext": ".html",
+    "bytes": 18566,
+    "lines": 569,
+    "sha256": "f766b9511a28e44c73a384cec03edc70335b0451909309634d1ab35d8e70a735",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/processing-export/processing-export/src/index.html",
+    "ext": ".html",
+    "bytes": 18400,
+    "lines": 553,
+    "sha256": "a922aa6a717a03f71bd739143d38ee71303fd8b20f61807b4264e5a364ab65fe",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/LICENSE.txt",
+    "ext": ".txt",
+    "bytes": 1122,
+    "lines": 22,
+    "sha256": "2165783f6e105f91f40c4610e6eba2c053b1f3bf06776365734e06d6d2afd046",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/README.md",
+    "ext": ".md",
+    "bytes": 139,
+    "lines": 7,
+    "sha256": "a929ddd0dece207c8a6e34fe5c2edfff7fff471592dc1c57c8c3f0d1a3ac949e",
+    "is_dist": false,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/dist/index.html",
+    "ext": ".html",
+    "bytes": 5948,
+    "lines": 316,
+    "sha256": "8f4bdad3b645decc6576745c2fdd0a1957386c59e1b19baef94925e028fb8ab7",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/dist/script.js",
+    "ext": ".js",
+    "bytes": 15764,
+    "lines": 915,
+    "sha256": "2b95dc4545bdb8200d53cd4a6fc1fba705dde9692487dd51cf4ea46b339c1566",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/dist/style.css",
+    "ext": ".css",
+    "bytes": 7666,
+    "lines": 563,
+    "sha256": "cfe5c250e999043e2c4d161e2096f7c712c2f389054d3b3143d8c6084863f7df",
+    "is_dist": true,
+    "is_src": false
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/src/index.html",
+    "ext": ".html",
+    "bytes": 5716,
+    "lines": 300,
+    "sha256": "9978e6a388e99e7ab96cbfff4faae079d258d846df5307334bde78100582e917",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/src/script.js",
+    "ext": ".js",
+    "bytes": 15764,
+    "lines": 915,
+    "sha256": "2b95dc4545bdb8200d53cd4a6fc1fba705dde9692487dd51cf4ea46b339c1566",
+    "is_dist": false,
+    "is_src": true
+  },
+  {
+    "path": "toIntegrate/tile2/tile2/src/style.css",
+    "ext": ".css",
+    "bytes": 7666,
+    "lines": 563,
+    "sha256": "cfe5c250e999043e2c4d161e2096f7c712c2f389054d3b3143d8c6084863f7df",
+    "is_dist": false,
+    "is_src": true
+  }
+]

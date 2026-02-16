@@ -1,0 +1,777 @@
+{
+  "src/core/AppState.js": {
+    "classes": [
+      "AppState"
+    ],
+    "functions": [],
+    "exports": [
+      "AppState"
+    ]
+  },
+  "src/core/BufferPool.js": {
+    "classes": [
+      "BufferPool"
+    ],
+    "functions": [],
+    "exports": [
+      "BufferPool",
+      "pool"
+    ]
+  },
+  "src/core/ExpressionEval.js": {
+    "classes": [
+      "ExpressionEval"
+    ],
+    "functions": [],
+    "exports": [
+      "ExpressionEval"
+    ]
+  },
+  "src/core/GLPipeline.js": {
+    "classes": [
+      "GLPipeline"
+    ],
+    "functions": [],
+    "exports": [
+      "GLPipeline"
+    ]
+  },
+  "src/core/History.js": {
+    "classes": [
+      "History"
+    ],
+    "functions": [],
+    "exports": [
+      "History"
+    ]
+  },
+  "src/core/PerlinNoise.js": {
+    "classes": [
+      "PerlinNoise"
+    ],
+    "functions": [],
+    "exports": [
+      "PerlinNoise"
+    ]
+  },
+  "src/core/Pipeline.js": {
+    "classes": [
+      "Pipeline"
+    ],
+    "functions": [],
+    "exports": [
+      "Pipeline"
+    ]
+  },
+  "src/core/Recipe.js": {
+    "classes": [
+      "Recipe"
+    ],
+    "functions": [],
+    "exports": [
+      "Recipe"
+    ]
+  },
+  "src/core/RenderWorker.js": {
+    "classes": [],
+    "functions": [],
+    "exports": []
+  },
+  "src/core/Sampler.js": {
+    "classes": [
+      "Sampler"
+    ],
+    "functions": [],
+    "exports": [
+      "Sampler"
+    ]
+  },
+  "src/core/SeededRNG.js": {
+    "classes": [
+      "SeededRNG"
+    ],
+    "functions": [
+      "hashSeed"
+    ],
+    "exports": [
+      "SeededRNG",
+      "hashSeed"
+    ]
+  },
+  "src/core/WorkerBridge.js": {
+    "classes": [
+      "WorkerBridge"
+    ],
+    "functions": [],
+    "exports": [
+      "WorkerBridge"
+    ]
+  },
+  "src/main.js": {
+    "classes": [],
+    "functions": [
+      "handleResult"
+    ],
+    "exports": []
+  },
+  "src/nodes/EffectNode.js": {
+    "classes": [
+      "EffectNode"
+    ],
+    "functions": [],
+    "exports": [
+      "EffectNode"
+    ]
+  },
+  "src/nodes/accumulation/IterativeRewarpNode.js": {
+    "classes": [
+      "IterativeRewarpNode"
+    ],
+    "functions": [],
+    "exports": [
+      "IterativeRewarpNode"
+    ]
+  },
+  "src/nodes/blur/BilateralFilterNode.js": {
+    "classes": [
+      "BilateralFilterNode"
+    ],
+    "functions": [],
+    "exports": [
+      "BilateralFilterNode"
+    ]
+  },
+  "src/nodes/blur/BoxBlurNode.js": {
+    "classes": [
+      "BoxBlurNode"
+    ],
+    "functions": [],
+    "exports": [
+      "BoxBlurNode"
+    ]
+  },
+  "src/nodes/blur/GaussianBlurNode.js": {
+    "classes": [
+      "GaussianBlurNode"
+    ],
+    "functions": [],
+    "exports": [
+      "GaussianBlurNode"
+    ]
+  },
+  "src/nodes/blur/MedianFilterNode.js": {
+    "classes": [
+      "MedianFilterNode"
+    ],
+    "functions": [],
+    "exports": [
+      "MedianFilterNode"
+    ]
+  },
+  "src/nodes/blur/MotionBlurNode.js": {
+    "classes": [
+      "MotionBlurNode"
+    ],
+    "functions": [],
+    "exports": [
+      "MotionBlurNode"
+    ]
+  },
+  "src/nodes/blur/RadialBlurNode.js": {
+    "classes": [
+      "RadialBlurNode"
+    ],
+    "functions": [],
+    "exports": [
+      "RadialBlurNode"
+    ]
+  },
+  "src/nodes/colour/CLAHENode.js": {
+    "classes": [
+      "CLAHENode"
+    ],
+    "functions": [],
+    "exports": [
+      "CLAHENode"
+    ]
+  },
+  "src/nodes/colour/ChannelMixerNode.js": {
+    "classes": [
+      "ChannelMixerNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ChannelMixerNode"
+    ]
+  },
+  "src/nodes/colour/ColourBalanceNode.js": {
+    "classes": [
+      "ColourBalanceNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ColourBalanceNode"
+    ]
+  },
+  "src/nodes/colour/ContrastNode.js": {
+    "classes": [
+      "ContrastNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ContrastNode"
+    ]
+  },
+  "src/nodes/colour/CurvesNode.js": {
+    "classes": [
+      "CurvesNode"
+    ],
+    "functions": [],
+    "exports": [
+      "CurvesNode"
+    ]
+  },
+  "src/nodes/colour/DitherNode.js": {
+    "classes": [
+      "DitherNode"
+    ],
+    "functions": [
+      "clamp"
+    ],
+    "exports": [
+      "DitherNode"
+    ]
+  },
+  "src/nodes/colour/GradientMapNode.js": {
+    "classes": [
+      "GradientMapNode"
+    ],
+    "functions": [],
+    "exports": [
+      "GradientMapNode"
+    ]
+  },
+  "src/nodes/colour/GreyscaleNode.js": {
+    "classes": [
+      "GreyscaleNode"
+    ],
+    "functions": [],
+    "exports": [
+      "GreyscaleNode"
+    ]
+  },
+  "src/nodes/colour/HSLAdjustNode.js": {
+    "classes": [
+      "HSLAdjustNode"
+    ],
+    "functions": [],
+    "exports": [
+      "HSLAdjustNode"
+    ]
+  },
+  "src/nodes/colour/HistogramEQNode.js": {
+    "classes": [
+      "HistogramEQNode"
+    ],
+    "functions": [],
+    "exports": [
+      "HistogramEQNode"
+    ]
+  },
+  "src/nodes/colour/InvertNode.js": {
+    "classes": [
+      "InvertNode"
+    ],
+    "functions": [],
+    "exports": [
+      "InvertNode"
+    ]
+  },
+  "src/nodes/colour/LevelsNode.js": {
+    "classes": [
+      "LevelsNode"
+    ],
+    "functions": [],
+    "exports": [
+      "LevelsNode"
+    ]
+  },
+  "src/nodes/colour/PosterizeNode.js": {
+    "classes": [
+      "PosterizeNode"
+    ],
+    "functions": [],
+    "exports": [
+      "PosterizeNode"
+    ]
+  },
+  "src/nodes/colour/QuantiseNode.js": {
+    "classes": [
+      "QuantiseNode"
+    ],
+    "functions": [
+      "hexToRgb"
+    ],
+    "exports": [
+      "QuantiseNode"
+    ]
+  },
+  "src/nodes/colour/TemperatureTintNode.js": {
+    "classes": [
+      "TemperatureTintNode"
+    ],
+    "functions": [],
+    "exports": [
+      "TemperatureTintNode"
+    ]
+  },
+  "src/nodes/colour/VibranceNode.js": {
+    "classes": [
+      "VibranceNode"
+    ],
+    "functions": [],
+    "exports": [
+      "VibranceNode"
+    ]
+  },
+  "src/nodes/composite/DelaunayMeshNode.js": {
+    "classes": [
+      "DelaunayMeshNode"
+    ],
+    "functions": [],
+    "exports": [
+      "DelaunayMeshNode"
+    ]
+  },
+  "src/nodes/composite/StippleNode.js": {
+    "classes": [
+      "StippleNode"
+    ],
+    "functions": [],
+    "exports": [
+      "StippleNode"
+    ]
+  },
+  "src/nodes/composite/TileBlendNode.js": {
+    "classes": [
+      "TileBlendNode"
+    ],
+    "functions": [],
+    "exports": [
+      "TileBlendNode"
+    ]
+  },
+  "src/nodes/distortion/ChromaticAbNode.js": {
+    "classes": [
+      "ChromaticAbNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ChromaticAbNode"
+    ]
+  },
+  "src/nodes/distortion/PixelateNode.js": {
+    "classes": [
+      "PixelateNode"
+    ],
+    "functions": [],
+    "exports": [
+      "PixelateNode"
+    ]
+  },
+  "src/nodes/distortion/PolarCoordsNode.js": {
+    "classes": [
+      "PolarCoordsNode"
+    ],
+    "functions": [],
+    "exports": [
+      "PolarCoordsNode"
+    ]
+  },
+  "src/nodes/distortion/SpherizeNode.js": {
+    "classes": [
+      "SpherizeNode"
+    ],
+    "functions": [],
+    "exports": [
+      "SpherizeNode"
+    ]
+  },
+  "src/nodes/distortion/TwirlNode.js": {
+    "classes": [
+      "TwirlNode"
+    ],
+    "functions": [],
+    "exports": [
+      "TwirlNode"
+    ]
+  },
+  "src/nodes/edge/CannyNode.js": {
+    "classes": [
+      "CannyNode"
+    ],
+    "functions": [],
+    "exports": [
+      "CannyNode"
+    ]
+  },
+  "src/nodes/edge/DoGNode.js": {
+    "classes": [
+      "DoGNode"
+    ],
+    "functions": [],
+    "exports": [
+      "DoGNode"
+    ]
+  },
+  "src/nodes/edge/LaplacianNode.js": {
+    "classes": [
+      "LaplacianNode"
+    ],
+    "functions": [],
+    "exports": [
+      "LaplacianNode"
+    ]
+  },
+  "src/nodes/edge/SobelNode.js": {
+    "classes": [
+      "SobelNode"
+    ],
+    "functions": [],
+    "exports": [
+      "SobelNode"
+    ]
+  },
+  "src/nodes/generative/PaintStrokeNode.js": {
+    "classes": [
+      "PaintStrokeNode"
+    ],
+    "functions": [],
+    "exports": [
+      "PaintStrokeNode"
+    ]
+  },
+  "src/nodes/geometric/ContourNode.js": {
+    "classes": [
+      "ContourNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ContourNode"
+    ]
+  },
+  "src/nodes/geometric/SDFShapeNode.js": {
+    "classes": [
+      "SDFShapeNode"
+    ],
+    "functions": [],
+    "exports": [
+      "SDFShapeNode"
+    ]
+  },
+  "src/nodes/geometric/VoronoiNode.js": {
+    "classes": [
+      "VoronoiNode"
+    ],
+    "functions": [],
+    "exports": [
+      "VoronoiNode"
+    ]
+  },
+  "src/nodes/line/LuminanceFlowNode.js": {
+    "classes": [
+      "LineGenerator",
+      "LuminanceFlowNode",
+      "VectorFieldMap"
+    ],
+    "functions": [],
+    "exports": [
+      "LuminanceFlowNode"
+    ]
+  },
+  "src/nodes/line/SerpentineNode.js": {
+    "classes": [
+      "SerpentineNode"
+    ],
+    "functions": [
+      "buildLumField",
+      "calcDrag",
+      "lumAt"
+    ],
+    "exports": [
+      "SerpentineNode"
+    ]
+  },
+  "src/nodes/line/StaticHalftoneNode.js": {
+    "classes": [
+      "StaticHalftoneNode"
+    ],
+    "functions": [
+      "applyCurve"
+    ],
+    "exports": [
+      "StaticHalftoneNode"
+    ]
+  },
+  "src/nodes/morphology/DilateErodeNode.js": {
+    "classes": [
+      "DilateErodeNode"
+    ],
+    "functions": [],
+    "exports": [
+      "DilateErodeNode"
+    ]
+  },
+  "src/nodes/morphology/OpenCloseNode.js": {
+    "classes": [
+      "OpenCloseNode"
+    ],
+    "functions": [],
+    "exports": [
+      "OpenCloseNode"
+    ]
+  },
+  "src/nodes/noise/DomainWarpNode.js": {
+    "classes": [
+      "DomainWarpNode"
+    ],
+    "functions": [],
+    "exports": [
+      "DomainWarpNode"
+    ]
+  },
+  "src/nodes/noise/PerlinOverlayNode.js": {
+    "classes": [
+      "PerlinOverlayNode"
+    ],
+    "functions": [],
+    "exports": [
+      "PerlinOverlayNode"
+    ]
+  },
+  "src/nodes/optics/InterferenceNode.js": {
+    "classes": [
+      "InterferenceNode"
+    ],
+    "functions": [],
+    "exports": [
+      "InterferenceNode"
+    ]
+  },
+  "src/nodes/pattern/GratingNode.js": {
+    "classes": [
+      "GratingNode"
+    ],
+    "functions": [],
+    "exports": [
+      "GratingNode"
+    ]
+  },
+  "src/nodes/pattern/HalftonePatternNode.js": {
+    "classes": [
+      "HalftonePatternNode"
+    ],
+    "functions": [],
+    "exports": [
+      "HalftonePatternNode"
+    ]
+  },
+  "src/nodes/pattern/MoireNode.js": {
+    "classes": [
+      "MoireNode"
+    ],
+    "functions": [],
+    "exports": [
+      "MoireNode"
+    ]
+  },
+  "src/nodes/pattern/TruchetNode.js": {
+    "classes": [
+      "TruchetNode"
+    ],
+    "functions": [],
+    "exports": [
+      "TruchetNode"
+    ]
+  },
+  "src/nodes/physics/CellularAutomataNode.js": {
+    "classes": [
+      "CellularAutomataNode"
+    ],
+    "functions": [],
+    "exports": [
+      "CellularAutomataNode"
+    ]
+  },
+  "src/nodes/physics/ReactionDiffusionNode.js": {
+    "classes": [
+      "ReactionDiffusionNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ReactionDiffusionNode"
+    ]
+  },
+  "src/nodes/physics/WaveDistortionNode.js": {
+    "classes": [
+      "WaveDistortionNode"
+    ],
+    "functions": [],
+    "exports": [
+      "WaveDistortionNode"
+    ]
+  },
+  "src/nodes/refraction/LensBubblesNode.js": {
+    "classes": [
+      "LensBubblesNode"
+    ],
+    "functions": [],
+    "exports": [
+      "LensBubblesNode"
+    ]
+  },
+  "src/nodes/refraction/RadialRippleNode.js": {
+    "classes": [
+      "RadialRippleNode"
+    ],
+    "functions": [],
+    "exports": [
+      "RadialRippleNode"
+    ]
+  },
+  "src/nodes/registry.js": {
+    "classes": [],
+    "functions": [],
+    "exports": [
+      "PRESETS",
+      "REGISTRY"
+    ]
+  },
+  "src/nodes/segmentation/OtsuThresholdNode.js": {
+    "classes": [
+      "OtsuThresholdNode",
+      "variance"
+    ],
+    "functions": [],
+    "exports": [
+      "OtsuThresholdNode"
+    ]
+  },
+  "src/nodes/sharpen/HighPassNode.js": {
+    "classes": [
+      "HighPassNode"
+    ],
+    "functions": [],
+    "exports": [
+      "HighPassNode"
+    ]
+  },
+  "src/nodes/sharpen/UnsharpMaskNode.js": {
+    "classes": [
+      "UnsharpMaskNode"
+    ],
+    "functions": [],
+    "exports": [
+      "UnsharpMaskNode"
+    ]
+  },
+  "src/nodes/texture/FilmGrainNode.js": {
+    "classes": [
+      "FilmGrainNode"
+    ],
+    "functions": [],
+    "exports": [
+      "FilmGrainNode"
+    ]
+  },
+  "src/nodes/texture/ScanlinesNode.js": {
+    "classes": [
+      "ScanlinesNode"
+    ],
+    "functions": [],
+    "exports": [
+      "ScanlinesNode"
+    ]
+  },
+  "src/nodes/texture/VignetteNode.js": {
+    "classes": [
+      "VignetteNode"
+    ],
+    "functions": [],
+    "exports": [
+      "VignetteNode"
+    ]
+  },
+  "src/nodes/transform/AffineTransformNode.js": {
+    "classes": [
+      "AffineTransformNode"
+    ],
+    "functions": [],
+    "exports": [
+      "AffineTransformNode"
+    ]
+  },
+  "src/nodes/warp/AdvectionNode.js": {
+    "classes": [
+      "AdvectionNode"
+    ],
+    "functions": [],
+    "exports": [
+      "AdvectionNode"
+    ]
+  },
+  "src/nodes/warp/BandShiftNode.js": {
+    "classes": [
+      "BandShiftNode"
+    ],
+    "functions": [],
+    "exports": [
+      "BandShiftNode"
+    ]
+  },
+  "src/nodes/warp/FlowFieldNode.js": {
+    "classes": [
+      "FlowFieldNode"
+    ],
+    "functions": [],
+    "exports": [
+      "FlowFieldNode"
+    ]
+  },
+  "src/render/ViewportRenderer.js": {
+    "classes": [
+      "ViewportRenderer"
+    ],
+    "functions": [],
+    "exports": [
+      "ViewportRenderer"
+    ]
+  },
+  "src/ui/Reticle.js": {
+    "classes": [
+      "Reticle"
+    ],
+    "functions": [],
+    "exports": [
+      "Reticle"
+    ]
+  },
+  "src/ui/StatusPanel.js": {
+    "classes": [
+      "StatusPanel"
+    ],
+    "functions": [],
+    "exports": [
+      "StatusPanel"
+    ]
+  },
+  "src/ui/UI.js": {
+    "classes": [
+      "UI"
+    ],
+    "functions": [],
+    "exports": [
+      "UI"
+    ]
+  }
+}
