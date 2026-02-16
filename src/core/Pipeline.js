@@ -1,6 +1,7 @@
 import { Sampler } from './Sampler.js';
 import { hashSeed } from './SeededRNG.js';
 import { pool } from './BufferPool.js';
+import { vectorToRaster } from '../modules/bridge/node-adapters.js';
 
 /**
  * Pipeline — strictly sequential render loop.
@@ -125,7 +126,20 @@ export class Pipeline {
         }
         pool.release(tmp);
       } else {
-        node.apply(bufA, bufB, w, h, ctx);
+        if (typeof node.applyVector === 'function') {
+          const lineSet = node.applyVector(bufA, w, h, ctx);
+          const adapted = vectorToRaster({
+            basePixels: bufA,
+            width: w,
+            height: h,
+            lines: lineSet?.lines || [],
+            opacity: node.opacity,
+            mask: hasMask ? node.mask.data : null
+          });
+          bufB.set(adapted);
+        } else {
+          node.apply(bufA, bufB, w, h, ctx);
+        }
       }
 
       // Cache this node's output
