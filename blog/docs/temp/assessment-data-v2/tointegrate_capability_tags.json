@@ -1,0 +1,182 @@
+{
+  "toIntegrate/colourquantiser/colourquantiser/dist/index.html": {
+    "palette_quant": [
+      "palette",
+      "dither"
+    ],
+    "record_export": [
+      "download"
+    ]
+  },
+  "toIntegrate/colourquantiser/colourquantiser/dist/script.js": {
+    "line_engine": [
+      "path"
+    ],
+    "palette_quant": [
+      "deltaE",
+      "rgbToLab",
+      "palette",
+      "dither",
+      "quant"
+    ],
+    "gl_shader": [
+      "texture"
+    ],
+    "record_export": [
+      "download"
+    ]
+  },
+  "toIntegrate/colourquantiser/colourquantiser/src/index.html": {
+    "palette_quant": [
+      "palette",
+      "dither"
+    ],
+    "record_export": [
+      "download"
+    ]
+  },
+  "toIntegrate/colourquantiser/colourquantiser/src/script.js": {
+    "line_engine": [
+      "path"
+    ],
+    "palette_quant": [
+      "deltaE",
+      "rgbToLab",
+      "palette",
+      "dither",
+      "quant"
+    ],
+    "gl_shader": [
+      "texture"
+    ],
+    "record_export": [
+      "download"
+    ]
+  },
+  "toIntegrate/distortion-pipeline.html": {
+    "vector_field": [
+      "sample("
+    ],
+    "displacement": [
+      "warp"
+    ],
+    "record_export": [
+      "download",
+      "export"
+    ]
+  },
+  "toIntegrate/index (1).html": {
+    "vector_field": [
+      "lumAt"
+    ],
+    "displacement": [
+      "displace"
+    ],
+    "line_engine": [
+      "SerpentineEngine",
+      "WaveFrontFlowEngine",
+      "path"
+    ],
+    "record_export": [
+      "MediaRecorder",
+      "webm",
+      "download",
+      "export"
+    ]
+  },
+  "toIntegrate/lones/lones/dist/index.html": {},
+  "toIntegrate/lones/lones/src/index.html": {},
+  "toIntegrate/luminance-distortion.html": {
+    "vector_field": [
+      "VectorFieldMap",
+      "gradPush",
+      "tangPush",
+      "originVec",
+      "flow(",
+      "sample("
+    ],
+    "displacement": [
+      "DisplacementMatrix",
+      "displace"
+    ],
+    "line_engine": [
+      "LineGenerator"
+    ],
+    "palette_quant": [
+      "palette"
+    ]
+  },
+  "toIntegrate/paint-image/paint-image/dist/index.html": {
+    "palette_quant": [
+      "palette"
+    ]
+  },
+  "toIntegrate/paint-image/paint-image/dist/script.js": {
+    "palette_quant": [
+      "palette"
+    ]
+  },
+  "toIntegrate/paint-image/paint-image/src/index.html": {
+    "palette_quant": [
+      "palette"
+    ]
+  },
+  "toIntegrate/paint-image/paint-image/src/script.js": {
+    "palette_quant": [
+      "palette"
+    ]
+  },
+  "toIntegrate/processing-export/processing-export/dist/index.html": {
+    "record_export": [
+      "GIF",
+      "download",
+      "export"
+    ]
+  },
+  "toIntegrate/processing-export/processing-export/src/index.html": {
+    "record_export": [
+      "GIF",
+      "download"
+    ]
+  },
+  "toIntegrate/tile2/tile2/dist/index.html": {},
+  "toIntegrate/tile2/tile2/dist/script.js": {
+    "gl_shader": [
+      "WebGL",
+      "createProgram",
+      "compile",
+      "uniform",
+      "texture",
+      "initGL"
+    ],
+    "worker": [
+      "Worker",
+      "postMessage",
+      "onmessage",
+      "createWorker"
+    ],
+    "record_export": [
+      "GIF"
+    ]
+  },
+  "toIntegrate/tile2/tile2/src/index.html": {},
+  "toIntegrate/tile2/tile2/src/script.js": {
+    "gl_shader": [
+      "WebGL",
+      "createProgram",
+      "compile",
+      "uniform",
+      "texture",
+      "initGL"
+    ],
+    "worker": [
+      "Worker",
+      "postMessage",
+      "onmessage",
+      "createWorker"
+    ],
+    "record_export": [
+      "GIF"
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+[
+  {
+    "tool": "colourquantiser/colourquantiser",
+    "pairs": [
+      {
+        "file": "index.html",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      },
+      {
+        "file": "script.js",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": true
+      },
+      {
+        "file": "style.css",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": true
+      }
+    ]
+  },
+  {
+    "tool": "paint-image/paint-image",
+    "pairs": [
+      {
+        "file": "index.html",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      },
+      {
+        "file": "script.js",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      },
+      {
+        "file": "style.css",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      }
+    ]
+  },
+  {
+    "tool": "tile2/tile2",
+    "pairs": [
+      {
+        "file": "index.html",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      },
+      {
+        "file": "script.js",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": true
+      },
+      {
+        "file": "style.css",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": true
+      }
+    ]
+  },
+  {
+    "tool": "processing-export/processing-export",
+    "pairs": [
+      {
+        "file": "index.html",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      }
+    ]
+  },
+  {
+    "tool": "lones/lones",
+    "pairs": [
+      {
+        "file": "index.html",
+        "src_exists": true,
+        "dist_exists": true,
+        "identical": false
+      }
+    ]
+  }
+]
