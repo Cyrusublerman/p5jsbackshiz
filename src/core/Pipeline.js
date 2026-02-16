@@ -1,6 +1,7 @@
 import { Sampler } from './Sampler.js';
 import { hashSeed } from './SeededRNG.js';
 import { pool } from './BufferPool.js';
+import { vectorToRaster } from '../modules/bridge/node-adapters.js';
 
 /**
  * Pipeline — strictly sequential render loop.
@@ -108,7 +109,7 @@ export class Pipeline {
 
       if (needsBlend) {
         const tmp = pool.acquire(bufSize);
-        node.apply(bufA, tmp, w, h, ctx);
+        this._runNode(node, bufA, tmp, w, h, ctx, hasMask);
 
         const maskData = hasMask ? node.mask.data : null;
         const scalarOp = node.opacity;
@@ -125,7 +126,7 @@ export class Pipeline {
         }
         pool.release(tmp);
       } else {
-        node.apply(bufA, bufB, w, h, ctx);
+        this._runNode(node, bufA, bufB, w, h, ctx, hasMask);
       }
 
       // Cache this node's output
@@ -185,6 +186,23 @@ export class Pipeline {
         dst[i] = c[0]; dst[i + 1] = c[1]; dst[i + 2] = c[2]; dst[i + 3] = c[3];
       }
     }
+  }
+
+  _runNode(node, input, output, w, h, ctx, hasMask) {
+    if (typeof node.applyVector === 'function') {
+      const lineSet = node.applyVector(input, w, h, ctx);
+      const adapted = vectorToRaster({
+        basePixels: input,
+        width: w,
+        height: h,
+        lines: lineSet?.lines || [],
+        opacity: node.opacity,
+        mask: hasMask ? node.mask.data : null
+      });
+      output.set(adapted);
+      return;
+    }
+    node.apply(input, output, w, h, ctx);
   }
 
   renderFinal() {

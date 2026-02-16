@@ -416,6 +416,9 @@ body::after {
   z-index: 200;
   display: none;
   min-width: 210px;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
 }
 #amenu.show { display: block; }
@@ -458,6 +461,9 @@ body::after {
 
 /* ── Add-menu search ── */
 #amenu-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   width: calc(100% - 16px);
   margin: 4px 8px;
   background: var(--bg);
