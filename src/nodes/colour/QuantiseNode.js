@@ -1,8 +1,10 @@
 import { EffectNode } from '../EffectNode.js';
+import { quantizeImage } from '../../modules/color/palette-quantizer.js';
 
 /**
  * QuantiseNode — palette-based colour quantisation.
- * Nearest-colour in RGB space. Predefined + custom palettes.
+ * Compatibility mode keeps legacy RGB-nearest behavior by default.
+ * Module mode enables LAB/DeltaE quantization + optional dithering.
  */
 
 const PALETTES = {
@@ -27,10 +29,32 @@ function hexToRgb(hex) {
   ];
 }
 
+function legacyRgbNearest(src, dst, rgbPal) {
+  for (let i = 0; i < src.length; i += 4) {
+    const r = src[i], g = src[i + 1], b = src[i + 2];
+    let bestDist = Infinity;
+    let bestIdx = 0;
+    for (let j = 0; j < rgbPal.length; j++) {
+      const pr = rgbPal[j][0], pg = rgbPal[j][1], pb = rgbPal[j][2];
+      const d = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = j;
+      }
+    }
+    dst[i] = rgbPal[bestIdx][0];
+    dst[i + 1] = rgbPal[bestIdx][1];
+    dst[i + 2] = rgbPal[bestIdx][2];
+    dst[i + 3] = src[i + 3];
+  }
+}
+
 export class QuantiseNode extends EffectNode {
   constructor() {
     super('quantise', 'QUANTISE', {
-      palette: { value: '1-bit', options: Object.keys(PALETTES), label: 'PALETTE', type: 'select' }
+      palette: { value: '1-bit', options: Object.keys(PALETTES), label: 'PALETTE', type: 'select' },
+      engine: { value: 'legacy-rgb', options: ['legacy-rgb', 'module-lab'], label: 'ENGINE', type: 'select' },
+      dither: { value: false, label: 'DITHER', type: 'toggle' }
     });
   }
 
@@ -38,20 +62,13 @@ export class QuantiseNode extends EffectNode {
     const palName = this.params.palette;
     const hexPal = PALETTES[palName] || PALETTES['1-bit'];
     const rgbPal = hexPal.map(hexToRgb);
-    const n = w * h * 4;
 
-    for (let i = 0; i < n; i += 4) {
-      const r = src[i], g = src[i + 1], b = src[i + 2];
-      let bestDist = Infinity, bestIdx = 0;
-      for (let j = 0; j < rgbPal.length; j++) {
-        const pr = rgbPal[j][0], pg = rgbPal[j][1], pb = rgbPal[j][2];
-        const d = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
-        if (d < bestDist) { bestDist = d; bestIdx = j; }
-      }
-      dst[i] = rgbPal[bestIdx][0];
-      dst[i + 1] = rgbPal[bestIdx][1];
-      dst[i + 2] = rgbPal[bestIdx][2];
-      dst[i + 3] = src[i + 3];
+    if (this.params.engine === 'module-lab') {
+      const out = quantizeImage(src, w, h, rgbPal, { dither: Boolean(this.params.dither) });
+      dst.set(out);
+      return;
     }
+
+    legacyRgbNearest(src, dst, rgbPal);
   }
 }

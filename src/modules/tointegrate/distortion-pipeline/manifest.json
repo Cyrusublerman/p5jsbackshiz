@@ -1,0 +1,22 @@
+{
+  "tool": "distortion-pipeline",
+  "source": "toIntegrate/distortion-pipeline.html",
+  "sourceCandidates": [
+    "toIntegrate/distortion-pipeline.html",
+    "toIntegrate/distortion-pipeline (2).html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "regex-only",
+  "regexFunctionCount": 5,
+  "llmFunctionCount": 0,
+  "llmCapabilities": [],
+  "llmNotes": "",
+  "functionCount": 5,
+  "functions": [
+    "hashSeed",
+    "queueRender",
+    "u",
+    "fk",
+    "sketch"
+  ]
+}

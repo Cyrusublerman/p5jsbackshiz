@@ -1,0 +1,21 @@
+{
+  "tool": "paint-image",
+  "source": "toIntegrate/paint-image/paint-image/src/script.js",
+  "sourceCandidates": [
+    "toIntegrate/paint-image/paint-image/src/script.js",
+    "toIntegrate/paint-image/paint-image/src/index (2).html",
+    "toIntegrate/paint-image/paint-image/src/index.html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "regex-only",
+  "regexFunctionCount": 3,
+  "llmFunctionCount": 0,
+  "llmCapabilities": [],
+  "llmNotes": "",
+  "functionCount": 3,
+  "functions": [
+    "setup",
+    "draw",
+    "handleFileDrop"
+  ]
+}

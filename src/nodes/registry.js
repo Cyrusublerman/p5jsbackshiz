@@ -54,6 +54,9 @@ import { IterativeRewarpNode } from './accumulation/IterativeRewarpNode.js';
 import { LuminanceFlowNode } from './line/LuminanceFlowNode.js';
 import { SerpentineNode } from './line/SerpentineNode.js';
 import { StaticHalftoneNode } from './line/StaticHalftoneNode.js';
+import { ModuleFlowLinesNode } from './line/ModuleFlowLinesNode.js';
+import { ModuleSerpentineNode } from './line/ModuleSerpentineNode.js';
+import { ModuleStaticLinesNode } from './line/ModuleStaticLinesNode.js';
 
 // ── Generative ──
 import { PaintStrokeNode } from './generative/PaintStrokeNode.js';
@@ -161,6 +164,11 @@ export const REGISTRY = {
     { type: 'lumflow',        label: 'LUMINANCE FLOW',  factory: () => new LuminanceFlowNode() },
     { type: 'serpentine',     label: 'SERPENTINE',       factory: () => new SerpentineNode() },
     { type: 'statichalftone', label: 'STATIC HALFTONE', factory: () => new StaticHalftoneNode() }
+  ],
+  'LINE RENDER (MODULE)': [
+    { type: 'moduleflowlines',   label: 'MODULE FLOW LINES',   factory: () => new ModuleFlowLinesNode() },
+    { type: 'moduleserpentine',  label: 'MODULE SERPENTINE',   factory: () => new ModuleSerpentineNode() },
+    { type: 'modulestaticlines', label: 'MODULE STATIC LINES', factory: () => new ModuleStaticLinesNode() }
   ],
   'EDGE': [
     { type: 'sobel',     label: 'SOBEL EDGE',      factory: () => new SobelNode() },

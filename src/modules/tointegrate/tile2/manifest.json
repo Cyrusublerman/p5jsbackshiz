@@ -1,0 +1,41 @@
+{
+  "tool": "tile2",
+  "source": "toIntegrate/tile2/tile2/src/script.js",
+  "sourceCandidates": [
+    "toIntegrate/tile2/tile2/src/script.js",
+    "toIntegrate/tile2/tile2/src/index (2).html",
+    "toIntegrate/tile2/tile2/src/index.html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "regex-only",
+  "regexFunctionCount": 23,
+  "llmFunctionCount": 0,
+  "llmCapabilities": [],
+  "llmNotes": "",
+  "functionCount": 23,
+  "functions": [
+    "buildWorkerSource",
+    "compile",
+    "createProgram",
+    "getUniformLocations",
+    "initGL",
+    "init2D",
+    "setViewport",
+    "createTextureFromSource",
+    "resampleBitmap",
+    "render",
+    "createWorker",
+    "initAnimationEngine",
+    "_toBitmap",
+    "loadImagesFromUrls",
+    "_tick",
+    "play",
+    "pause",
+    "setFps",
+    "setParams",
+    "setZoom",
+    "main",
+    "pushParams",
+    "pushZoom"
+  ]
+}

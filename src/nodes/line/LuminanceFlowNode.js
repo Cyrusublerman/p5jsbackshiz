@@ -1,4 +1,5 @@
 import { EffectNode } from '../EffectNode.js';
+import { vectorToRaster } from '../../modules/bridge/node-adapters.js';
 
 /**
  * LuminanceFlowNode — renders line-displaced output to pixel buffer.
@@ -182,39 +183,32 @@ export class LuminanceFlowNode extends EffectNode {
       }
     }
 
-    // Render to offscreen canvas (cached)
-    if (!this._oc || this._ocW !== w || this._ocH !== h) {
-      this._oc = new OffscreenCanvas(w, h);
-      this._ocCtx = this._oc.getContext('2d');
-      this._ocW = w; this._ocH = h;
-    }
-    const oc = this._oc;
-    const c = this._ocCtx;
-    c.fillStyle = `rgb(${p.bgBrightness},${p.bgBrightness},${p.bgBrightness})`;
-    c.fillRect(0, 0, w, h);
-    c.strokeStyle = 'rgba(255,255,255,0.8)';
-    c.lineWidth = p.strokeWeight;
-
+    const rasterLines = [];
     for (let l = 0; l < lines.length; l++) {
       const pts = lines[l].pts;
-      c.beginPath();
+      const line = [];
       for (let pi = 0; pi < nPts[l]; pi++) {
         const i = pi * res;
         if (i >= pts.length) break;
-        const bx = pts[i].x, by = pts[i].y;
-        const lum = Math.pow(vf.sample(bx, by).lum, p.lumExp);
-        const alpha = 50 + lum * 200;
-        c.strokeStyle = `rgba(255,255,255,${(alpha / 255).toFixed(3)})`;
-        const dx = bx + dmData[l][pi * 2];
-        const dy = by + dmData[l][pi * 2 + 1];
-        if (pi === 0) c.moveTo(dx, dy);
-        else c.lineTo(dx, dy);
+        const bx = pts[i].x;
+        const by = pts[i].y;
+        line.push({
+          x: bx + dmData[l][pi * 2],
+          y: by + dmData[l][pi * 2 + 1]
+        });
       }
-      c.stroke();
+      if (line.length > 1) rasterLines.push(line);
     }
 
-    // Read back pixels
-    const id = c.getImageData(0, 0, w, h);
-    dst.set(id.data);
+    dst.set(vectorToRaster({
+      basePixels: src,
+      width: w,
+      height: h,
+      lines: rasterLines,
+      strokeRGBA: [255, 255, 255, 204],
+      strokeWidth: p.strokeWeight,
+      clearRGBA: [p.bgBrightness, p.bgBrightness, p.bgBrightness, 255],
+      opacity: 1
+    }));
   }
 }
