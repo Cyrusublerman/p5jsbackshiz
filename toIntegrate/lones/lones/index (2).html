@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serpentine Halftone</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1a1a1a;
+      --surface: #252525;
+      --border: #3a3a3a;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --accent: #c8d2d0;
+      --danger: #c47070;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .container {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #canvas-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .panels-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 90vh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.875rem;
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .panel.hidden { display: none; }
+
+    .panel-title {
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      padding: 1rem 0.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(200, 210, 208, 0.05);
+    }
+
+    .dropzone-text {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    .dropzone-text span { color: var(--accent); text-decoration: underline; }
+
+    .preview-container { display: none; flex-direction: column; gap: 0.4rem; }
+    .preview-container.active { display: flex; }
+    .preview-img { width: 100%; height: 60px; object-fit: cover; border: 1px solid var(--border); }
+    .file-info { font-size: 0.55rem; color: var(--text-dim); display: flex; justify-content: space-between; }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.2rem; }
+    .control-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.6rem; }
+    .control-label span:first-child { color: var(--text-dim); }
+    .control-label .value { color: var(--accent); font-weight: 500; }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 3px;
+      background: var(--border); border-radius: 2px;
+      outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 10px; height: 10px;
+      background: var(--accent); border-radius: 50%; cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 10px; height: 10px;
+      background: var(--accent); border: none; border-radius: 50%; cursor: pointer;
+    }
+
+    .btn {
+      font-family: inherit; font-size: 0.6rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--text);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:disabled:hover { background: transparent; color: var(--text); border-color: var(--border); }
+
+    .btn.recording {
+      border-color: var(--danger); color: var(--danger);
+      animation: pulse-border 1s ease infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: var(--danger); }
+      50% { border-color: transparent; }
+    }
+
+    .btn-row { display: flex; gap: 0.4rem; }
+    .btn-row .btn { flex: 1; }
+    .status { font-size: 0.55rem; color: var(--text-dim); text-align: center; padding: 0.3rem; background: rgba(0,0,0,0.2); }
+    .divider { height: 1px; background: var(--border); margin: 0.15rem 0; }
+    #file-input { display: none; }
+
+    .checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.6rem; color: var(--text-dim); cursor: pointer; }
+    .checkbox-row input { accent-color: var(--accent); cursor: pointer; }
+
+    select {
+      font-family: inherit; font-size: 0.6rem; padding: 0.3rem;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none; appearance: none;
+      width: 28px; height: 20px;
+      border: 1px solid var(--border); background: transparent; cursor: pointer; padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+    input[type="color"]::-webkit-color-swatch { border: none; }
+
+    .color-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.6rem; color: var(--text-dim); }
+    .color-row-right { display: flex; align-items: center; gap: 0.4rem; }
+    .color-hex { font-size: 0.55rem; color: var(--accent); }
+
+    .progress-bar-track { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s linear; }
+
+    .mode-toggle { display: flex; border: 1px solid var(--border); }
+    .mode-toggle .mode-btn {
+      flex: 1; font-family: inherit; font-size: 0.5rem;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 0.35rem 0.3rem; border: none;
+      background: transparent; color: var(--text-dim);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .mode-toggle .mode-btn.active { background: var(--accent); color: var(--bg); }
+
+    .hint { font-size: 0.5rem; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <h1>Serpentine Halftone</h1>
+
+  <div class="container">
+    <div id="canvas-container"></div>
+
+    <div class="panels-wrapper">
+
+      <!-- IMAGE SOURCE -->
+      <div class="panel">
+        <div class="panel-title">Image Source</div>
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-text">Drop image here or <span>browse</span></div>
+        </div>
+        <input type="file" id="file-input" accept="image/*">
+        <div class="preview-container" id="preview-container">
+          <img class="preview-img" id="preview-img" alt="Preview">
+          <div class="file-info">
+            <span id="file-name">—</span>
+            <span id="file-dims">—</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Fit Mode</span></label>
+          <select id="ctrl-fit-mode">
+            <option value="contain">Contain (no crop)</option>
+            <option value="cover">Cover (crop to fill)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Canvas Scale</span></label>
+          <select id="ctrl-scale">
+            <option value="0.125">1/8×</option>
+            <option value="0.25">1/4×</option>
+            <option value="0.5" selected>1/2×</option>
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btn-pause">Pause</button>
+          <button class="btn" id="btn-reset">Reset</button>
+        </div>
+        <div class="status" id="status">Awaiting image...</div>
+      </div>
+
+      <!-- ENGINE MODE -->
+      <div class="panel">
+        <div class="panel-title">Engine Mode</div>
+        <div class="mode-toggle" id="mode-toggle">
+          <button class="mode-btn active" data-mode="flow">Flow</button>
+          <button class="mode-btn" data-mode="static">Static</button>
+          <button class="mode-btn" data-mode="serpentine">Serpentine</button>
+        </div>
+        <div class="control-group" id="grp-orientation">
+          <label class="control-label"><span>Orientation</span></label>
+          <select id="ctrl-orientation">
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical">Vertical</option>
+          </select>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="ctrl-invert">
+          Invert Luminance
+        </label>
+      </div>
+
+      <!-- FLOW LINES -->
+      <div class="panel" id="panel-flow">
+        <div class="panel-title">Flow Lines</div>
+        <div class="control-group">
+          <label class="control-label"><span>Line Spacing</span><span class="value" id="val-flow-spacing">6</span></label>
+          <input type="range" id="ctrl-flow-spacing" min="2" max="40" value="6" step="1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Osc Amplitude</span><span class="value" id="val-flow-amplitude">2.5</span></label>
+          <input type="range" id="ctrl-flow-amplitude" min="0.5" max="20" value="2.5" step="0.5">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Wave Frequency</span><span class="value" id="val-flow-freq">1.00</span></label>
+          <input type="range" id="ctrl-flow-freq" min="0.1" max="5" value="1" step="0.1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Sample Step</span><span class="value" id="val-flow-step">1.0</span></label>
+          <input type="range" id="ctrl-flow-step" min="0.5" max="5" value="1" step="0.25">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Base Speed</span><span class="value" id="val-flow-speed">0.50</span></label>
+          <input type="range" id="ctrl-flow-speed" min="0.05" max="3" value="0.5" step="0.05">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Phase Increment</span><span class="value" id="val-flow-phase-inc">0.00</span></label>
+          <input type="range" id="ctrl-flow-phase-inc" min="0" max="3.14" value="0" step="0.01">
+        </div>
+        <div class="hint">Phase offset between consecutive wave fronts</div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Stop Spawn Frame</span><span class="value" id="val-flow-stop-spawn">0</span></label>
+          <input type="range" id="ctrl-flow-stop-spawn" min="0" max="5000" value="0" step="10">
+        </div>
+        <div class="hint">0 = never stop. Set to create a clean loop endpoint.</div>
+      </div>
+
+      <!-- STATIC LINES -->
+      <div class="panel hidden" id="panel-static">
+        <div class="panel-title">Static Lines</div>
+        <div class="control-group">
+          <label class="control-label"><span>Line Spacing</span><span class="value" id="val-static-spacing">6</span></label>
+          <input type="range" id="ctrl-static-spacing" min="2" max="40" value="6" step="1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Max Amplitude</span><span class="value" id="val-static-amplitude">3.0</span></label>
+          <input type="range" id="ctrl-static-amplitude" min="0.5" max="30" value="3" step="0.5">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Frequency</span><span class="value" id="val-static-freq">60</span></label>
+          <input type="range" id="ctrl-static-freq" min="5" max="300" value="60" step="1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Sample Density</span><span class="value" id="val-static-step">1.0</span></label>
+          <input type="range" id="ctrl-static-step" min="0.5" max="5" value="1" step="0.25">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Phase Offset</span><span class="value" id="val-static-phase">0.00</span></label>
+          <input type="range" id="ctrl-static-phase" min="0" max="6.28" value="0" step="0.01">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Phase Increment</span><span class="value" id="val-static-phase-inc">0.00</span></label>
+          <input type="range" id="ctrl-static-phase-inc" min="0" max="3.14" value="0" step="0.01">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Amp Curve</span></label>
+          <select id="ctrl-static-curve">
+            <option value="linear">Linear</option>
+            <option value="exponential">Exponential</option>
+            <option value="logarithmic">Logarithmic</option>
+            <option value="sigmoid">Sigmoid</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Curve Strength</span><span class="value" id="val-static-curve-str">2.0</span></label>
+          <input type="range" id="ctrl-static-curve-str" min="0.5" max="5" value="2" step="0.1">
+        </div>
+      </div>
+
+      <!-- SERPENTINE OSCILLATION -->
+      <div class="panel hidden" id="panel-serp-osc">
+        <div class="panel-title">Oscillation</div>
+        <div class="control-group">
+          <label class="control-label"><span>Spawn Rate (pts/f)</span><span class="value" id="val-serp-spawn">20</span></label>
+          <input type="range" id="ctrl-serp-spawn" min="1" max="100" value="20" step="1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Wave Frequency</span><span class="value" id="val-serp-freq">1.0</span></label>
+          <input type="range" id="ctrl-serp-freq" min="0.1" max="5" value="1" step="0.1">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Osc Top (%)</span><span class="value" id="val-osc-top">0</span></label>
+          <input type="range" id="ctrl-osc-top" min="0" max="49" value="0" step="1">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Osc Bottom (%)</span><span class="value" id="val-osc-bottom">100</span></label>
+          <input type="range" id="ctrl-osc-bottom" min="51" max="100" value="100" step="1">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Base Speed</span><span class="value" id="val-serp-speed">0.30</span></label>
+          <input type="range" id="ctrl-serp-speed" min="0.05" max="2" value="0.3" step="0.05">
+        </div>
+      </div>
+
+      <!-- DRAG RESPONSE (flow + serpentine) -->
+      <div class="panel" id="panel-drag">
+        <div class="panel-title">Drag Response</div>
+        <div class="control-group">
+          <label class="control-label"><span>Drag (Bright)</span><span class="value" id="val-drag-light">0.00</span></label>
+          <input type="range" id="ctrl-drag-light" min="0" max="0.8" value="0" step="0.01">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Drag (Dark)</span><span class="value" id="val-drag-dark">0.50</span></label>
+          <input type="range" id="ctrl-drag-dark" min="0" max="0.95" value="0.5" step="0.01">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Response Curve</span></label>
+          <select id="ctrl-curve-type">
+            <option value="linear">Linear</option>
+            <option value="exponential">Exponential</option>
+            <option value="logarithmic">Logarithmic</option>
+            <option value="sigmoid">Sigmoid</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Curve Strength</span><span class="value" id="val-curve-strength">2.0</span></label>
+          <input type="range" id="ctrl-curve-strength" min="0.5" max="5" value="2" step="0.1">
+        </div>
+      </div>
+
+      <!-- LINE TENSION (flow + serpentine) -->
+      <div class="panel" id="panel-tension">
+        <div class="panel-title">Line Tension</div>
+        <div class="control-group">
+          <label class="control-label"><span>Base Tension</span><span class="value" id="val-tension">0.05</span></label>
+          <input type="range" id="ctrl-tension" min="0" max="0.3" value="0.05" step="0.01">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Bright Tension Boost</span><span class="value" id="val-tension-boost">0.15</span></label>
+          <input type="range" id="ctrl-tension-boost" min="0" max="0.5" value="0.15" step="0.01">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Bright Threshold</span><span class="value" id="val-bright-thresh">0.50</span></label>
+          <input type="range" id="ctrl-bright-thresh" min="0.1" max="0.9" value="0.5" step="0.05">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Max Segment Length</span><span class="value" id="val-max-seg">10</span></label>
+          <input type="range" id="ctrl-max-seg" min="2" max="50" value="10" step="1">
+        </div>
+      </div>
+
+      <!-- RENDERING -->
+      <div class="panel">
+        <div class="panel-title">Rendering</div>
+        <div class="color-row">
+          <span>Background</span>
+          <div class="color-row-right">
+            <span class="color-hex" id="val-bg-color">#ffffff</span>
+            <input type="color" id="ctrl-bg-color" value="#ffffff">
+          </div>
+        </div>
+        <div class="color-row">
+          <span>Stroke</span>
+          <div class="color-row-right">
+            <span class="color-hex" id="val-stroke-color">#000000</span>
+            <input type="color" id="ctrl-stroke-color" value="#000000">
+          </div>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Line Weight</span><span class="value" id="val-weight">1.0</span></label>
+          <input type="range" id="ctrl-weight" min="0.25" max="4" value="1" step="0.25">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Line Opacity</span><span class="value" id="val-opacity">255</span></label>
+          <input type="range" id="ctrl-opacity" min="10" max="255" value="255" step="5">
+        </div>
+      </div>
+
+      <!-- ANIMATION -->
+      <div class="panel">
+        <div class="panel-title">Animation</div>
+        <div class="control-group" id="grp-draw-progress">
+          <label class="control-label"><span>Draw Progress</span><span class="value" id="val-draw-progress">100%</span></label>
+          <input type="range" id="ctrl-draw-progress" min="0" max="100" value="100" step="1">
+        </div>
+        <div class="divider"></div>
+        <div class="control-group">
+          <label class="control-label"><span>Anim Frames</span><span class="value" id="val-anim-frames">120</span></label>
+          <input type="range" id="ctrl-anim-frames" min="10" max="5000" value="120" step="10">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Hold Frames</span><span class="value" id="val-hold-frames">30</span></label>
+          <input type="range" id="ctrl-hold-frames" min="0" max="300" value="30" step="5">
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>Easing</span></label>
+          <select id="ctrl-anim-easing">
+            <option value="linear">Linear</option>
+            <option value="easeIn">Ease In</option>
+            <option value="easeOut" selected>Ease Out</option>
+            <option value="easeInOut">Ease In-Out</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label"><span>FPS</span><span class="value" id="val-fps">30</span></label>
+          <input type="range" id="ctrl-fps" min="10" max="60" value="30" step="5">
+        </div>
+        <div class="divider"></div>
+        <div class="progress-bar-track" id="record-progress-track" style="display:none">
+          <div class="progress-bar-fill" id="record-progress-fill"></div>
+        </div>
+        <button class="btn" id="btn-preview-anim">Preview Animation</button>
+        <button class="btn" id="btn-record-webm">Record WebM</button>
+      </div>
+
+      <!-- EXPORT -->
+      <div class="panel">
+        <div class="panel-title">Export</div>
+        <div class="btn-row">
+          <button class="btn" id="btn-export-png">PNG</button>
+          <button class="btn" id="btn-export-svg">SVG</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+  canvas: { baseW: 600, baseH: 700, scale: 0.5, background: "#ffffff", padding: 5 },
+  engine: { mode: "flow", orientation: "horizontal" },
+  flow: {
+    lineSpacing: 6, oscAmplitude: 2.5, oscFreq: 1.0,
+    sampleStep: 1.0, baseSpeed: 0.5, phaseIncrement: 0, stopSpawnFrame: 0
+  },
+  static: {
+    lineSpacing: 6, maxAmplitude: 3.0, frequency: 60, sampleStep: 1.0,
+    phaseOffset: 0, phaseIncrement: 0, ampCurve: "linear", ampCurveStrength: 2.0
+  },
+  serpentine: {
+    spawnRate: 20, oscSpeed: 1, oscTopPercent: 0, oscBottomPercent: 100, baseSpeed: 0.3
+  },
+  drag: { dragLight: 0.0, dragDark: 0.5, curveType: "linear", curveStrength: 2.0 },
+  tension: { baseTension: 0.05, brightBoost: 0.15, brightThreshold: 0.5, maxSegmentLength: 10 },
+  source: { fitMode: "contain", invertLuminance: false },
+  render: { strokeHex: "#000000", strokeWeight: 1.0, alpha: 255 },
+  animation: { drawProgress: 1.0, totalFrames: 120, holdFrames: 30, easing: "easeOut", fps: 30 }
+};
+
+// ============================================================
+// LINE POINT
+// ============================================================
+class LinePoint {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.lum = 0.5;
+    this.onBorder = false;
+    this.borderPhase = null;
+  }
+}
+
+// ============================================================
+// LUMINANCE FIELD
+// ============================================================
+class LuminanceField {
+  constructor(canvasW, canvasH) {
+    this.canvasW = canvasW;
+    this.canvasH = canvasH;
+    this.data = null;
+    this.imgW = 0;
+    this.imgH = 0;
+    this.fit = null;
+  }
+
+  updateFromDomImage(domImg, fitMode) {
+    const tc = document.createElement("canvas");
+    tc.width = domImg.width;
+    tc.height = domImg.height;
+    const ctx = tc.getContext("2d");
+    ctx.drawImage(domImg, 0, 0);
+    const px = ctx.getImageData(0, 0, domImg.width, domImg.height).data;
+    this.imgW = domImg.width;
+    this.imgH = domImg.height;
+    this.data = new Float32Array(this.imgW * this.imgH);
+    for (let i = 0; i < this.imgW * this.imgH; i++) {
+      const idx = i * 4;
+      this.data[i] = 0.2126 * (px[idx] / 255) + 0.7152 * (px[idx+1] / 255) + 0.0722 * (px[idx+2] / 255);
+    }
+    this.fit = fitMode === "cover"
+      ? FitMapper.cover(this.imgW, this.imgH, this.canvasW, this.canvasH)
+      : FitMapper.contain(this.imgW, this.imgH, this.canvasW, this.canvasH);
+  }
+
+  lumAt(cx, cy) {
+    if (!this.data || !this.fit) return 0.5;
+    const src = this.fit.canvasToSource(cx, cy);
+    if (!src) return 0.5;
+    const ix = Math.max(0, Math.min(this.imgW - 1, Math.floor(src.x)));
+    const iy = Math.max(0, Math.min(this.imgH - 1, Math.floor(src.y)));
+    return this.data[iy * this.imgW + ix];
+  }
+}
+
+// ============================================================
+// FIT MAPPER
+// ============================================================
+class FitMapper {
+  constructor(srcW, srcH, dstX, dstY, drawW, drawH) {
+    this.srcW = srcW; this.srcH = srcH;
+    this.dstX = dstX; this.dstY = dstY;
+    this.drawW = drawW; this.drawH = drawH;
+  }
+
+  canvasToSource(cx, cy) {
+    if (cx < this.dstX || cx > this.dstX + this.drawW ||
+        cy < this.dstY || cy > this.dstY + this.drawH) return null;
+    const u = Math.max(0, Math.min(1, (cx - this.dstX) / this.drawW));
+    const v = Math.max(0, Math.min(1, (cy - this.dstY) / this.drawH));
+    return { x: u * (this.srcW - 1), y: v * (this.srcH - 1) };
+  }
+
+  static _calc(srcW, srcH, dstW, dstH, cover) {
+    const sa = srcW / srcH, da = dstW / dstH;
+    let dw, dh;
+    if (cover ? (sa > da) : (sa < da)) { dh = dstH; dw = dstH * sa; }
+    else { dw = dstW; dh = dstW / sa; }
+    return new FitMapper(srcW, srcH, (dstW - dw) / 2, (dstH - dh) / 2, dw, dh);
+  }
+
+  static cover(sw, sh, dw, dh) { return FitMapper._calc(sw, sh, dw, dh, true); }
+  static contain(sw, sh, dw, dh) { return FitMapper._calc(sw, sh, dw, dh, false); }
+}
+
+// ============================================================
+// DRAG MODEL
+// ============================================================
+class DragModel {
+  static calculate(lum, dc) {
+    let t = 1 - lum;
+    switch (dc.curveType) {
+      case "exponential": t = Math.pow(t, dc.curveStrength); break;
+      case "logarithmic": t = Math.log(1 + t * (Math.pow(Math.E, dc.curveStrength) - 1)) / dc.curveStrength; break;
+      case "sigmoid": { const k = dc.curveStrength * 2; t = 1 / (1 + Math.exp(-k * (t - 0.5))); break; }
+    }
+    return dc.dragLight + (dc.dragDark - dc.dragLight) * t;
+  }
+}
+
+// ============================================================
+// CURVE UTIL
+// ============================================================
+class CurveUtil {
+  static apply(t, type, str) {
+    switch (type) {
+      case "exponential": return Math.pow(t, str);
+      case "logarithmic": return Math.log(1 + t * (Math.pow(Math.E, str) - 1)) / str;
+      case "sigmoid": { const k = str * 2; return 1 / (1 + Math.exp(-k * (t - 0.5))); }
+      default: return t;
+    }
+  }
+}
+
+// ============================================================
+// EASING
+// ============================================================
+class Easing {
+  static apply(t, type) {
+    switch (type) {
+      case "easeIn": return t * t;
+      case "easeOut": return t * (2 - t);
+      case "easeInOut": return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      default: return t;
+    }
+  }
+}
+
+// ============================================================
+// TENSION SOLVER (shared)
+// ============================================================
+class TensionSolver {
+  static apply(points, tc) {
+    if (points.length < 3) return;
+    const { baseTension, brightBoost, brightThreshold, maxSegmentLength } = tc;
+    const len = points.length;
+    const nx = new Float32Array(len);
+    const ny = new Float32Array(len);
+    for (let i = 0; i < len; i++) { nx[i] = points[i].x; ny[i] = points[i].y; }
+
+    for (let i = 1; i < len - 1; i++) {
+      const prev = points[i-1], curr = points[i], next = points[i+1];
+      if (curr.onBorder) continue;
+      let tension = baseTension;
+      const lum = curr.lum !== undefined ? curr.lum : 0.5;
+      if (lum > brightThreshold) tension += brightBoost * ((lum - brightThreshold) / (1 - brightThreshold));
+      nx[i] = curr.x + ((prev.x + next.x) / 2 - curr.x) * tension;
+      ny[i] = curr.y + ((prev.y + next.y) / 2 - curr.y) * tension;
+    }
+    for (let i = 1; i < len - 1; i++) {
+      if (!points[i].onBorder) { points[i].x = nx[i]; points[i].y = ny[i]; }
+    }
+    for (let i = 1; i < len; i++) {
+      const dx = points[i].x - points[i-1].x;
+      const dy = points[i].y - points[i-1].y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d > maxSegmentLength) {
+        const s = maxSegmentLength / d;
+        points[i].x = points[i-1].x + dx * s;
+        points[i].y = points[i-1].y + dy * s;
+      }
+    }
+  }
+}
+
+// ============================================================
+// FLOW WAVE FRONT — a complete line that sweeps perpendicular
+// to itself. Each point receives independent luminance drag.
+// Sine displacement is baked into initial flow position.
+// ============================================================
+class FlowWaveFront {
+  constructor(startFlowPos, lineStart, lineEnd, sampleStep, amplitude, frequency, phase) {
+    this.points = [];
+    this.complete = false;
+    this._displayH = null;
+    this._displayV = null;
+    this._dirty = true;
+    for (let s = lineStart; s <= lineEnd; s += sampleStep) {
+      const sineDisp = Math.sin(s * frequency * 0.01 + phase) * amplitude;
+      this.points.push({
+        linePos: s,
+        flowPos: startFlowPos + sineDisp,
+        lum: 0.5
+      });
+    }
+    // Pre-allocate display arrays
+    this._displayH = new Array(this.points.length);
+    this._displayV = new Array(this.points.length);
+    for (let i = 0; i < this.points.length; i++) {
+      this._displayH[i] = { x: 0, y: 0 };
+      this._displayV[i] = { x: 0, y: 0 };
+    }
+  }
+
+  update(lumField, dragCfg, baseSpeed, isHoriz, invertLum, farEdge) {
+    if (this.complete) return;
+    let allDone = true;
+    for (const p of this.points) {
+      if (p.flowPos >= farEdge) continue;
+      const cx = isHoriz ? p.linePos : p.flowPos;
+      const cy = isHoriz ? p.flowPos : p.linePos;
+      let lum = lumField.lumAt(cx, cy);
+      if (invertLum) lum = 1 - lum;
+      p.lum = lum;
+      const drag = DragModel.calculate(lum, dragCfg);
+      p.flowPos += baseSpeed * (1 - drag);
+      if (p.flowPos >= farEdge) p.flowPos = farEdge;
+      else allDone = false;
+    }
+    this._dirty = true;
+    if (allDone) this.complete = true;
+  }
+
+  getDisplayPoints(isHoriz) {
+    if (!this._dirty) return isHoriz ? this._displayH : this._displayV;
+    for (let i = 0; i < this.points.length; i++) {
+      const p = this.points[i];
+      this._displayH[i].x = p.linePos;
+      this._displayH[i].y = p.flowPos;
+      this._displayV[i].x = p.flowPos;
+      this._displayV[i].y = p.linePos;
+    }
+    this._dirty = false;
+    return isHoriz ? this._displayH : this._displayV;
+  }
+}
+
+// ============================================================
+// WAVE FRONT FLOW ENGINE
+// Spawns wave fronts at start edge, each sweeps perpendicular
+// with per-point luminance drag. Dark areas → fronts bunch up.
+// Runs indefinitely — frame budget is controlled externally.
+// ============================================================
+class WaveFrontFlowEngine {
+  constructor() {
+    this.waveFronts = [];
+    this.complete = false;
+    this.framesSinceSpawn = Infinity;
+    this.frontIndex = 0;
+    this.simFrame = 0;
+    this._gcHead = 0; // index of first active front
+  }
+
+  init(canvasW, canvasH, config) {
+    this.waveFronts = [];
+    this.complete = false;
+    this.framesSinceSpawn = Infinity;
+    this.frontIndex = 0;
+    this.simFrame = 0;
+    this._gcHead = 0;
+
+    const isHoriz = config.engine.orientation === "horizontal";
+    this.isHoriz = isHoriz;
+    const pad = config.canvas.padding;
+    this.lineStart = pad;
+    this.lineEnd = isHoriz ? canvasW - pad : canvasH - pad;
+    this.flowStart = pad;
+    this.farEdge = isHoriz ? canvasH - pad : canvasW - pad;
+  }
+
+  update(lumField, config) {
+    if (this.complete) return;
+
+    const fc = config.flow;
+    const spawnInterval = Math.max(1, Math.round(fc.lineSpacing / Math.max(0.01, fc.baseSpeed)));
+    const stopFrame = fc.stopSpawnFrame;
+    const spawningAllowed = stopFrame <= 0 || this.simFrame < stopFrame;
+
+    // Spawn new wave front at regular intervals
+    this.framesSinceSpawn++;
+    if (this.framesSinceSpawn >= spawnInterval && spawningAllowed) {
+      const phase = this.frontIndex * fc.phaseIncrement;
+      const wf = new FlowWaveFront(
+        this.flowStart, this.lineStart, this.lineEnd,
+        fc.sampleStep, fc.oscAmplitude, fc.oscFreq, phase
+      );
+      this.waveFronts.push(wf);
+      this.framesSinceSpawn = 0;
+      this.frontIndex++;
+    }
+
+    // Update active wave fronts (skip GC'd ones)
+    for (let i = this._gcHead; i < this.waveFronts.length; i++) {
+      this.waveFronts[i].update(lumField, config.drag, fc.baseSpeed, this.isHoriz,
+        config.source.invertLuminance, this.farEdge);
+    }
+
+    // GC: advance head past completed fronts (O(1) per frame)
+    while (this._gcHead < this.waveFronts.length && this.waveFronts[this._gcHead].complete) {
+      this.waveFronts[this._gcHead] = null; // release ref
+      this._gcHead++;
+    }
+
+    // Compact when half the array is dead refs
+    if (this._gcHead > 500) {
+      this.waveFronts = this.waveFronts.slice(this._gcHead);
+      this._gcHead = 0;
+    }
+
+    // Auto-complete: spawning stopped AND all fronts swept off
+    if (!spawningAllowed && this._gcHead >= this.waveFronts.length) {
+      this.complete = true;
+    }
+
+    this.simFrame++;
+  }
+
+  _activeFronts() {
+    const active = [];
+    for (let i = this._gcHead; i < this.waveFronts.length; i++) {
+      if (this.waveFronts[i]) active.push(this.waveFronts[i]);
+    }
+    return active;
+  }
+
+  getDrawableLines(progress) {
+    const active = this._activeFronts();
+    if (active.length === 0) return [];
+    const count = progress >= 1 ? active.length : Math.max(1, Math.ceil(active.length * progress));
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      result.push(active[i].getDisplayPoints(this.isHoriz));
+    }
+    return result;
+  }
+
+  getAllPoints() {
+    const active = this._activeFronts();
+    const result = [];
+    for (let i = 0; i < active.length; i++) {
+      result.push(active[i].getDisplayPoints(this.isHoriz));
+    }
+    return result;
+  }
+}
+
+// ============================================================
+// PARALLEL STATIC ENGINE
+// ============================================================
+class ParallelStaticEngine {
+  constructor() { this.lines = []; }
+
+  generate(lumField, config, canvasW, canvasH) {
+    this.lines = [];
+    const pad = config.canvas.padding;
+    const sc = config.static;
+    const invert = config.source.invertLuminance;
+    const isHoriz = config.engine.orientation === "horizontal";
+    const pLen = isHoriz ? canvasW : canvasH;
+    const cLen = isHoriz ? canvasH : canvasW;
+    const n = Math.max(1, Math.floor((cLen - 2 * pad) / sc.lineSpacing) + 1);
+
+    for (let li = 0; li < n; li++) {
+      const base = pad + li * sc.lineSpacing;
+      const ph = sc.phaseOffset + li * sc.phaseIncrement;
+      const pts = [];
+      for (let s = pad; s <= pLen - pad; s += sc.sampleStep) {
+        const cx = isHoriz ? s : base;
+        const cy = isHoriz ? base : s;
+        let lum = lumField.lumAt(cx, cy);
+        if (invert) lum = 1 - lum;
+        const curved = CurveUtil.apply(1 - lum, sc.ampCurve, sc.ampCurveStrength);
+        const disp = sc.maxAmplitude * curved * Math.sin((s / pLen) * sc.frequency + ph);
+        if (isHoriz) pts.push({ x: s, y: base + disp });
+        else pts.push({ x: base + disp, y: s });
+      }
+      this.lines.push(pts);
+    }
+  }
+
+  getDrawableLines(progress) {
+    if (progress >= 1) return this.lines;
+    const total = this.lines.reduce((s, l) => s + l.length, 0);
+    const target = Math.floor(total * progress);
+    const result = [];
+    let counted = 0;
+    for (const line of this.lines) {
+      const rem = target - counted;
+      if (rem <= 0) break;
+      if (rem >= line.length) { result.push(line); counted += line.length; }
+      else { result.push(line.slice(0, rem)); counted += rem; }
+    }
+    return result;
+  }
+}
+
+// ============================================================
+// SERPENTINE ENGINE
+// ============================================================
+class SerpentineEngine {
+  constructor(canvasW, canvasH, padding) {
+    this.canvasW = canvasW;
+    this.canvasH = canvasH;
+    this.padding = padding;
+    this.points = [];
+    this.spawnPhase = 0;
+    this.complete = false;
+    this.startY = null;
+  }
+
+  update(lumField, dragCfg, tensionCfg, serpCfg, invertLum, canvasW, canvasH) {
+    if (this.complete) return;
+    this.canvasW = canvasW;
+    this.canvasH = canvasH;
+    const pad = this.padding;
+    const { baseSpeed, spawnRate, oscSpeed } = serpCfg;
+    const oscTop = pad + (serpCfg.oscTopPercent / 100) * (canvasH - 2 * pad);
+    const oscBottom = pad + (serpCfg.oscBottomPercent / 100) * (canvasH - 2 * pad);
+    const amp = (oscBottom - oscTop) / 2;
+    const center = (oscTop + oscBottom) / 2;
+
+    for (let i = 0; i < spawnRate; i++) {
+      const y = center + Math.sin(this.spawnPhase) * amp;
+      this.points.push(new LinePoint(pad, y));
+      if (this.startY === null) this.startY = y;
+      this.spawnPhase += oscSpeed * 0.01;
+    }
+
+    for (const p of this.points) {
+      if (p.onBorder) continue;
+      let lum = lumField.lumAt(p.x, p.y);
+      if (invertLum) lum = 1 - lum;
+      p.lum = lum;
+      p.x += baseSpeed * (1 - DragModel.calculate(lum, dragCfg));
+      if (p.x >= canvasW - pad) { p.x = canvasW - pad; p.onBorder = true; p.borderPhase = 'right'; }
+    }
+
+    const speed = baseSpeed * 2;
+    const right = canvasW - pad, bottom = canvasH - pad;
+    for (const p of this.points) {
+      if (!p.onBorder) continue;
+      switch (p.borderPhase) {
+        case 'right': p.y += speed; if (p.y >= bottom) { p.y = bottom; p.borderPhase = 'bottom'; } break;
+        case 'bottom': p.x -= speed; if (p.x <= pad) { p.x = pad; p.borderPhase = 'left'; } break;
+        case 'left': p.y -= speed; if (p.y <= this.startY) { p.y = this.startY; p.borderPhase = 'done'; } break;
+      }
+    }
+
+    TensionSolver.apply(this.points, tensionCfg);
+
+    while (this.points.length > 0 && this.points[0].borderPhase === 'done') this.points.shift();
+    if (this.points.length === 0 && this.startY !== null) this.complete = true;
+  }
+}
+
+// ============================================================
+// RENDERER
+// ============================================================
+class Renderer {
+  constructor() {
+    this._cachedColor = null;
+    this._lastHex = null;
+    this._lastAlpha = null;
+  }
+
+  _sync(rc) {
+    if (this._lastHex !== rc.strokeHex || this._lastAlpha !== rc.alpha) {
+      this._cachedColor = color(rc.strokeHex);
+      this._cachedColor.setAlpha(rc.alpha);
+      this._lastHex = rc.strokeHex;
+      this._lastAlpha = rc.alpha;
+    }
+    stroke(this._cachedColor);
+    strokeWeight(rc.strokeWeight);
+    noFill();
+  }
+
+  drawLines(lines, rc) {
+    this._sync(rc);
+    for (const pts of lines) {
+      if (pts.length < 2) continue;
+      beginShape();
+      for (const p of pts) vertex(p.x, p.y);
+      endShape();
+    }
+  }
+
+  drawSerpentine(engine, rc) {
+    if (engine.points.length < 2) return;
+    this._sync(rc);
+    beginShape();
+    for (const p of engine.points) vertex(p.x, p.y);
+    endShape();
+  }
+}
+
+// ============================================================
+// SVG BUILDER
+// ============================================================
+class SvgBuilder {
+  static build(lines, w, h, bg, sc, sw, alpha) {
+    const op = (alpha / 255).toFixed(3);
+    const pathParts = [];
+    for (const line of lines) {
+      if (line.length < 2) continue;
+      const coords = [`M${line[0].x.toFixed(2)},${line[0].y.toFixed(2)}`];
+      for (let i = 1; i < line.length; i++) {
+        coords.push(`L${line[i].x.toFixed(2)},${line[i].y.toFixed(2)}`);
+      }
+      pathParts.push(`<path d="${coords.join('')}" fill="none" stroke="${sc}" stroke-width="${sw}" opacity="${op}"/>`);
+    }
+    return `<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">\n<rect width="${w}" height="${h}" fill="${bg}"/>\n${pathParts.join('\n')}\n</svg>`;
+  }
+}
+
+// ============================================================
+// EXPORT MANAGER
+// ============================================================
+class ExportManager {
+  static exportPng() { saveCanvas('serpentine', 'png'); }
+
+  static exportSvg(lines, w, h, bg, sc, sw, alpha) {
+    const blob = new Blob([SvgBuilder.build(lines, w, h, bg, sc, sw, alpha)], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'serpentine.svg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  static async recordWebM(app, onProgress, onComplete) {
+    const cfg = app.config;
+    const totalF = cfg.animation.totalFrames;
+    const holdF = cfg.animation.holdFrames;
+    const fps = cfg.animation.fps;
+    const easing = cfg.animation.easing;
+    const allF = totalF + holdF;
+    const mode = cfg.engine.mode;
+
+    const cvs = document.querySelector('#canvas-container canvas');
+    if (!cvs) { onComplete(null); return; }
+
+    const stream = cvs.captureStream(0);
+    const rec = new MediaRecorder(stream, {
+      mimeType: 'video/webm; codecs=vp9',
+      videoBitsPerSecond: 8000000
+    });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'serpentine.webm';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      onComplete(blob);
+    };
+
+    rec.start();
+    const wasPaused = app.paused;
+    app.paused = true;
+
+    if (mode === "flow") {
+      app.initFlowEngine();
+      for (let f = 0; f < allF; f++) {
+        if (f < totalF && !app.flowEngine.complete) {
+          app.flowEngine.update(app.lumField, cfg);
+        }
+        app.renderFrame();
+        stream.getVideoTracks()[0].requestFrame();
+        onProgress(f / allF);
+        await new Promise(r => setTimeout(r, 1000 / fps));
+        // Early exit if engine complete and we've held enough
+        if (app.flowEngine.complete && f >= totalF) break;
+      }
+    } else if (mode === "static") {
+      app.staticEngine.generate(app.lumField, cfg, app.canvasW, app.canvasH);
+      for (let f = 0; f < allF; f++) {
+        cfg.animation.drawProgress = f < totalF
+          ? Easing.apply(f / Math.max(1, totalF - 1), easing) : 1.0;
+        app.renderFrame();
+        stream.getVideoTracks()[0].requestFrame();
+        onProgress(f / allF);
+        await new Promise(r => setTimeout(r, 1000 / fps));
+      }
+      cfg.animation.drawProgress = 1.0;
+    } else {
+      app.initSerpentineEngine();
+      for (let f = 0; f < allF; f++) {
+        if (f < totalF) {
+          app.serpentineEngine.update(app.lumField, cfg.drag, cfg.tension, cfg.serpentine,
+            cfg.source.invertLuminance, app.canvasW, app.canvasH);
+        }
+        app.renderFrame();
+        stream.getVideoTracks()[0].requestFrame();
+        onProgress(f / allF);
+        await new Promise(r => setTimeout(r, 1000 / fps));
+      }
+    }
+
+    rec.stop();
+    app.paused = wasPaused;
+  }
+}
+
+// ============================================================
+// APP
+// ============================================================
+class App {
+  constructor(config) {
+    this.config = config;
+    this.lumField = null;
+    this.flowEngine = null;
+    this.staticEngine = null;
+    this.serpentineEngine = null;
+    this.renderer = null;
+    this.imageReady = false;
+    this.paused = false;
+    this.sourceImage = null;
+    this.canvasW = 600;
+    this.canvasH = 700;
+    this._staticDirty = true;
+  }
+
+  setup() {
+    const canvas = createCanvas(this.config.canvas.baseW, this.config.canvas.baseH);
+    canvas.parent("canvas-container");
+    background(this.config.canvas.background);
+    this.renderer = new Renderer();
+    this.flowEngine = new WaveFrontFlowEngine();
+    this.staticEngine = new ParallelStaticEngine();
+  }
+
+  loadImage(dataUrl, onComplete) {
+    const img = new Image();
+    img.onload = () => {
+      this.sourceImage = img;
+      this._rebuildCanvas();
+      onComplete?.(this.canvasW, this.canvasH);
+    };
+    img.src = dataUrl;
+  }
+
+  _rebuildCanvas() {
+    if (!this.sourceImage) return;
+    const c = this.config;
+    this.canvasW = Math.round(this.sourceImage.width * c.canvas.scale);
+    this.canvasH = Math.round(this.sourceImage.height * c.canvas.scale);
+    resizeCanvas(this.canvasW, this.canvasH);
+    background(c.canvas.background);
+    this.lumField = new LuminanceField(this.canvasW, this.canvasH);
+    this.lumField.updateFromDomImage(this.sourceImage, c.source.fitMode);
+    this._initCurrentEngine();
+    this.imageReady = true;
+  }
+
+  _initCurrentEngine() {
+    const m = this.config.engine.mode;
+    if (m === "flow") this.initFlowEngine();
+    else if (m === "static") this._staticDirty = true;
+    else this.initSerpentineEngine();
+  }
+
+  initFlowEngine() {
+    this.flowEngine = new WaveFrontFlowEngine();
+    this.flowEngine.init(this.canvasW, this.canvasH, this.config);
+  }
+
+  initSerpentineEngine() {
+    this.serpentineEngine = new SerpentineEngine(this.canvasW, this.canvasH, this.config.canvas.padding);
+  }
+
+  rescale(s) {
+    this.config.canvas.scale = s;
+    if (this.sourceImage) { this._rebuildCanvas(); return { w: this.canvasW, h: this.canvasH }; }
+    return null;
+  }
+
+  reset() { if (this.imageReady) this._initCurrentEngine(); }
+  setPaused(p) { this.paused = p; }
+  flagStaticDirty() { this._staticDirty = true; }
+
+  draw() {
+    const c = this.config;
+    background(c.canvas.background);
+    if (!this.imageReady || !this.lumField) return;
+
+    const m = c.engine.mode;
+    if (m === "flow") {
+      if (!this.paused && this.flowEngine) this.flowEngine.update(this.lumField, c);
+      if (this.flowEngine) this.renderer.drawLines(this.flowEngine.getDrawableLines(c.animation.drawProgress), c.render);
+    } else if (m === "static") {
+      if (this._staticDirty) { this.staticEngine.generate(this.lumField, c, this.canvasW, this.canvasH); this._staticDirty = false; }
+      this.renderer.drawLines(this.staticEngine.getDrawableLines(c.animation.drawProgress), c.render);
+    } else {
+      if (!this.paused && this.serpentineEngine) {
+        this.serpentineEngine.update(this.lumField, c.drag, c.tension, c.serpentine, c.source.invertLuminance, this.canvasW, this.canvasH);
+      }
+      if (this.serpentineEngine) this.renderer.drawSerpentine(this.serpentineEngine, c.render);
+    }
+  }
+
+  renderFrame() {
+    const c = this.config;
+    background(c.canvas.background);
+    if (!this.imageReady || !this.lumField) return;
+    const m = c.engine.mode;
+    if (m === "flow" && this.flowEngine) this.renderer.drawLines(this.flowEngine.getDrawableLines(c.animation.drawProgress), c.render);
+    else if (m === "static") this.renderer.drawLines(this.staticEngine.getDrawableLines(c.animation.drawProgress), c.render);
+    else if (this.serpentineEngine) this.renderer.drawSerpentine(this.serpentineEngine, c.render);
+  }
+
+  getCurrentLines() {
+    const m = this.config.engine.mode;
+    if (m === "flow" && this.flowEngine) return this.flowEngine.getAllPoints();
+    if (m === "static") return this.staticEngine.getDrawableLines(this.config.animation.drawProgress);
+    if (this.serpentineEngine) return [this.serpentineEngine.points];
+    return [];
+  }
+}
+
+// ============================================================
+// UI CONTROLLER
+// ============================================================
+class UIController {
+  constructor(config) {
+    this.config = config;
+    this._cache();
+    this._bind();
+    this._syncVis();
+    this.onImageLoad = null; this.onReset = null; this.onPauseToggle = null;
+    this.onScaleChange = null; this.onStaticChange = null;
+    this.onExportPng = null; this.onExportSvg = null;
+    this.onRecordWebM = null; this.onPreviewAnim = null;
+    this.paused = false;
+  }
+
+  _cache() {
+    this.dropzone = document.getElementById("dropzone");
+    this.fileInput = document.getElementById("file-input");
+    this.previewContainer = document.getElementById("preview-container");
+    this.previewImg = document.getElementById("preview-img");
+    this.fileName = document.getElementById("file-name");
+    this.fileDims = document.getElementById("file-dims");
+    this.btnPause = document.getElementById("btn-pause");
+    this.btnReset = document.getElementById("btn-reset");
+    this.statusEl = document.getElementById("status");
+    this.recordTrack = document.getElementById("record-progress-track");
+    this.recordFill = document.getElementById("record-progress-fill");
+    this.modeButtons = document.querySelectorAll("#mode-toggle .mode-btn");
+    this.panels = {
+      flow: document.getElementById("panel-flow"),
+      static: document.getElementById("panel-static"),
+      serpOsc: document.getElementById("panel-serp-osc"),
+      drag: document.getElementById("panel-drag"),
+      tension: document.getElementById("panel-tension")
+    };
+    this.grpOrientation = document.getElementById("grp-orientation");
+  }
+
+  _bind() {
+    this.dropzone.addEventListener("click", () => this.fileInput.click());
+    this.fileInput.addEventListener("change", e => this._handleFile(e.target.files[0]));
+    this.dropzone.addEventListener("dragover", e => { e.preventDefault(); this.dropzone.classList.add("dragover"); });
+    this.dropzone.addEventListener("dragleave", () => this.dropzone.classList.remove("dragover"));
+    this.dropzone.addEventListener("drop", e => {
+      e.preventDefault(); this.dropzone.classList.remove("dragover");
+      const f = e.dataTransfer.files[0];
+      if (f?.type.startsWith("image/")) this._handleFile(f);
+    });
+    this.btnReset.addEventListener("click", () => this.onReset?.());
+    this.btnPause.addEventListener("click", () => this._togglePause());
+
+    this.modeButtons.forEach(btn => btn.addEventListener("click", () => {
+      this.modeButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      this.config.engine.mode = btn.dataset.mode;
+      this._syncVis();
+      this.onReset?.();
+    }));
+
+    this._sel("ctrl-fit-mode", v => { this.config.source.fitMode = v; this.onReset?.(); });
+    this._sel("ctrl-scale", v => this.onScaleChange?.(parseFloat(v)));
+    this._sel("ctrl-orientation", v => { this.config.engine.orientation = v; this.onReset?.(); });
+    this._chk("ctrl-invert", v => { this.config.source.invertLuminance = v; this._flagAll(); });
+
+    this._rng("ctrl-flow-spacing", "val-flow-spacing", v => { this.config.flow.lineSpacing = v; this.onReset?.(); });
+    this._rng("ctrl-flow-amplitude", "val-flow-amplitude", v => { this.config.flow.oscAmplitude = v; this.onReset?.(); });
+    this._rng("ctrl-flow-freq", "val-flow-freq", v => { this.config.flow.oscFreq = v; this.onReset?.(); });
+    this._rng("ctrl-flow-step", "val-flow-step", v => { this.config.flow.sampleStep = v; this.onReset?.(); });
+    this._rng("ctrl-flow-speed", "val-flow-speed", v => { this.config.flow.baseSpeed = v; });
+    this._rng("ctrl-flow-phase-inc", "val-flow-phase-inc", v => { this.config.flow.phaseIncrement = v; this.onReset?.(); });
+    this._rng("ctrl-flow-stop-spawn", "val-flow-stop-spawn", v => { this.config.flow.stopSpawnFrame = v; });
+
+    this._rng("ctrl-static-spacing", "val-static-spacing", v => { this.config.static.lineSpacing = v; this._flagStatic(); });
+    this._rng("ctrl-static-amplitude", "val-static-amplitude", v => { this.config.static.maxAmplitude = v; this._flagStatic(); });
+    this._rng("ctrl-static-freq", "val-static-freq", v => { this.config.static.frequency = v; this._flagStatic(); });
+    this._rng("ctrl-static-step", "val-static-step", v => { this.config.static.sampleStep = v; this._flagStatic(); });
+    this._rng("ctrl-static-phase", "val-static-phase", v => { this.config.static.phaseOffset = v; this._flagStatic(); });
+    this._rng("ctrl-static-phase-inc", "val-static-phase-inc", v => { this.config.static.phaseIncrement = v; this._flagStatic(); });
+    this._sel("ctrl-static-curve", v => { this.config.static.ampCurve = v; this._flagStatic(); });
+    this._rng("ctrl-static-curve-str", "val-static-curve-str", v => { this.config.static.ampCurveStrength = v; this._flagStatic(); });
+
+    this._rng("ctrl-serp-spawn", "val-serp-spawn", v => { this.config.serpentine.spawnRate = v; });
+    this._rng("ctrl-serp-freq", "val-serp-freq", v => { this.config.serpentine.oscSpeed = v; });
+    this._rng("ctrl-osc-top", "val-osc-top", v => { this.config.serpentine.oscTopPercent = v; });
+    this._rng("ctrl-osc-bottom", "val-osc-bottom", v => { this.config.serpentine.oscBottomPercent = v; });
+    this._rng("ctrl-serp-speed", "val-serp-speed", v => { this.config.serpentine.baseSpeed = v; });
+
+    this._rng("ctrl-drag-light", "val-drag-light", v => { this.config.drag.dragLight = v; });
+    this._rng("ctrl-drag-dark", "val-drag-dark", v => { this.config.drag.dragDark = v; });
+    this._sel("ctrl-curve-type", v => { this.config.drag.curveType = v; });
+    this._rng("ctrl-curve-strength", "val-curve-strength", v => { this.config.drag.curveStrength = v; });
+
+    this._rng("ctrl-tension", "val-tension", v => { this.config.tension.baseTension = v; });
+    this._rng("ctrl-tension-boost", "val-tension-boost", v => { this.config.tension.brightBoost = v; });
+    this._rng("ctrl-bright-thresh", "val-bright-thresh", v => { this.config.tension.brightThreshold = v; });
+    this._rng("ctrl-max-seg", "val-max-seg", v => { this.config.tension.maxSegmentLength = v; });
+
+    this._rng("ctrl-weight", "val-weight", v => { this.config.render.strokeWeight = v; });
+    this._rng("ctrl-opacity", "val-opacity", v => { this.config.render.alpha = v; });
+    this._col("ctrl-bg-color", "val-bg-color", v => { this.config.canvas.background = v; });
+    this._col("ctrl-stroke-color", "val-stroke-color", v => { this.config.render.strokeHex = v; });
+
+    this._rng("ctrl-draw-progress", "val-draw-progress", v => { this.config.animation.drawProgress = v / 100; }, v => `${Math.round(v)}%`);
+    this._rng("ctrl-anim-frames", "val-anim-frames", v => { this.config.animation.totalFrames = v; });
+    this._rng("ctrl-hold-frames", "val-hold-frames", v => { this.config.animation.holdFrames = v; });
+    this._sel("ctrl-anim-easing", v => { this.config.animation.easing = v; });
+    this._rng("ctrl-fps", "val-fps", v => { this.config.animation.fps = v; });
+
+    document.getElementById("btn-export-png").addEventListener("click", () => this.onExportPng?.());
+    document.getElementById("btn-export-svg").addEventListener("click", () => this.onExportSvg?.());
+    document.getElementById("btn-record-webm").addEventListener("click", () => this.onRecordWebM?.());
+    document.getElementById("btn-preview-anim").addEventListener("click", () => this.onPreviewAnim?.());
+  }
+
+  _rng(cid, vid, setter, fmt) {
+    const c = document.getElementById(cid), v = document.getElementById(vid);
+    if (!c) return;
+    c.addEventListener("input", () => {
+      const val = parseFloat(c.value);
+      if (v) v.textContent = fmt ? fmt(val) : (val % 1 === 0 ? val : val.toFixed(2));
+      setter(val);
+    });
+  }
+  _sel(cid, setter) { const c = document.getElementById(cid); if (c) c.addEventListener("change", () => setter(c.value)); }
+  _chk(cid, setter) { const c = document.getElementById(cid); if (c) c.addEventListener("change", () => setter(c.checked)); }
+  _col(cid, vid, setter) {
+    const c = document.getElementById(cid), v = document.getElementById(vid);
+    if (c) c.addEventListener("input", () => { if (v) v.textContent = c.value; setter(c.value); });
+  }
+
+  _flagStatic() { this.onStaticChange?.(); }
+  _flagAll() { this.onStaticChange?.(); this.onReset?.(); }
+
+  _syncVis() {
+    const m = this.config.engine.mode;
+    this.panels.flow.classList.toggle("hidden", m !== "flow");
+    this.panels.static.classList.toggle("hidden", m !== "static");
+    this.panels.serpOsc.classList.toggle("hidden", m !== "serpentine");
+    this.panels.drag.classList.toggle("hidden", m === "static");
+    this.panels.tension.classList.toggle("hidden", m === "static");
+    this.grpOrientation.style.display = m === "serpentine" ? "none" : "";
+  }
+
+  _togglePause() {
+    this.paused = !this.paused;
+    this.btnPause.textContent = this.paused ? "Resume" : "Pause";
+    this.onPauseToggle?.(this.paused);
+  }
+
+  _handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const url = e.target.result;
+      this.previewImg.src = url;
+      this.previewImg.onload = () => {
+        this.fileName.textContent = file.name.length > 18 ? file.name.slice(0, 15) + "..." : file.name;
+        this.fileDims.textContent = `${this.previewImg.naturalWidth}×${this.previewImg.naturalHeight}`;
+        this.previewContainer.classList.add("active");
+        this.setStatus("Processing...");
+        this.onImageLoad?.(url);
+      };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  setStatus(msg) { this.statusEl.textContent = msg; }
+  showRecordProgress(show) { this.recordTrack.style.display = show ? "block" : "none"; if (!show) this.recordFill.style.width = "0%"; }
+  setRecordProgress(pct) { this.recordFill.style.width = `${Math.round(pct * 100)}%`; }
+}
+
+// ============================================================
+// P5 HOOKS
+// ============================================================
+let APP = null;
+let UI = null;
+
+function setup() {
+  APP = new App(CONFIG);
+  APP.setup();
+  UI = new UIController(CONFIG);
+
+  UI.onImageLoad = url => APP.loadImage(url, (w, h) => UI.setStatus(`Loaded ${w}×${h}`));
+  UI.onReset = () => { APP.reset(); UI.setStatus("Reset"); };
+  UI.onPauseToggle = p => { APP.setPaused(p); UI.setStatus(p ? "Paused" : "Drawing..."); };
+  UI.onScaleChange = s => { const d = APP.rescale(s); if (d) UI.setStatus(`Rescaled ${d.w}×${d.h}`); };
+  UI.onStaticChange = () => APP.flagStaticDirty();
+
+  UI.onExportPng = () => {
+    try {
+      UI.setStatus("Exporting PNG...");
+      const wasPaused = APP.paused;
+      APP.paused = true;
+      APP.renderFrame();
+      setTimeout(() => {
+        try { ExportManager.exportPng(); UI.setStatus("PNG saved"); }
+        catch (e) { UI.setStatus("PNG failed: " + e.message); console.error(e); }
+        APP.paused = wasPaused;
+      }, 100);
+    } catch (e) { UI.setStatus("PNG failed: " + e.message); console.error(e); }
+  };
+
+  UI.onExportSvg = () => {
+    try {
+      UI.setStatus("Exporting SVG...");
+      const wasPaused = APP.paused;
+      APP.paused = true;
+      const lines = APP.getCurrentLines();
+      UI.setStatus(`Building SVG (${lines.length} lines)...`);
+      setTimeout(() => {
+        try {
+          const c = CONFIG;
+          ExportManager.exportSvg(lines, APP.canvasW, APP.canvasH, c.canvas.background, c.render.strokeHex, c.render.strokeWeight, c.render.alpha);
+          UI.setStatus("SVG saved");
+        } catch (e) { UI.setStatus("SVG failed: " + e.message); console.error(e); }
+        APP.paused = wasPaused;
+      }, 50);
+    } catch (e) { UI.setStatus("SVG failed: " + e.message); console.error(e); }
+  };
+
+  UI.onPreviewAnim = () => {
+    if (!APP.imageReady) return;
+    const mode = CONFIG.engine.mode;
+    UI.setStatus("Previewing...");
+
+    if (mode === "flow" || mode === "serpentine") {
+      APP.reset();
+      APP.setPaused(false);
+      const totalF = CONFIG.animation.totalFrames;
+      let frame = 0;
+      const iv = setInterval(() => {
+        frame++;
+        UI.setStatus(`Frame ${frame} / ${totalF}`);
+        if (frame >= totalF ||
+            (mode === "flow" && APP.flowEngine?.complete) ||
+            (mode === "serpentine" && APP.serpentineEngine?.complete)) {
+          APP.setPaused(true);
+          UI.setStatus(`Done — ${frame} frames`);
+          clearInterval(iv);
+        }
+      }, 1000 / CONFIG.animation.fps);
+    } else {
+      const totalF = CONFIG.animation.totalFrames;
+      const holdF = CONFIG.animation.holdFrames;
+      const fps = CONFIG.animation.fps;
+      const easing = CONFIG.animation.easing;
+      const allF = totalF + holdF;
+      let f = 0;
+      const slider = document.getElementById("ctrl-draw-progress");
+      const valEl = document.getElementById("val-draw-progress");
+      APP.paused = true;
+      const step = () => {
+        if (f >= allF) {
+          CONFIG.animation.drawProgress = 1.0;
+          slider.value = 100; valEl.textContent = "100%";
+          APP.flagStaticDirty();
+          UI.setStatus("Preview done");
+          return;
+        }
+        const prog = f < totalF ? Easing.apply(f / Math.max(1, totalF - 1), easing) : 1.0;
+        CONFIG.animation.drawProgress = prog;
+        slider.value = Math.round(prog * 100);
+        valEl.textContent = `${Math.round(prog * 100)}%`;
+        APP.flagStaticDirty();
+        f++;
+        setTimeout(step, 1000 / fps);
+      };
+      step();
+    }
+  };
+
+  UI.onRecordWebM = () => {
+    if (!APP.imageReady) return;
+    const btn = document.getElementById("btn-record-webm");
+    btn.classList.add("recording"); btn.textContent = "Recording..."; btn.disabled = true;
+    UI.showRecordProgress(true);
+    UI.setStatus("Recording WebM...");
+    ExportManager.recordWebM(APP,
+      pct => UI.setRecordProgress(pct),
+      blob => {
+        btn.classList.remove("recording"); btn.textContent = "Record WebM"; btn.disabled = false;
+        UI.showRecordProgress(false);
+        UI.setStatus(blob ? "WebM saved" : "Failed");
+      }
+    );
+  };
+}
+
+function draw() { APP.draw(); }
+</script>
+</body>
+</html>
