@@ -1,0 +1,21 @@
+{
+  "tool": "processing-export",
+  "source": "toIntegrate/processing-export/processing-export/src/index.html",
+  "sourceCandidates": [
+    "toIntegrate/processing-export/processing-export/src/index (2).html",
+    "toIntegrate/processing-export/processing-export/src/index.html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "regex-only",
+  "regexFunctionCount": 4,
+  "llmFunctionCount": 0,
+  "llmCapabilities": [],
+  "llmNotes": "",
+  "functionCount": 4,
+  "functions": [
+    "if",
+    "setup",
+    "draw",
+    "sketch"
+  ]
+}

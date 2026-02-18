@@ -2,6 +2,7 @@ import { EffectNode } from '../EffectNode.js';
 import { buildBaseGradient } from '../../modules/field/base-gradient.js';
 import { normalizeField } from '../../modules/field/vector-field.js';
 import { buildFlowLines } from '../../modules/line/flow-line-engine.js';
+import { vectorToRaster } from '../../modules/bridge/node-adapters.js';
 
 /**
  * ModuleFlowLinesNode — module-backed flow-line renderer.
@@ -27,6 +28,7 @@ export class ModuleFlowLinesNode extends EffectNode {
     return seeds;
   }
 
+  applyVector(src, w, h, ctx) {
   apply(src, dst, w, h, ctx) {
     const p = this.params;
     const field = normalizeField(buildBaseGradient(src, w, h, true));
@@ -38,6 +40,26 @@ export class ModuleFlowLinesNode extends EffectNode {
       step: p.stepSize
     });
 
+    return {
+      lines: set.lines,
+      strokeRGBA: [p.strokeColor, p.strokeColor, p.strokeColor, 255],
+      strokeWidth: p.strokeW,
+      clearRGBA: [p.bgColor, p.bgColor, p.bgColor, 255]
+    };
+  }
+
+  apply(src, dst, w, h, ctx) {
+    const vectorSet = this.applyVector(src, w, h, ctx);
+    dst.set(vectorToRaster({
+      basePixels: src,
+      width: w,
+      height: h,
+      lines: vectorSet.lines,
+      strokeRGBA: vectorSet.strokeRGBA,
+      strokeWidth: vectorSet.strokeWidth,
+      clearRGBA: vectorSet.clearRGBA,
+      opacity: 1
+    }));
     const oc = new OffscreenCanvas(w, h);
     const c = oc.getContext('2d');
     c.fillStyle = `rgb(${p.bgColor},${p.bgColor},${p.bgColor})`;

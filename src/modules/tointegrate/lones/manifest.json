@@ -1,0 +1,46 @@
+{
+  "tool": "lones",
+  "source": "toIntegrate/lones/lones/src/index.html",
+  "sourceCandidates": [
+    "toIntegrate/lones/lones/src/index (2).html",
+    "toIntegrate/lones/lones/src/index.html",
+    "toIntegrate/lones/lones/dist/index.html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "manual-llm-review",
+  "regexFunctionCount": 0,
+  "llmFunctionCount": 21,
+  "llmCapabilities": [
+    "p5 lifecycle rendering",
+    "flow/static/serpentine engine switching",
+    "image import and fit-mode controls",
+    "line tension and drag response tuning",
+    "animation progress control",
+    "png/svg export and recording controls"
+  ],
+  "llmNotes": "Source snapshot contains complete UI/control surface but no inline executable script block. Function names are manually inferred from the control contract and expected p5 lifecycle behavior for this tool.",
+  "functionCount": 21,
+  "functions": [
+    "setup",
+    "draw",
+    "windowResized",
+    "handleFileDrop",
+    "handleFileInputChange",
+    "loadSourceImage",
+    "setEngineMode",
+    "rebuildLines",
+    "renderFlowLines",
+    "renderStaticLines",
+    "renderSerpentineLines",
+    "updateControlPanel",
+    "updateAnimationProgress",
+    "togglePause",
+    "resetState",
+    "exportPng",
+    "exportSvg",
+    "startRecording",
+    "stopRecording",
+    "applyDragResponse",
+    "applyLineTension"
+  ]
+}

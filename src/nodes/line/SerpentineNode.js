@@ -1,4 +1,5 @@
 import { EffectNode } from '../EffectNode.js';
+import { vectorToRaster } from '../../modules/bridge/node-adapters.js';
 
 /**
  * SerpentineNode — flow wave-front halftone → pixel buffer.
@@ -98,36 +99,19 @@ export class SerpentineNode extends EffectNode {
       }
     }
 
-    // Render to offscreen canvas (cached)
-    if (!this._oc || this._ocW !== w || this._ocH !== h) {
-      this._oc = new OffscreenCanvas(w, h);
-      this._ocCtx = this._oc.getContext('2d');
-      this._ocW = w; this._ocH = h;
-    }
-    const oc = this._oc;
-    const c = this._ocCtx;
-    const bg = p.bgColor;
-    c.fillStyle = `rgb(${bg},${bg},${bg})`;
-    c.fillRect(0, 0, w, h);
+    const lines = waveFronts
+      .filter((wf) => wf.points && wf.points.length > 1)
+      .map((wf) => wf.points.map((pt) => ({ x: pt.linePos, y: pt.flowPos })));
 
-    const sc = p.strokeColor;
-    c.strokeStyle = `rgb(${sc},${sc},${sc})`;
-    c.lineWidth = p.strokeW;
-
-    for (const wf of waveFronts) {
-      if (!wf.points || wf.points.length < 2) continue;
-      c.beginPath();
-      for (let i = 0; i < wf.points.length; i++) {
-        const pt = wf.points[i];
-        const x = pt.linePos;
-        const y = pt.flowPos;
-        if (i === 0) c.moveTo(x, y);
-        else c.lineTo(x, y);
-      }
-      c.stroke();
-    }
-
-    const id = c.getImageData(0, 0, w, h);
-    dst.set(id.data);
+    dst.set(vectorToRaster({
+      basePixels: src,
+      width: w,
+      height: h,
+      lines,
+      strokeRGBA: [p.strokeColor, p.strokeColor, p.strokeColor, 255],
+      strokeWidth: p.strokeW,
+      clearRGBA: [p.bgColor, p.bgColor, p.bgColor, 255],
+      opacity: 1
+    }));
   }
 }

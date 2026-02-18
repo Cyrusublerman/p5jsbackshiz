@@ -1,0 +1,20 @@
+{
+  "tool": "index-1",
+  "source": "toIntegrate/index (1).html",
+  "sourceCandidates": [
+    "toIntegrate/index (1).html",
+    "toIntegrate/index (2).html"
+  ],
+  "sourceExists": true,
+  "extractionMode": "regex-only",
+  "regexFunctionCount": 3,
+  "llmFunctionCount": 0,
+  "llmCapabilities": [],
+  "llmNotes": "",
+  "functionCount": 3,
+  "functions": [
+    "setup",
+    "draw",
+    "step"
+  ]
+}
