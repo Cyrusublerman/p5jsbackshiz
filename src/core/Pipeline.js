@@ -109,6 +109,7 @@ export class Pipeline {
 
       if (needsBlend) {
         const tmp = pool.acquire(bufSize);
+        this._runNode(node, bufA, tmp, w, h, ctx, hasMask);
         node.apply(bufA, tmp, w, h, ctx);
 
         const maskData = hasMask ? node.mask.data : null;
@@ -126,6 +127,7 @@ export class Pipeline {
         }
         pool.release(tmp);
       } else {
+        this._runNode(node, bufA, bufB, w, h, ctx, hasMask);
         if (typeof node.applyVector === 'function') {
           const lineSet = node.applyVector(bufA, w, h, ctx);
           const adapted = vectorToRaster({
@@ -199,6 +201,23 @@ export class Pipeline {
         dst[i] = c[0]; dst[i + 1] = c[1]; dst[i + 2] = c[2]; dst[i + 3] = c[3];
       }
     }
+  }
+
+  _runNode(node, input, output, w, h, ctx, hasMask) {
+    if (typeof node.applyVector === 'function') {
+      const lineSet = node.applyVector(input, w, h, ctx);
+      const adapted = vectorToRaster({
+        basePixels: input,
+        width: w,
+        height: h,
+        lines: lineSet?.lines || [],
+        opacity: node.opacity,
+        mask: hasMask ? node.mask.data : null
+      });
+      output.set(adapted);
+      return;
+    }
+    node.apply(input, output, w, h, ctx);
   }
 
   renderFinal() {

@@ -36,6 +36,14 @@ import { buildToolPanelState, mapLegacyControlId } from '../src/modules/ui/tool-
 import { buildVectorOverlay, shouldRenderOverlayForExport } from '../src/modules/ui/debug-overlays.js';
 
 import { runSandboxedCode } from '../src/modules/lab/code-runner.js';
+import { Pipeline } from '../src/core/Pipeline.js';
+import { LuminanceFlowNode } from '../src/nodes/line/LuminanceFlowNode.js';
+import { SerpentineNode } from '../src/nodes/line/SerpentineNode.js';
+import { StaticHalftoneNode } from '../src/nodes/line/StaticHalftoneNode.js';
+import { ModuleFlowLinesNode } from '../src/nodes/line/ModuleFlowLinesNode.js';
+import { ModuleSerpentineNode } from '../src/nodes/line/ModuleSerpentineNode.js';
+import { ModuleStaticLinesNode } from '../src/nodes/line/ModuleStaticLinesNode.js';
+import { REGISTRY } from '../src/nodes/registry.js';
 
 test('core image io fit/remap deterministic', () => {
   const map = mapFitMode(100, 50, 200, 200, 'contain');
@@ -196,4 +204,85 @@ test('lab code runner sandbox boundaries', async () => {
   const fn = await runSandboxedCode({ draw: '() => Math.sqrt(9)' });
   assert.equal(fn(), 3);
   await assert.rejects(() => runSandboxedCode({ draw: '() => window.location.href' }), /Sandbox violation/);
+});
+
+
+test('pipeline uses applyVector in blended path', () => {
+  const sourcePixels = new Uint8ClampedArray([255, 255, 255, 255]);
+  const vectorOnlyNode = {
+    id: 1,
+    enabled: true,
+    opacity: 0.5,
+    modulation: {},
+    mask: { enabled: false, source: 'none', data: null },
+    _cacheValid: false,
+    _cache: null,
+    buildMask: () => {},
+    apply: () => { throw new Error('apply should not be used for vector-only node'); },
+    applyVector: () => ({ lines: [[{ x: 0, y: 0 }]] })
+  };
+
+  const state = {
+    sourcePixels,
+    sourceW: 1,
+    sourceH: 1,
+    rendering: false,
+    quality: 'final',
+    previewScale: 1,
+    soloNodeId: null,
+    stack: [vectorOnlyNode],
+    modulationMaps: {},
+    globalSeed: 1,
+    renderProgress: 0,
+    lastRenderTime: 0,
+    needsRender: true
+  };
+
+  const pipeline = new Pipeline(state);
+  const out = pipeline.render();
+  assert.ok(out);
+  assert.ok(out.pixels[0] < 255);
+  pipeline.releaseResult(out);
+});
+
+
+test('existing line nodes preserve legacy EffectNode shape', () => {
+  const n1 = new LuminanceFlowNode();
+  const n2 = new SerpentineNode();
+  const n3 = new StaticHalftoneNode();
+
+  assert.equal(typeof n1.apply, 'function');
+  assert.equal(typeof n2.apply, 'function');
+  assert.equal(typeof n3.apply, 'function');
+  assert.ok(n1.paramDefs.spacing);
+  assert.ok(n2.paramDefs.spacing);
+  assert.ok(n3.paramDefs.spacing);
+});
+
+test('new module-backed line nodes match EffectNode format', () => {
+  const n1 = new ModuleFlowLinesNode();
+  const n2 = new ModuleSerpentineNode();
+  const n3 = new ModuleStaticLinesNode();
+
+  assert.equal(typeof n1.apply, 'function');
+  assert.equal(typeof n2.apply, 'function');
+  assert.equal(typeof n3.apply, 'function');
+  assert.ok(n1.paramDefs.spacing);
+  assert.ok(n2.paramDefs.spacing);
+  assert.ok(n3.paramDefs.spacing);
+});
+
+test('new module-backed nodes are grouped and discoverable in registry dropdown source', () => {
+  const group = REGISTRY['LINE RENDER (MODULE)'];
+  assert.ok(Array.isArray(group));
+  assert.equal(group.length, 3);
+  assert.equal(group[0].type, 'moduleflowlines');
+});
+
+
+test('add menu css includes max-height scrolling', async () => {
+  const fs = await import('node:fs/promises');
+  const css = await fs.readFile(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('max-height: min(70vh, 520px);'));
+  assert.ok(css.includes('overflow-y: auto;'));
 });

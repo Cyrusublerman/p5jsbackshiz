@@ -38,3 +38,7 @@
 
 ## Phase 9 — Lab code runner
 - Implemented sandboxed code runner with forbidden token guard and timeout guardrail.
+
+- Integration update: `LuminanceFlowNode`, `SerpentineNode`, and `StaticHalftoneNode` now retain legacy `EffectNode` shape while delegating core generation logic to `src/modules` primitives.
+- Integration update: added `ModuleFlowLinesNode`, `ModuleSerpentineNode`, and `ModuleStaticLinesNode` as legacy-style `EffectNode` wrappers in a dedicated `LINE RENDER (MODULE)` registry group for dropdown discoverability.
+- UI update: add-node dropdown now has explicit max-height and internal scrolling behavior to support large registries.

@@ -101,10 +101,25 @@ export class UI {
     });
 
     document.getElementById('add-btn').addEventListener('click', (e) => {
-      e.stopPropagation(); const r = e.target.getBoundingClientRect();
-      menu.style.top = r.bottom + 2 + 'px'; menu.style.left = Math.max(0, r.right - 210) + 'px';
+      e.stopPropagation();
+      const r = e.target.getBoundingClientRect();
+      const menuW = 230;
+      const x = Math.max(8, Math.min(window.innerWidth - menuW - 8, r.right - 210));
+      menu.style.left = x + 'px';
+      menu.style.top = (r.bottom + 2) + 'px';
       menu.classList.toggle('show');
-      if (menu.classList.contains('show')) { search.value = ''; search.dispatchEvent(new Event('input')); setTimeout(() => search.focus(), 10); }
+      if (menu.classList.contains('show')) {
+        search.value = '';
+        search.dispatchEvent(new Event('input'));
+        menu.scrollTop = 0;
+        const maxH = Math.min(window.innerHeight * 0.7, 520);
+        menu.style.maxHeight = maxH + 'px';
+        const rect = menu.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight - 8) {
+          menu.style.top = Math.max(8, window.innerHeight - rect.height - 8) + 'px';
+        }
+        setTimeout(() => search.focus(), 10);
+      }
     });
     document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target.id !== 'add-btn') menu.classList.remove('show'); });
   }
