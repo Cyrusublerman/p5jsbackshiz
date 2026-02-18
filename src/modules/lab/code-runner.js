@@ -15,6 +15,15 @@ function assertSafe(code) {
   }
 }
 
+export function parseUserSketch(source = '') {
+  const setupMatch = source.match(/function\s+setup\s*\(\s*\)\s*\{([\s\S]*?)\}/m);
+  const drawMatch = source.match(/function\s+draw\s*\(\s*\)\s*\{([\s\S]*?)\}/m);
+  return {
+    setup: setupMatch ? setupMatch[1] : '',
+    draw: drawMatch ? `() => {${drawMatch[1]}}` : '() => null'
+  };
+}
+
 export async function runSandboxedCode({ setup = '', draw = '() => null', timeoutMs = 50, api = {} } = {}) {
   const mergedApi = { Math, ...api };
   const apiKeys = Object.keys(mergedApi);
@@ -31,4 +40,9 @@ export async function runSandboxedCode({ setup = '', draw = '() => null', timeou
     exec(),
     new Promise((_, reject) => setTimeout(() => reject(new Error('Sandbox timeout exceeded')), timeoutMs))
   ]);
+}
+
+export async function compileAndRunSketch(source, opts = {}) {
+  const parsed = parseUserSketch(source);
+  return runSandboxedCode({ ...opts, ...parsed });
 }

@@ -27,3 +27,32 @@ export function composeForces(fields, { normalize = false, clamp = null } = {}) 
 
   return { width, height, vectors: out };
 }
+
+export function gradientForce(sample, strength = 1) {
+  return {
+    fx: sample.cosA * sample.mag * strength,
+    fy: sample.sinA * sample.mag * strength
+  };
+}
+
+export function tangentForce(sample, strength = 1) {
+  return {
+    fx: sample.tanCos * sample.mag * strength,
+    fy: sample.tanSin * sample.mag * strength
+  };
+}
+
+export function originForce(x, y, ox, oy, strength = 1, scale = 1) {
+  const vx = x - ox;
+  const vy = y - oy;
+  const d = Math.hypot(vx, vy);
+  if (d < 1e-8) return { fx: 0, fy: 0 };
+  const s = strength * scale;
+  return { fx: (vx / d) * s, fy: (vy / d) * s };
+}
+
+export function applyDeadZone(force, deadZone = 0) {
+  const m = Math.hypot(force.fx, force.fy);
+  if (m < deadZone) return { fx: 0, fy: 0 };
+  return force;
+}

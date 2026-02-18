@@ -1,35 +1,32 @@
+function clampByte(v) {
+  return Math.max(0, Math.min(255, v));
+}
+
 function blendPoint(out, width, height, x, y, strokeRGBA, opacity, mask) {
   if (x < 0 || y < 0 || x >= width || y >= height) return;
 
   const i = (y * width + x) * 4;
   const maskAlpha = mask ? (mask[y * width + x] / 255) : 1;
-function drawPoint(out, width, height, x, y, strokeRGBA, opacity, mask) {
-  const xi = Math.round(x);
-  const yi = Math.round(y);
-  if (xi < 0 || yi < 0 || xi >= width || yi >= height) return;
-
-  const i = (yi * width + xi) * 4;
-  const maskAlpha = mask ? (mask[yi * width + xi] / 255) : 1;
-  const srcA = (strokeRGBA[3] / 255) * opacity * maskAlpha;
+  const srcA = Math.max(0, Math.min(1, (strokeRGBA[3] / 255) * opacity * maskAlpha));
   const inv = 1 - srcA;
 
-  out[i] = out[i] * inv + strokeRGBA[0] * srcA;
-  out[i + 1] = out[i + 1] * inv + strokeRGBA[1] * srcA;
-  out[i + 2] = out[i + 2] * inv + strokeRGBA[2] * srcA;
-  out[i + 3] = Math.max(out[i + 3], 255 * srcA + out[i + 3] * inv);
+  out[i] = clampByte(out[i] * inv + strokeRGBA[0] * srcA);
+  out[i + 1] = clampByte(out[i + 1] * inv + strokeRGBA[1] * srcA);
+  out[i + 2] = clampByte(out[i + 2] * inv + strokeRGBA[2] * srcA);
+  out[i + 3] = clampByte(255 * srcA + out[i + 3] * inv);
 }
 
-function drawPoint(out, width, height, x, y, strokeRGBA, opacity, mask, strokeWidth) {
+function drawPoint(out, width, height, x, y, strokeRGBA, opacity, mask, strokeWidth = 1) {
   const xi = Math.round(x);
   const yi = Math.round(y);
   const sw = Math.max(1, Math.round(strokeWidth || 1));
-  const r = Math.floor(sw / 2);
 
   if (sw <= 1) {
     blendPoint(out, width, height, xi, yi, strokeRGBA, opacity, mask);
     return;
   }
 
+  const r = Math.floor(sw / 2);
   for (let oy = -r; oy <= r; oy++) {
     for (let ox = -r; ox <= r; ox++) {
       if ((ox * ox + oy * oy) > (r * r + 0.01)) continue;
@@ -38,8 +35,7 @@ function drawPoint(out, width, height, x, y, strokeRGBA, opacity, mask, strokeWi
   }
 }
 
-function drawSegment(out, width, height, a, b, strokeRGBA, opacity, mask, strokeWidth) {
-function drawSegment(out, width, height, a, b, strokeRGBA, opacity, mask) {
+function drawSegment(out, width, height, a, b, strokeRGBA, opacity, mask, strokeWidth = 1) {
   let x0 = Math.round(a.x);
   let y0 = Math.round(a.y);
   const x1 = Math.round(b.x);
@@ -53,7 +49,6 @@ function drawSegment(out, width, height, a, b, strokeRGBA, opacity, mask) {
 
   while (true) {
     drawPoint(out, width, height, x0, y0, strokeRGBA, opacity, mask, strokeWidth);
-    drawPoint(out, width, height, x0, y0, strokeRGBA, opacity, mask);
     if (x0 === x1 && y0 === y1) break;
     const e2 = 2 * err;
     if (e2 >= dy) { err += dy; x0 += sx; }
@@ -90,16 +85,8 @@ export function vectorToRaster({
     drawPoint(out, width, height, line[0].x, line[0].y, strokeRGBA, opacity, mask, strokeWidth);
     for (let i = 1; i < line.length; i++) {
       drawSegment(out, width, height, line[i - 1], line[i], strokeRGBA, opacity, mask, strokeWidth);
-  opacity = 1,
-  mask = null
-}) {
-  const out = new Uint8ClampedArray(basePixels);
-  for (const line of lines || []) {
-    if (!line?.length) continue;
-    drawPoint(out, width, height, line[0].x, line[0].y, strokeRGBA, opacity, mask);
-    for (let i = 1; i < line.length; i++) {
-      drawSegment(out, width, height, line[i - 1], line[i], strokeRGBA, opacity, mask);
     }
   }
+
   return out;
 }
