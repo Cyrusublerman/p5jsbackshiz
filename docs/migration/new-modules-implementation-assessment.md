@@ -28,6 +28,7 @@ Assessed all files under `src/modules/*` for:
 | `bridge/*` | Implemented | Good | **Integrated** | `vectorToRaster` is imported by `Pipeline` and exercised in node execution path. |
 | `color/*` | Implemented | Partial | Low | Color science + quantizer logic is concrete but not yet replacing existing color nodes end-to-end. |
 | `painter/*` | Implemented | Partial | Partial | Brush/layer primitives now back `PaintStrokeNode`; broader painter ecosystem migration still pending. |
+| `painter/*` | Implemented | Partial | Low | Brush/layer primitives are useful services; node-level wiring remains. |
 | `shader/*` | Implemented (shim-level) | Partial | Low | Runtime abstraction exists; not yet a fully connected WebGL worker stack in app flow. |
 | `export/*` | Implemented | Partial | Low | Export helpers exist but app export path still primarily legacy UI methods. |
 | `ui/*` | Implemented (helper-level) | Partial | Low | Tool panel/overlay helpers not yet integrated as main UI control renderer. |
@@ -38,6 +39,7 @@ Assessed all files under `src/modules/*` for:
 - Legacy app contract is class-based `EffectNode` with node state, mask/modulation, cache, and `apply(...)` execution hooks.
 - New module layer is predominantly functional service code under `src/modules/*`.
 - Core runtime directly consumes bridge adapter modules; additional node families now delegate to shared module helpers (morphology, segmentation, painter) via wrappers.
+- Core runtime imports only one module family directly today: `vectorToRaster` from bridge adapter in `Pipeline`.
 - Test suite exercises all module families and includes a pipeline regression test for vector-only blended execution.
 
 ## Risks / gaps

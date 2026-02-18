@@ -55,6 +55,7 @@ import { regionGrow, kmeans1D, watershedLite, otsuThreshold } from '../src/modul
 import { bisection, gradientDescent, newtonRaphson } from '../src/modules/numerical/solvers.js';
 import { TOINTEGRATE_MODULES } from '../src/modules/tointegrate/index.js';
 import lonesManifest from '../src/modules/tointegrate/lones/manifest.json' with { type: 'json' };
+import { REGISTRY } from '../src/nodes/registry.js';
 
 test('core image io fit/remap deterministic', () => {
   const map = mapFitMode(100, 50, 200, 200, 'contain');

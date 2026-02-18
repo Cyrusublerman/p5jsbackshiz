@@ -18,6 +18,7 @@ export class ModuleStaticLinesNode extends EffectNode {
   }
 
   applyVector(_src, w, h) {
+  apply(src, dst, w, h) {
     const p = this.params;
     const set = buildStaticLines({
       width: w,
@@ -47,5 +48,21 @@ export class ModuleStaticLinesNode extends EffectNode {
       clearRGBA: vectorSet.clearRGBA,
       opacity: 1
     }));
+    const oc = new OffscreenCanvas(w, h);
+    const c = oc.getContext('2d');
+    c.fillStyle = `rgb(${p.bgColor},${p.bgColor},${p.bgColor})`;
+    c.fillRect(0, 0, w, h);
+    c.strokeStyle = `rgb(${p.strokeColor},${p.strokeColor},${p.strokeColor})`;
+    c.lineWidth = p.strokeW;
+
+    for (const line of set.lines) {
+      if (!line || line.length < 2) continue;
+      c.beginPath();
+      c.moveTo(line[0].x, line[0].y);
+      for (let i = 1; i < line.length; i++) c.lineTo(line[i].x, line[i].y);
+      c.stroke();
+    }
+
+    dst.set(c.getImageData(0, 0, w, h).data);
   }
 }
