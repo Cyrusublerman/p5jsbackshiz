@@ -206,7 +206,6 @@ export class Pipeline {
   _runNode(node, input, output, w, h, ctx, hasMask) {
     if (typeof node.applyVector === 'function') {
       const lineSet = node.applyVector(input, w, h, ctx) || {};
-      const lineSet = node.applyVector(input, w, h, ctx);
       const adapted = vectorToRaster({
         basePixels: input,
         width: w,
@@ -215,7 +214,6 @@ export class Pipeline {
         strokeRGBA: lineSet.strokeRGBA || [0, 0, 0, 255],
         strokeWidth: lineSet.strokeWidth || 1,
         clearRGBA: lineSet.clearRGBA || null,
-        lines: lineSet?.lines || [],
         opacity: node.opacity,
         mask: hasMask ? node.mask.data : null
       });
