@@ -416,7 +416,7 @@ body::after {
   z-index: 200;
   display: none;
   min-width: 210px;
-  max-height: min(70vh, 520px);
+  max-height: min(80vh, 520px);
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
@@ -1058,7 +1058,7 @@ body::after {
   z-index: 200;
   display: none;
   min-width: 210px;
-  max-height: min(70vh, 520px);
+  max-height: min(80vh, 520px);
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.5);

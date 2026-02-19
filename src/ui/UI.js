@@ -112,7 +112,7 @@ export class UI {
         search.value = '';
         search.dispatchEvent(new Event('input'));
         menu.scrollTop = 0;
-        const maxH = Math.min(window.innerHeight * 0.7, 520);
+        const maxH = Math.min(window.innerHeight * 0.8, 520);
         menu.style.maxHeight = maxH + 'px';
         const rect = menu.getBoundingClientRect();
         if (rect.bottom > window.innerHeight - 8) {
@@ -619,7 +619,7 @@ export class UI {
         search.value = '';
         search.dispatchEvent(new Event('input'));
         menu.scrollTop = 0;
-        const maxH = Math.min(window.innerHeight * 0.7, 520);
+        const maxH = Math.min(window.innerHeight * 0.8, 520);
         menu.style.maxHeight = maxH + 'px';
         const rect = menu.getBoundingClientRect();
         if (rect.bottom > window.innerHeight - 8) {
