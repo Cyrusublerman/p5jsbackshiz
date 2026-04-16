@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Polar Ring System v2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+</head>
+<body>
+<script>
+/* ==========================================================================
+ * POLAR RING SYSTEM v2
+ *
+ * New in v2 over v1:
+ *   DenseRingSampleBuffer        pre-allocated Float32Array per ring; no
+ *                                per-frame {x,y,angle,r} object creation
+ *   PerFrameNoiseCache           typed-array cache: envelope, jiggle, twist,
+ *                                curlDx, curlDy precomputed once per ring/frame
+ *   PerimeterLengthAccumulator   now holds a pre-allocated Float32Array; one
+ *                                instance per ring
+ *   RingConfigurationResolver    shallow-merges perRingOverrides onto global
+ *                                harmonicWaveform config; results cached
+ *   TwistFieldLayer              new modulation layer — signed Perlin noise
+ *                                applied as tangential Cartesian displacement
+ *                                (⊥ to radius vector)
+ *   CurlNoiseController          derives 2D flow field from Perlin gradient:
+ *                                curl_x = ∂N/∂y, curl_y = -∂N/∂x
+ *                                applied as Cartesian XY displacement post-embedding
+ *   ConnectionModulatorEvaluator dispatch pipeline — each modulator returns
+ *                                { allow: bool, shiftDelta: int }
+ *                                Built-in types: noiseGate, radiusGate,
+ *                                ringIndexShift, noiseShift.
+ *                                New types: add a case to _dispatch only.
+ *   GeneralisedConnectionBuilder rule-based topology replacing
+ *                                AdjacentRingConnectionBuilder:
+ *                                  ringStep — bridges ring i → i+N
+ *                                  offsets  — per-source point index deltas
+ *                                  baseShift / useRotationalShift
+ *                                  modulators pipeline per rule
+ *   WebGL renderer option        createCanvas flag + translate adapter
+ * ========================================================================== */
+
+let polarRingSystemInstance;
+
+/* ==========================================================================
+ * CONFIGURATION
+ * ========================================================================== */
+
+const PolarRingSystemConfiguration = {
+
+  canvas: {
+    width:           512,
+    height:          512,
+    parentId:        null,
+    pixelDensity:    1,
+    frameRate:       60,
+    backgroundColor: 0,
+    /*
+     * useWebGL: true  — WEBGL renderer (GPU-accelerated line rasterisation).
+     *                   A translate(-width/2, -height/2) adapter is applied at
+     *                   the start of each draw() call so all coordinates remain
+     *                   identical to P2D mode.
+     */
+    useWebGL:        false
+  },
+
+  renderingStyle: {
+    strokeColor:            255,
+    strokeWeight:           1,
+    noFill:                 true,
+    drawRingCurves:         true,
+    drawConnections:        true,
+    drawDenseSamplePoints:  false,
+    drawRedistributedPoints: false
+  },
+
+  ringGeometry: {
+    ringCount:      12,
+    innerRadius:    28,
+    radiusStep:     15,
+    referenceRadius: 28,
+    centroidX:      256,
+    centroidY:      256,
+
+    /*
+     * perRingOverrides: any key from harmonicWaveform may be overridden for
+     * a specific ring index. Processed by RingConfigurationResolver.
+     *
+     * Example:
+     *   perRingOverrides: {
+     *     0:  { harmonicFrequencies: [4, 8], baseAmplitudes: [0.22, 0.11] },
+     *     11: { envelopeBaseStrength: 0.42, twistBaseStrength: 0.07 }
+     *   }
+     */
+    perRingOverrides: {}
+  },
+
+  harmonicWaveform: {
+    harmonicFrequencies:    [4, 8, 12, 16],
+    baseAmplitudes:         [0.18, 0.09, 0.05, 0.025],
+    phaseMaxima:            [0.55, 0.35, 0.24, 0.18],
+
+    globalGainMinimum:      0.65,
+    globalGainMaximum:      1.15,
+
+    amplitudeRangeMinimum:  0.72,
+    amplitudeRangeMaximum:  1.18,
+
+    envelopeBaseStrength:   0.24,
+    envelopeRangeMinimum:   0.65,
+    envelopeRangeMaximum:   1.15,
+
+    jiggleBaseStrength:     0.012,
+    jiggleRangeMinimum:     0.75,
+    jiggleRangeMaximum:     1.20,
+
+    /* New in v2 — tangential twist */
+    twistBaseStrength:      0.035,
+    twistRangeMinimum:      0.50,
+    twistRangeMaximum:      1.40,
+
+    minimumRadiusSafetyFactor: 0.08
+  },
+
+  rotationalMotion: {
+    framesPerRevolution: 360
+  },
+
+  perlinNoise: {
+    noiseSeed:                    17,
+    ringDepthCouplingConstant:    0.43,
+    harmonicNoiseSpacing:         0.41,
+    temporalNoiseScale:           0.010,
+
+    globalFieldOffsetX:           11.0,
+    globalFieldOffsetY:           19.0,
+    amplitudeFieldOffsetX:        37.0,
+    amplitudeFieldOffsetY:        43.0,
+    phaseFieldOffsetX:            79.0,
+    phaseFieldOffsetY:            97.0,
+    envelopeFieldOffsetX:         131.0,
+    envelopeFieldOffsetY:         181.0,
+    jiggleFieldOffsetX:           223.0,
+    jiggleFieldOffsetY:           271.0,
+
+    /* New in v2 */
+    twistFieldOffsetX:            350.0,
+    twistFieldOffsetY:            391.0,
+    curlFieldOffsetX:             480.0,
+    curlFieldOffsetY:             533.0
+  },
+
+  modulationLayerScales: {
+
+    globalRingLayer: {
+      descriptiveRole:           "lowest-frequency whole-ring activity field",
+      temporalScaleMultiplier:   0.45,
+      ringDepthScaleMultiplier:  0.60,
+      harmonicScaleMultiplier:   0.0,
+      perimeterScaleMultiplier:  0.0,
+      fieldScaleX:               0.85,
+      fieldScaleY:               0.85
+    },
+
+    harmonicAmplitudeLayer: {
+      descriptiveRole:           "medium-frequency harmonic strength field",
+      temporalScaleMultiplier:   0.85,
+      ringDepthScaleMultiplier:  1.00,
+      harmonicScaleMultiplier:   1.00,
+      perimeterScaleMultiplier:  0.0,
+      fieldScaleX:               1.00,
+      fieldScaleY:               1.00
+    },
+
+    harmonicPhaseLayer: {
+      descriptiveRole:           "medium-frequency harmonic angular displacement field",
+      temporalScaleMultiplier:   0.95,
+      ringDepthScaleMultiplier:  1.00,
+      harmonicScaleMultiplier:   1.00,
+      perimeterScaleMultiplier:  0.0,
+      fieldScaleX:               1.08,
+      fieldScaleY:               1.08
+    },
+
+    perimeterEnvelopeLayer: {
+      descriptiveRole:           "medium spatial-frequency perimeter emphasis field",
+      temporalScaleMultiplier:   0.75,
+      ringDepthScaleMultiplier:  1.00,
+      harmonicScaleMultiplier:   0.0,
+      perimeterScaleMultiplier:  1.00,
+      fieldScaleX:               1.65,
+      fieldScaleY:               1.65
+    },
+
+    fineJiggleLayer: {
+      descriptiveRole:           "highest spatial-frequency local agitation field",
+      temporalScaleMultiplier:   1.35,
+      ringDepthScaleMultiplier:  1.15,
+      harmonicScaleMultiplier:   0.0,
+      perimeterScaleMultiplier:  1.00,
+      fieldScaleX:               4.75,
+      fieldScaleY:               4.75
+    },
+
+    /*
+     * New in v2.
+     * Tangential displacement: noise value is multiplied by twistStrength
+     * (from harmonicWaveform) and applied along the tangent vector (-sinθ, cosθ).
+     */
+    twistFieldLayer: {
+      descriptiveRole:           "tangential angular displacement field",
+      temporalScaleMultiplier:   0.60,
+      ringDepthScaleMultiplier:  0.80,
+      harmonicScaleMultiplier:   0.0,
+      perimeterScaleMultiplier:  1.00,
+      fieldScaleX:               2.10,
+      fieldScaleY:               2.10
+    },
+
+    /*
+     * New in v2.
+     * Curl noise: derives (∂N/∂y, -∂N/∂x) from a Perlin field and applies it
+     * as a pixel-space XY displacement after Cartesian embedding.
+     * fieldScaleX/Y are noise-space spatial scales (small ≈ smooth, wide flow).
+     */
+    curlFlowLayer: {
+      descriptiveRole:           "curl-from-gradient Cartesian displacement field",
+      temporalScaleMultiplier:   0.30,
+      ringDepthScaleMultiplier:  0.70,
+      fieldScaleX:               0.008,
+      fieldScaleY:               0.008,
+      gradientEpsilon:           0.01,
+      displacementStrengthBase:  2.2,
+      displacementRangeMinimum:  0.4,
+      displacementRangeMaximum:  1.6
+    }
+  },
+
+  sampling: {
+    denseSampleCount:      1600,
+    equidistantPointCount: 240
+  },
+
+  /*
+   * Generalised connection topology (v2).
+   *
+   * rules: array; each entry defines one full connection pass.
+   *
+   * Rule fields:
+   *   ringStep            int ≥ 1  bridges ring i and ring i+ringStep
+   *   offsets             int[]    target-ring point index deltas
+   *                         [0]       straight radials (v1 default)
+   *                         [-1,1]    X-crosses between adjacent rings
+   *                         [-1,0,1]  three-line fan per source point
+   *   baseShift           int      static global index offset
+   *   useRotationalShift  bool     if true, adds a frame-driven integer shift
+   *                                that advances one full cycle per revolution
+   *   rotationalShiftScale float   multiplier on the rotational shift magnitude
+   *
+   *   modulators: modulator[]  — each evaluated by ConnectionModulatorEvaluator.
+   *     Modulator evaluation context:
+   *       { ringIndex, targetRingIndex, pointIndex, pointCount,
+   *         sourceRadius, targetRadius, frameNumber }
+   *
+   *     Built-in modulator types (add new ones in ConnectionModulatorEvaluator._dispatch):
+   *       noiseGate
+   *         { type, fieldOffsetX, fieldOffsetY, temporalScale, threshold }
+   *         Suppresses connection if noise sample < threshold.
+   *
+   *       radiusGate
+   *         { type, minimumRadius, useSource: bool }
+   *         Suppresses connection if chosen radius < minimumRadius.
+   *
+   *       ringIndexShift
+   *         { type, shiftPerRing: float }
+   *         Adds floor(ringIndex × shiftPerRing) to target index.
+   *         Creates a spiral / helical offset pattern across ring depth.
+   *
+   *       noiseShift
+   *         { type, fieldOffsetX, fieldOffsetY, temporalScale, maxShift: int }
+   *         Adds a noise-driven integer shift in [0, maxShift).
+   */
+  connectionTopology: {
+    rules: [
+      {
+        ringStep:             1,
+        offsets:              [0],
+        baseShift:            0,
+        useRotationalShift:   false,
+        rotationalShiftScale: 1.0,
+        modulators:           []
+      }
+    ]
+  },
+
+  diagnostics: {
+    enableConsoleSummary:                     true,
+    reportAtStartupOnly:                      true,
+    checkNegativeRadius:                      true,
+    checkAmplitudeBudget:                     true,
+    checkPerimeterLengths:                    true,
+    checkRingSimilarity:                      true,
+    checkUndersamplingRisk:                   true,
+    checkPerimeterAliasingRisk:               true,
+    checkSelfIntersection:                    true,
+    selfIntersectionEvaluationIntervalFrames: 30
+  }
+};
+
+
+/* ==========================================================================
+ * P5.JS LIFECYCLE
+ * ========================================================================== */
+
+function setup() {
+  const cfg      = PolarRingSystemConfiguration.canvas;
+  const renderer = cfg.useWebGL ? WEBGL : P2D;
+  const p5Canvas = createCanvas(cfg.width, cfg.height, renderer);
+
+  if (cfg.parentId) p5Canvas.parent(cfg.parentId);
+
+  pixelDensity(cfg.pixelDensity);
+  frameRate(cfg.frameRate);
+  noiseSeed(PolarRingSystemConfiguration.perlinNoise.noiseSeed);
+
+  polarRingSystemInstance = new PolarRingSystem(PolarRingSystemConfiguration);
+  polarRingSystemInstance.initialiseSystem();
+}
+
+function draw() {
+  const cfg = PolarRingSystemConfiguration.canvas;
+  background(cfg.backgroundColor);
+
+  /*
+   * WEBGL origin is canvas centre. Translate so all downstream coordinates
+   * remain identical to P2D mode (top-left origin, y downward).
+   */
+  if (cfg.useWebGL) translate(-width / 2, -height / 2);
+
+  polarRingSystemInstance.updateSystem(frameCount);
+  polarRingSystemInstance.renderSystem();
+}
+
+
+/* ==========================================================================
+ * UTILITY FUNCTIONS
+ * ========================================================================== */
+
+function interpolateLinearly(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function wrapModulo(value, modulus) {
+  const r = value % modulus;
+  return r < 0 ? r + modulus : r;
+}
+
+function computeEuclideanDistance2D(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return sqrt(dx * dx + dy * dy);
+}
+
+function computeSegmentIntersectionOrientation(a, b, c) {
+  const val = (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
+  if (abs(val) < 1e-9) return 0;
+  return val > 0 ? 1 : 2;
+}
+
+function checkPointOnSegment(a, b, c) {
+  return (
+    b.x <= max(a.x, c.x) + 1e-9 && b.x >= min(a.x, c.x) - 1e-9 &&
+    b.y <= max(a.y, c.y) + 1e-9 && b.y >= min(a.y, c.y) - 1e-9
+  );
+}
+
+function checkSegmentsIntersect(a1, a2, b1, b2) {
+  const o1 = computeSegmentIntersectionOrientation(a1, a2, b1);
+  const o2 = computeSegmentIntersectionOrientation(a1, a2, b2);
+  const o3 = computeSegmentIntersectionOrientation(b1, b2, a1);
+  const o4 = computeSegmentIntersectionOrientation(b1, b2, a2);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && checkPointOnSegment(a1, b1, a2)) return true;
+  if (o2 === 0 && checkPointOnSegment(a1, b2, a2)) return true;
+  if (o3 === 0 && checkPointOnSegment(b1, a1, b2)) return true;
+  if (o4 === 0 && checkPointOnSegment(b1, a2, b2)) return true;
+  return false;
+}
+
+
+/* ==========================================================================
+ * DENSE RING SAMPLE BUFFER
+ * Pre-allocated Float32Array set; reused every frame. Eliminates per-frame
+ * {x, y, angle, radius} object creation for dense sample points.
+ * ========================================================================== */
+
+class DenseRingSampleBuffer {
+  constructor(capacity) {
+    this.capacity     = capacity;
+    this.xBuffer      = new Float32Array(capacity);
+    this.yBuffer      = new Float32Array(capacity);
+    this.radiusBuffer = new Float32Array(capacity);
+    this.angleBuffer  = new Float32Array(capacity);
+    this.count        = 0;
+  }
+
+  setPoint(index, x, y, radius, angle) {
+    this.xBuffer[index]      = x;
+    this.yBuffer[index]      = y;
+    this.radiusBuffer[index] = radius;
+    this.angleBuffer[index]  = angle;
+  }
+
+  /* Returns a plain object for code that still expects {x,y,radiusValue,angle}. */
+  getPoint(index) {
+    return {
+      x:           this.xBuffer[index],
+      y:           this.yBuffer[index],
+      radiusValue: this.radiusBuffer[index],
+      angle:       this.angleBuffer[index]
+    };
+  }
+}
+
+
+/* ==========================================================================
+ * PER-FRAME NOISE CACHE
+ * Precomputes all per-angle, per-ring noise field values once per frame.
+ * Eliminates redundant noise() evaluations inside the radius sample loop.
+ * ========================================================================== */
+
+class PerFrameNoiseCache {
+  constructor(ringCount, sampleCapacity) {
+    this.ringCount      = ringCount;
+    this.sampleCapacity = sampleCapacity;
+
+    this.envelopeValues = this._allocate(ringCount, sampleCapacity);
+    this.jiggleValues   = this._allocate(ringCount, sampleCapacity);
+    this.twistValues    = this._allocate(ringCount, sampleCapacity);
+    this.curlDxValues   = this._allocate(ringCount, sampleCapacity);
+    this.curlDyValues   = this._allocate(ringCount, sampleCapacity);
+  }
+
+  _allocate(ringCount, capacity) {
+    const bufs = [];
+    for (let i = 0; i < ringCount; i++) bufs.push(new Float32Array(capacity));
+    return bufs;
+  }
+
+  /*
+   * Populate all five cache arrays for ringIndex at the given sample angles.
+   * Called once per ring inside DenseRingSampler before the sample loop.
+   */
+  populateForRing(ringIndex, frameNumber, sampleAngles, noiseFieldController, curlNoiseController) {
+    const envBuf  = this.envelopeValues[ringIndex];
+    const jigBuf  = this.jiggleValues[ringIndex];
+    const twisBuf = this.twistValues[ringIndex];
+    const cdxBuf  = this.curlDxValues[ringIndex];
+    const cdyBuf  = this.curlDyValues[ringIndex];
+    const n       = sampleAngles.length;
+
+    for (let i = 0; i < n; i++) {
+      const angle = sampleAngles[i];
+      envBuf[i]   = noiseFieldController.evaluatePerimeterEnvelopeField(ringIndex, angle, frameNumber);
+      jigBuf[i]   = noiseFieldController.evaluateFineJiggleField(ringIndex, angle, frameNumber);
+      twisBuf[i]  = noiseFieldController.evaluateTwistField(ringIndex, angle, frameNumber);
+      const curl  = curlNoiseController.evaluateCurlDisplacement(ringIndex, angle, frameNumber);
+      cdxBuf[i]   = curl.dx;
+      cdyBuf[i]   = curl.dy;
+    }
+  }
+}
+
+
+/* ==========================================================================
+ * RING CONFIGURATION RESOLVER
+ * Resolves the effective harmonicWaveform config for a given ring index by
+ * shallow-merging any perRingOverrides entry onto the global config.
+ * Results are cached after first resolution (config is static).
+ * ========================================================================== */
+
+class RingConfigurationResolver {
+  constructor(cfg) {
+    this._globalConfig  = cfg.harmonicWaveform;
+    this._overrides     = cfg.ringGeometry.perRingOverrides || {};
+    this._resolvedCache = {};
+  }
+
+  resolveForRing(ringIndex) {
+    if (this._resolvedCache[ringIndex] !== undefined) {
+      return this._resolvedCache[ringIndex];
+    }
+    const override                  = this._overrides[ringIndex] || {};
+    const resolved                  = Object.assign({}, this._globalConfig, override);
+    this._resolvedCache[ringIndex]  = resolved;
+    return resolved;
+  }
+}
+
+
+/* ==========================================================================
+ * NOISE FIELD CONTROLLER
+ * Extended with evaluateTwistField (new in v2).
+ * ========================================================================== */
+
+class NoiseFieldController {
+  constructor(cfg) {
+    this._noiseCfg = cfg.perlinNoise;
+    this._ringCfg  = cfg.ringGeometry;
+    this._layerCfg = cfg.modulationLayerScales;
+  }
+
+  evaluateGlobalRingDriver(ringIndex, frameNumber) {
+    const layer  = this._layerCfg.globalRingLayer;
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._unsigned(
+      this._noiseCfg.globalFieldOffsetX * layer.fieldScaleX,
+      (this._noiseCfg.globalFieldOffsetY + rDepth) * layer.fieldScaleY,
+      t
+    );
+  }
+
+  evaluateHarmonicAmplitudeDriver(ringIndex, harmonicIndex, frameNumber) {
+    const layer  = this._layerCfg.harmonicAmplitudeLayer;
+    const hCoord = this._harmonicCoord(harmonicIndex, layer.harmonicScaleMultiplier);
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._unsigned(
+      (this._noiseCfg.amplitudeFieldOffsetX + hCoord) * layer.fieldScaleX,
+      (this._noiseCfg.amplitudeFieldOffsetY + rDepth) * layer.fieldScaleY,
+      t
+    );
+  }
+
+  evaluateHarmonicPhaseDriver(ringIndex, harmonicIndex, frameNumber) {
+    const layer  = this._layerCfg.harmonicPhaseLayer;
+    const hCoord = this._harmonicCoord(harmonicIndex, layer.harmonicScaleMultiplier);
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._signed(
+      (this._noiseCfg.phaseFieldOffsetX + hCoord) * layer.fieldScaleX,
+      (this._noiseCfg.phaseFieldOffsetY + rDepth) * layer.fieldScaleY,
+      t
+    );
+  }
+
+  evaluatePerimeterEnvelopeField(ringIndex, angle, frameNumber) {
+    const layer  = this._layerCfg.perimeterEnvelopeLayer;
+    const pe     = this._perimeterEmbedding(angle);
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._signed(
+      this._noiseCfg.envelopeFieldOffsetX + layer.fieldScaleX * layer.perimeterScaleMultiplier * pe.x,
+      this._noiseCfg.envelopeFieldOffsetY + rDepth + layer.fieldScaleY * layer.perimeterScaleMultiplier * pe.y,
+      t
+    );
+  }
+
+  evaluateFineJiggleField(ringIndex, angle, frameNumber) {
+    const layer  = this._layerCfg.fineJiggleLayer;
+    const pe     = this._perimeterEmbedding(angle);
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._signed(
+      this._noiseCfg.jiggleFieldOffsetX + layer.fieldScaleX * layer.perimeterScaleMultiplier * pe.x,
+      this._noiseCfg.jiggleFieldOffsetY + rDepth + layer.fieldScaleY * layer.perimeterScaleMultiplier * pe.y,
+      t
+    );
+  }
+
+  /* New in v2 */
+  evaluateTwistField(ringIndex, angle, frameNumber) {
+    const layer  = this._layerCfg.twistFieldLayer;
+    const pe     = this._perimeterEmbedding(angle);
+    const rDepth = this._ringDepthCoord(ringIndex, layer.ringDepthScaleMultiplier);
+    const t      = this._temporalCoord(frameNumber, layer.temporalScaleMultiplier);
+    return this._signed(
+      this._noiseCfg.twistFieldOffsetX + layer.fieldScaleX * layer.perimeterScaleMultiplier * pe.x,
+      this._noiseCfg.twistFieldOffsetY + rDepth + layer.fieldScaleY * layer.perimeterScaleMultiplier * pe.y,
+      t
+    );
+  }
+
+  evaluateRingDepthNoiseSpacing() {
+    return this._ringDepthSpacing();
+  }
+
+  _ringDepthSpacing() {
+    return this._noiseCfg.ringDepthCouplingConstant *
+           (this._ringCfg.radiusStep / this._ringCfg.referenceRadius);
+  }
+
+  _ringDepthCoord(ringIndex, scale) {
+    return ringIndex * this._ringDepthSpacing() * scale;
+  }
+
+  _harmonicCoord(harmonicIndex, scale) {
+    return harmonicIndex * this._noiseCfg.harmonicNoiseSpacing * scale;
+  }
+
+  _temporalCoord(frameNumber, scale) {
+    return frameNumber * this._noiseCfg.temporalNoiseScale * scale;
+  }
+
+  _perimeterEmbedding(angle) {
+    return { x: cos(angle), y: sin(angle) };
+  }
+
+  _unsigned(nx, ny, nz) { return noise(nx, ny, nz); }
+  _signed(nx, ny, nz)   { return 2.0 * noise(nx, ny, nz) - 1.0; }
+}
+
+
+/* ==========================================================================
+ * CURL NOISE CONTROLLER (new in v2)
+ *
+ * Derives a 2D displacement vector from the gradient of a Perlin field N:
+ *   curl_x =  ∂N/∂y
+ *   curl_y = -∂N/∂x
+ *
+ * This produces flow that circles around local extrema of the noise field,
+ * creating smooth, divergence-free displacement of ring points.
+ *
+ * Noise coordinates use the unit-circle embedding of each sample angle so
+ * that the flow field is coherent in geometric space rather than angle space.
+ * ========================================================================== */
+
+class CurlNoiseController {
+  constructor(cfg) {
+    this._layer    = cfg.modulationLayerScales.curlFlowLayer;
+    this._noiseCfg = cfg.perlinNoise;
+    this._ringCfg  = cfg.ringGeometry;
+  }
+
+  evaluateCurlDisplacement(ringIndex, angle, frameNumber) {
+    const layer   = this._layer;
+    const epsilon = layer.gradientEpsilon;
+
+    /* Map angle to unit-circle position for noise-space coherence */
+    const bx = cos(angle);
+    const by = sin(angle);
+
+    const t = frameNumber * this._noiseCfg.temporalNoiseScale * layer.temporalScaleMultiplier;
+
+    const rDepth = ringIndex *
+      (this._noiseCfg.ringDepthCouplingConstant *
+       (this._ringCfg.radiusStep / this._ringCfg.referenceRadius)) *
+      layer.ringDepthScaleMultiplier;
+
+    const ox = this._noiseCfg.curlFieldOffsetX;
+    const oy = this._noiseCfg.curlFieldOffsetY;
+    const sx = layer.fieldScaleX;
+    const sy = layer.fieldScaleY;
+
+    /* ∂N/∂x via central difference */
+    const nxp  = noise((ox + (bx + epsilon) * sx), (oy + rDepth + by * sy), t);
+    const nxn  = noise((ox + (bx - epsilon) * sx), (oy + rDepth + by * sy), t);
+    const dNdX = (nxp - nxn) / (2.0 * epsilon);
+
+    /* ∂N/∂y via central difference */
+    const nyp  = noise((ox + bx * sx), (oy + rDepth + (by + epsilon) * sy), t);
+    const nyn  = noise((ox + bx * sx), (oy + rDepth + (by - epsilon) * sy), t);
+    const dNdY = (nyp - nyn) / (2.0 * epsilon);
+
+    /* Curl: (∂N/∂y, -∂N/∂x) */
+    const curlX =  dNdY;
+    const curlY = -dNdX;
+
+    /* Per-ring strength modulation */
+    const strengthMod = noise(ox + ringIndex * 0.28, oy + 5.0, t * 0.5);
+    const strength    = layer.displacementStrengthBase * interpolateLinearly(
+      layer.displacementRangeMinimum,
+      layer.displacementRangeMaximum,
+      strengthMod
+    );
+
+    return { dx: curlX * strength, dy: curlY * strength };
+  }
+}
+
+
+/* ==========================================================================
+ * ROTATIONAL PHASE CONTROLLER (unchanged)
+ * ========================================================================== */
+
+class RotationalPhaseController {
+  constructor(cfg) {
+    this._framesPerRevolution = cfg.rotationalMotion.framesPerRevolution;
+  }
+
+  evaluateAngularRotation(frameNumber) {
+    return TWO_PI * frameNumber / this._framesPerRevolution;
+  }
+
+  evaluateHarmonicRotationalPhase(frameNumber, harmonicFrequency) {
+    return harmonicFrequency * this.evaluateAngularRotation(frameNumber);
+  }
+}
+
+
+/* ==========================================================================
+ * RING WAVEFORM CONTROLLER
+ * Extended: uses RingConfigurationResolver; accepts PerFrameNoiseCache
+ * entries in evaluateRadiusAtAngle to bypass noise() calls.
+ * ========================================================================== */
+
+class RingWaveformController {
+  constructor(cfg, noiseFieldController, rotationalPhaseController, ringConfigurationResolver) {
+    this._ringCfg     = cfg.ringGeometry;
+    this._noise       = noiseFieldController;
+    this._rotation    = rotationalPhaseController;
+    this._resolver    = ringConfigurationResolver;
+  }
+
+  evaluateRingState(ringIndex, frameNumber) {
+    const resolvedConfig   = this._resolver.resolveForRing(ringIndex);
+    const ringBaseRadius   = this._computeBaseRadius(ringIndex);
+    const globalRingDriver = this._noise.evaluateGlobalRingDriver(ringIndex, frameNumber);
+
+    const globalGainFactor = interpolateLinearly(
+      resolvedConfig.globalGainMinimum,
+      resolvedConfig.globalGainMaximum,
+      globalRingDriver
+    );
+
+    /* twistStrength is stored in ring state so DenseRingSampler can read it */
+    const twistStrength = resolvedConfig.twistBaseStrength * interpolateLinearly(
+      resolvedConfig.twistRangeMinimum,
+      resolvedConfig.twistRangeMaximum,
+      globalRingDriver
+    );
+
+    const harmonicState = this._evaluateHarmonicState(
+      ringIndex, frameNumber, globalGainFactor, resolvedConfig
+    );
+
+    return {
+      ringIndex,
+      frameNumber,
+      ringBaseRadius,
+      globalRingDriver,
+      globalGainFactor,
+      twistStrength,
+      resolvedConfig,
+      harmonicState
+    };
+  }
+
+  /*
+   * cacheEntry: optional { envelope, jiggle } from PerFrameNoiseCache.
+   * When provided, these two noise evaluations are read from cache
+   * rather than computed fresh.
+   */
+  evaluateRadiusAtAngle(ringState, angle, cacheEntry = null) {
+    const envelopeFactor = this._evaluateEnvelopeFactor(ringState, angle, cacheEntry);
+    const harmonicSum    = this._evaluateHarmonicSum(angle, ringState.harmonicState);
+    const jiggleContrib  = this._evaluateJiggleContribution(ringState, angle, cacheEntry);
+
+    const unconstrained =
+      ringState.ringBaseRadius * (1.0 + envelopeFactor * harmonicSum) + jiggleContrib;
+
+    return max(unconstrained,
+      ringState.ringBaseRadius * ringState.resolvedConfig.minimumRadiusSafetyFactor);
+  }
+
+  _computeBaseRadius(ringIndex) {
+    return this._ringCfg.innerRadius + ringIndex * this._ringCfg.radiusStep;
+  }
+
+  _evaluateHarmonicState(ringIndex, frameNumber, globalGainFactor, resolvedConfig) {
+    const harmonicStateCollection = [];
+    const frequencies = resolvedConfig.harmonicFrequencies;
+    const amplitudes  = resolvedConfig.baseAmplitudes;
+    const phaseMaxima = resolvedConfig.phaseMaxima;
+
+    for (let k = 0; k < frequencies.length; k++) {
+      const freq   = frequencies[k];
+      const ampD   = this._noise.evaluateHarmonicAmplitudeDriver(ringIndex, k, frameNumber);
+      const phaseD = this._noise.evaluateHarmonicPhaseDriver(ringIndex, k, frameNumber);
+      const ampScale   = interpolateLinearly(
+        resolvedConfig.amplitudeRangeMinimum, resolvedConfig.amplitudeRangeMaximum, ampD);
+      const noisePhase = phaseMaxima[k] * phaseD;
+      const rotPhase   = this._rotation.evaluateHarmonicRotationalPhase(frameNumber, freq);
+
+      harmonicStateCollection.push({
+        harmonicFrequency:  freq,
+        modulatedAmplitude: amplitudes[k] * globalGainFactor * ampScale,
+        totalPhase:         noisePhase + rotPhase
+      });
+    }
+
+    return harmonicStateCollection;
+  }
+
+  _evaluateEnvelopeFactor(ringState, angle, cacheEntry) {
+    const envelopeFieldValue = cacheEntry !== null
+      ? cacheEntry.envelope
+      : this._noise.evaluatePerimeterEnvelopeField(ringState.ringIndex, angle, ringState.frameNumber);
+
+    const rc = ringState.resolvedConfig;
+    const envelopeStrength = rc.envelopeBaseStrength * interpolateLinearly(
+      rc.envelopeRangeMinimum, rc.envelopeRangeMaximum, ringState.globalRingDriver);
+
+    return 1.0 + envelopeStrength * envelopeFieldValue;
+  }
+
+  _evaluateHarmonicSum(angle, harmonicState) {
+    let sum = 0.0;
+    for (let k = 0; k < harmonicState.length; k++) {
+      const h = harmonicState[k];
+      sum += h.modulatedAmplitude * cos(h.harmonicFrequency * angle + h.totalPhase);
+    }
+    return sum;
+  }
+
+  _evaluateJiggleContribution(ringState, angle, cacheEntry) {
+    const jiggleFieldValue = cacheEntry !== null
+      ? cacheEntry.jiggle
+      : this._noise.evaluateFineJiggleField(ringState.ringIndex, angle, ringState.frameNumber);
+
+    const rc = ringState.resolvedConfig;
+    const jiggleStrength = rc.jiggleBaseStrength * interpolateLinearly(
+      rc.jiggleRangeMinimum, rc.jiggleRangeMaximum, ringState.globalRingDriver);
+
+    return ringState.ringBaseRadius * jiggleStrength * jiggleFieldValue;
+  }
+}
+
+
+/* ==========================================================================
+ * CARTESIAN EMBEDDING CONTROLLER (unchanged)
+ * ========================================================================== */
+
+class CartesianEmbeddingController {
+  constructor(cfg) {
+    this._ringCfg = cfg.ringGeometry;
+  }
+
+  evaluateCartesianPoint(radius, angle) {
+    return {
+      x: this._ringCfg.centroidX + radius * cos(angle),
+      y: this._ringCfg.centroidY + radius * sin(angle)
+    };
+  }
+}
+
+
+/* ==========================================================================
+ * DENSE RING SAMPLER
+ * Extended: populates PerFrameNoiseCache before sample loop; writes into
+ * pre-allocated DenseRingSampleBuffer; applies twist + curl displacements.
+ * ========================================================================== */
+
+class DenseRingSampler {
+  constructor(cfg, ringWaveformController, cartesianEmbeddingController,
+              noiseFieldController, curlNoiseController, perFrameNoiseCache) {
+    this._samplingCfg  = cfg.sampling;
+    this._waveform     = ringWaveformController;
+    this._cartesian    = cartesianEmbeddingController;
+    this._noise        = noiseFieldController;
+    this._curl         = curlNoiseController;
+    this._cache        = perFrameNoiseCache;
+
+    /* Precompute fixed sample angles — constant across all frames */
+    const count = this._samplingCfg.denseSampleCount;
+    this._sampleAngles = new Float32Array(count + 1);
+    for (let i = 0; i <= count; i++) {
+      this._sampleAngles[i] = TWO_PI * i / count;
+    }
+  }
+
+  /*
+   * Writes all sample data for ringState into outputBuffer.
+   * Returns outputBuffer for convenience.
+   */
+  evaluateDenseRingSamples(ringState, outputBuffer) {
+    const count      = this._samplingCfg.denseSampleCount;
+    const ringIndex  = ringState.ringIndex;
+    const frameNumber = ringState.frameNumber;
+    const angles     = this._sampleAngles;
+    const cache      = this._cache;
+
+    /* Populate cache for all sample angles at this ring */
+    cache.populateForRing(ringIndex, frameNumber, angles, this._noise, this._curl);
+
+    const envBuf  = cache.envelopeValues[ringIndex];
+    const jigBuf  = cache.jiggleValues[ringIndex];
+    const twisBuf = cache.twistValues[ringIndex];
+    const cdxBuf  = cache.curlDxValues[ringIndex];
+    const cdyBuf  = cache.curlDyValues[ringIndex];
+
+    for (let i = 0; i <= count; i++) {
+      const angle = angles[i];
+
+      /* Radius evaluation via cached envelope + jiggle */
+      const radius = this._waveform.evaluateRadiusAtAngle(ringState, angle, {
+        envelope: envBuf[i],
+        jiggle:   jigBuf[i]
+      });
+
+      /* Base Cartesian embedding */
+      const pt = this._cartesian.evaluateCartesianPoint(radius, angle);
+
+      /*
+       * Tangential twist displacement.
+       * Tangent vector at angle θ is (-sinθ, cosθ).
+       * twistStrength is in ring state (computed once in evaluateRingState).
+       */
+      const twistAmount = ringState.twistStrength * twisBuf[i];
+      pt.x += twistAmount * (-sin(angle));
+      pt.y += twistAmount *   cos(angle);
+
+      /* Curl displacement (flow-field XY perturbation) */
+      pt.x += cdxBuf[i];
+      pt.y += cdyBuf[i];
+
+      outputBuffer.setPoint(i, pt.x, pt.y, radius, angle);
+    }
+
+    outputBuffer.count = count + 1;
+    return outputBuffer;
+  }
+}
+
+
+/* ==========================================================================
+ * PERIMETER LENGTH ACCUMULATOR
+ * Updated: reads from DenseRingSampleBuffer; writes into a pre-allocated
+ * Float32Array (one per ring, held by this instance).
+ * ========================================================================== */
+
+class PerimeterLengthAccumulator {
+  constructor(cfg, preallocatedCumulativeBuffer) {
+    this._cumulativeBuffer = preallocatedCumulativeBuffer;
+  }
+
+  /*
+   * Fills the pre-allocated cumulative buffer and returns a state object.
+   * The buffer is valid until the next call to evaluatePerimeterLengths
+   * on this instance (i.e., next frame for this ring).
+   */
+  evaluatePerimeterLengths(sampleBuffer) {
+    const count  = sampleBuffer.count;
+    const xBuf   = sampleBuffer.xBuffer;
+    const yBuf   = sampleBuffer.yBuffer;
+    const cumBuf = this._cumulativeBuffer;
+
+    cumBuf[0] = 0.0;
+
+    for (let i = 1; i < count; i++) {
+      const dx   = xBuf[i] - xBuf[i - 1];
+      const dy   = yBuf[i] - yBuf[i - 1];
+      cumBuf[i]  = cumBuf[i - 1] + sqrt(dx * dx + dy * dy);
+    }
+
+    return {
+      cumulativeBuffer:    cumBuf,
+      totalPerimeterLength: cumBuf[count - 1],
+      count
+    };
+  }
+}
+
+
+/* ==========================================================================
+ * EQUIDISTANT POINT REDISTRIBUTOR
+ * Updated: reads from DenseRingSampleBuffer + typed-array perimeter state.
+ * ========================================================================== */
+
+class EquidistantPointRedistributor {
+  constructor(cfg) {
+    this._samplingCfg = cfg.sampling;
+  }
+
+  evaluateEquidistantPointSet(sampleBuffer, perimeterState) {
+    const targetCount = this._samplingCfg.equidistantPointCount;
+    const xBuf        = sampleBuffer.xBuffer;
+    const yBuf        = sampleBuffer.yBuffer;
+    const rBuf        = sampleBuffer.radiusBuffer;
+    const aBuf        = sampleBuffer.angleBuffer;
+    const cumBuf      = perimeterState.cumulativeBuffer;
+    const totalLength = perimeterState.totalPerimeterLength;
+    const sampleCount = perimeterState.count;
+
+    const equidistantPoints = [];
+
+    for (let j = 0; j < targetCount; j++) {
+      const targetDist = (j / targetCount) * totalLength;
+      const segIdx     = this._findSegmentIndex(cumBuf, sampleCount, targetDist);
+
+      const segStart = cumBuf[segIdx];
+      const segEnd   = cumBuf[segIdx + 1];
+      const segLen   = max(segEnd - segStart, 1e-9);
+      const t        = (targetDist - segStart) / segLen;
+
+      equidistantPoints.push({
+        x:           xBuf[segIdx]  + t * (xBuf[segIdx + 1]  - xBuf[segIdx]),
+        y:           yBuf[segIdx]  + t * (yBuf[segIdx + 1]  - yBuf[segIdx]),
+        radiusValue: rBuf[segIdx]  + t * (rBuf[segIdx + 1]  - rBuf[segIdx]),
+        angle:       aBuf[segIdx]  + t * (aBuf[segIdx + 1]  - aBuf[segIdx])
+      });
+    }
+
+    return { equidistantPoints, pointCount: targetCount };
+  }
+
+  _findSegmentIndex(cumBuf, count, targetDist) {
+    let lo = 0;
+    let hi = count - 2;
+
+    while (lo <= hi) {
+      const mid = floor((lo + hi) * 0.5);
+      if (cumBuf[mid] <= targetDist && targetDist < cumBuf[mid + 1]) return mid;
+      if (targetDist < cumBuf[mid]) hi = mid - 1;
+      else lo = mid + 1;
+    }
+
+    return count - 2;
+  }
+}
+
+
+/* ==========================================================================
+ * CONNECTION MODULATOR EVALUATOR (new in v2)
+ *
+ * Dispatches each modulator definition to its evaluator method.
+ * Each evaluator receives a context object and returns { allow, shiftDelta }.
+ *
+ * Context schema:
+ *   { ringIndex, targetRingIndex, pointIndex, pointCount,
+ *     sourceRadius, targetRadius, frameNumber }
+ *
+ * To add a new modulator type: add a case to _dispatch only.
+ * ========================================================================== */
+
+class ConnectionModulatorEvaluator {
+  evaluateAll(modulators, context) {
+    let allow      = true;
+    let shiftDelta = 0;
+
+    for (let i = 0; i < modulators.length; i++) {
+      const result = this._dispatch(modulators[i], context);
+
+      if (result.allow === false) {
+        allow = false;
+        break;
+      }
+
+      shiftDelta += (result.shiftDelta || 0);
+    }
+
+    return { allow, shiftDelta };
+  }
+
+  _dispatch(modulator, context) {
+    switch (modulator.type) {
+      case 'noiseGate':      return this._noiseGate(modulator, context);
+      case 'radiusGate':     return this._radiusGate(modulator, context);
+      case 'ringIndexShift': return this._ringIndexShift(modulator, context);
+      case 'noiseShift':     return this._noiseShift(modulator, context);
+      default:
+        console.warn(`ConnectionModulatorEvaluator: unknown type "${modulator.type}"`);
+        return { allow: true, shiftDelta: 0 };
+    }
+  }
+
+  /*
+   * noiseGate
+   * Suppresses the connection if a Perlin sample falls below threshold.
+   * Parameters: { fieldOffsetX, fieldOffsetY, temporalScale, threshold }
+   */
+  _noiseGate(m, ctx) {
+    const v = noise(
+      m.fieldOffsetX + ctx.pointIndex * 0.05,
+      m.fieldOffsetY + ctx.ringIndex  * 0.30,
+      ctx.frameNumber * 0.01 * (m.temporalScale || 1.0)
+    );
+    return { allow: v >= m.threshold, shiftDelta: 0 };
+  }
+
+  /*
+   * radiusGate
+   * Suppresses the connection if the selected radius is below minimumRadius.
+   * Parameters: { minimumRadius, useSource: bool }
+   *   useSource: true  → test sourceRadius
+   *   useSource: false → test targetRadius
+   */
+  _radiusGate(m, ctx) {
+    const radius = m.useSource ? ctx.sourceRadius : ctx.targetRadius;
+    return { allow: radius >= m.minimumRadius, shiftDelta: 0 };
+  }
+
+  /*
+   * ringIndexShift
+   * Adds a shift proportional to ring index, creating a spiral helical pattern.
+   * Parameters: { shiftPerRing: float }
+   *   shiftDelta = floor(ringIndex × shiftPerRing)
+   */
+  _ringIndexShift(m, ctx) {
+    return { allow: true, shiftDelta: floor(ctx.ringIndex * m.shiftPerRing) };
+  }
+
+  /*
+   * noiseShift
+   * Adds a noise-driven integer offset to the target point index.
+   * Parameters: { fieldOffsetX, fieldOffsetY, temporalScale, maxShift: int }
+   *   shiftDelta ∈ [0, maxShift)
+   */
+  _noiseShift(m, ctx) {
+    const v = noise(
+      m.fieldOffsetX + ctx.pointIndex * 0.03,
+      m.fieldOffsetY + ctx.ringIndex  * 0.25,
+      ctx.frameNumber * 0.01 * (m.temporalScale || 1.0)
+    );
+    return { allow: true, shiftDelta: floor(v * m.maxShift) };
+  }
+}
+
+
+/* ==========================================================================
+ * GENERALISED CONNECTION BUILDER (new in v2; replaces AdjacentRingConnectionBuilder)
+ *
+ * Processes each rule independently:
+ *   1. Compute rotational shift (if enabled)
+ *   2. For each bridged ring pair (i, i+ringStep):
+ *     3. For each source point:
+ *       4. Evaluate modulator pipeline → { allow, shiftDelta }
+ *       5. For each offset in rule.offsets:
+ *         6. Compute final target index and emit segment
+ * ========================================================================== */
+
+class GeneralisedConnectionBuilder {
+  constructor(cfg, rotationalPhaseController, connectionModulatorEvaluator) {
+    this._topologyCfg  = cfg.connectionTopology;
+    this._samplingCfg  = cfg.sampling;
+    this._rotation     = rotationalPhaseController;
+    this._modulator    = connectionModulatorEvaluator;
+  }
+
+  evaluateConnections(allRedistributedRingStates, frameNumber) {
+    const connectionSegments = [];
+    const rules              = this._topologyCfg.rules;
+    const ringCount          = allRedistributedRingStates.length;
+    const pointCount         = this._samplingCfg.equidistantPointCount;
+
+    for (let ri = 0; ri < rules.length; ri++) {
+      const rule = rules[ri];
+
+      /*
+       * Rotational shift advances by pointCount per revolution × scale,
+       * giving a continuously evolving spiral twist.
+       */
+      const rotShift = rule.useRotationalShift
+        ? floor(
+            this._rotation.evaluateAngularRotation(frameNumber) /
+            TWO_PI * pointCount * rule.rotationalShiftScale
+          )
+        : 0;
+
+      for (let ringIndex = 0; ringIndex < ringCount - rule.ringStep; ringIndex++) {
+        const targetRingIndex = ringIndex + rule.ringStep;
+        const srcPts          = allRedistributedRingStates[ringIndex].equidistantPoints;
+        const tgtPts          = allRedistributedRingStates[targetRingIndex].equidistantPoints;
+        const n               = min(srcPts.length, tgtPts.length);
+
+        for (let pi = 0; pi < n; pi++) {
+          const srcPt = srcPts[pi];
+
+          const context = {
+            ringIndex,
+            targetRingIndex,
+            pointIndex:   pi,
+            pointCount:   n,
+            sourceRadius: srcPt.radiusValue,
+            targetRadius: tgtPts[pi].radiusValue,
+            frameNumber
+          };
+
+          const modResult = this._modulator.evaluateAll(rule.modulators, context);
+          if (!modResult.allow) continue;
+
+          const baseTarget = pi + rule.baseShift + rotShift + modResult.shiftDelta;
+
+          for (let oi = 0; oi < rule.offsets.length; oi++) {
+            const tgtIdx = wrapModulo(baseTarget + rule.offsets[oi], n);
+            const tgtPt  = tgtPts[tgtIdx];
+
+            connectionSegments.push({
+              x1: srcPt.x, y1: srcPt.y,
+              x2: tgtPt.x, y2: tgtPt.y
+            });
+          }
+        }
+      }
+    }
+
+    return { connectionSegments };
+  }
+}
+
+
+/* ==========================================================================
+ * STABILITY DIAGNOSTICS CONTROLLER
+ * Updated to read from DenseRingSampleBuffer.
+ * ========================================================================== */
+
+class StabilityDiagnosticsController {
+  constructor(cfg, noiseFieldController) {
+    this._diagCfg  = cfg.diagnostics;
+    this._harmCfg  = cfg.harmonicWaveform;
+    this._sampCfg  = cfg.sampling;
+    this._layerCfg = cfg.modulationLayerScales;
+    this._noise    = noiseFieldController;
+  }
+
+  evaluateDiagnostics(frameNumber, allRingStates, allSampleBuffers, allPerimeterStates) {
+    const report = {
+      frameNumber,
+      derivedRingDepthNoiseSpacing: this._noise.evaluateRingDepthNoiseSpacing()
+    };
+
+    if (this._diagCfg.checkAmplitudeBudget)    report.amplitudeBudget    = this._amplitudeBudget();
+    if (this._diagCfg.checkNegativeRadius)     report.minimumRadii       = this._minimumRadii(allSampleBuffers);
+    if (this._diagCfg.checkPerimeterLengths)   report.perimeterLengths   = this._perimeterLengths(allPerimeterStates);
+    if (this._diagCfg.checkRingSimilarity)     report.ringSimilarity     = this._ringSimilarity(allSampleBuffers);
+    if (this._diagCfg.checkUndersamplingRisk)  report.undersamplingRisk  = this._undersamplingRisk(allPerimeterStates);
+    if (this._diagCfg.checkPerimeterAliasingRisk) report.perimeterAliasing = this._perimeterAliasing();
+    if (this._diagCfg.checkSelfIntersection)   report.selfIntersection   = this._selfIntersection(frameNumber, allSampleBuffers);
+
+    return report;
+  }
+
+  _amplitudeBudget() {
+    const a = this._harmCfg.baseAmplitudes;
+    let baseSum = 0;
+    for (let i = 0; i < a.length; i++) baseSum += a[i];
+    const maxPossible = baseSum * this._harmCfg.globalGainMaximum * this._harmCfg.amplitudeRangeMaximum;
+    const maxEnvelope = 1.0 + this._harmCfg.envelopeBaseStrength * this._harmCfg.envelopeRangeMaximum;
+    return { baseSum, maxPossible, maxEnvelope, combinedMagnitude: maxPossible * maxEnvelope };
+  }
+
+  _minimumRadii(allSampleBuffers) {
+    return allSampleBuffers.map((buf, ringIndex) => {
+      let minR = Infinity;
+      const r  = buf.radiusBuffer;
+      for (let i = 0; i < buf.count; i++) { if (r[i] < minR) minR = r[i]; }
+      return { ringIndex, minimumRadius: minR };
+    });
+  }
+
+  _perimeterLengths(allPerimeterStates) {
+    return allPerimeterStates.map((ps, ringIndex) => ({
+      ringIndex, totalPerimeterLength: ps.totalPerimeterLength
+    }));
+  }
+
+  _ringSimilarity(allSampleBuffers) {
+    const results = [];
+    for (let ri = 0; ri < allSampleBuffers.length - 1; ri++) {
+      const a = allSampleBuffers[ri];
+      const b = allSampleBuffers[ri + 1];
+      const n = min(a.count, b.count);
+      let acc = 0.0;
+      for (let i = 0; i < n; i++) {
+        const dx = b.xBuffer[i] - a.xBuffer[i];
+        const dy = b.yBuffer[i] - a.yBuffer[i];
+        acc += sqrt(dx * dx + dy * dy);
+      }
+      results.push({ ringPair: [ri, ri + 1], meanDistance: acc / n });
+    }
+    return results;
+  }
+
+  _undersamplingRisk(allPerimeterStates) {
+    return allPerimeterStates.map((ps, ringIndex) => ({
+      ringIndex,
+      averageSegmentLength: ps.totalPerimeterLength / this._sampCfg.denseSampleCount
+    }));
+  }
+
+  _perimeterAliasing() {
+    return {
+      envelopePerimeterSpatialScale: this._layerCfg.perimeterEnvelopeLayer.fieldScaleX,
+      jigglePerimeterSpatialScale:   this._layerCfg.fineJiggleLayer.fieldScaleX,
+      twistPerimeterSpatialScale:    this._layerCfg.twistFieldLayer.fieldScaleX,
+      denseSampleCount:              this._sampCfg.denseSampleCount,
+      heuristicStatement:
+        "Higher perimeter field scales require proportionally higher dense sample counts."
+    };
+  }
+
+  _selfIntersection(frameNumber, allSampleBuffers) {
+    if (
+      !this._diagCfg.reportAtStartupOnly &&
+      frameNumber % this._diagCfg.selfIntersectionEvaluationIntervalFrames !== 0
+    ) {
+      return { skippedThisFrame: true };
+    }
+
+    return allSampleBuffers.map((buf, ringIndex) => ({
+      ringIndex,
+      hasSelfIntersection: this._checkSelfIntersection(buf)
+    }));
+  }
+
+  _checkSelfIntersection(buf) {
+    const n    = buf.count;
+    const xBuf = buf.xBuffer;
+    const yBuf = buf.yBuffer;
+
+    for (let a = 0; a < n - 1; a++) {
+      const a1 = { x: xBuf[a],   y: yBuf[a]   };
+      const a2 = { x: xBuf[a+1], y: yBuf[a+1] };
+
+      for (let b = a + 2; b < n - 1; b++) {
+        if (a === 0 && b === n - 2) continue;
+
+        const b1 = { x: xBuf[b],   y: yBuf[b]   };
+        const b2 = { x: xBuf[b+1], y: yBuf[b+1] };
+
+        if (checkSegmentsIntersect(a1, a2, b1, b2)) return true;
+      }
+    }
+
+    return false;
+  }
+}
+
+
+/* ==========================================================================
+ * LINE RENDERING CONTROLLER
+ * Updated to read from DenseRingSampleBuffer.
+ * ========================================================================== */
+
+class LineRenderingController {
+  constructor(cfg) {
+    this._renderCfg = cfg.renderingStyle;
+  }
+
+  renderRingCurves(allSampleBuffers) {
+    if (!this._renderCfg.drawRingCurves) return;
+
+    stroke(this._renderCfg.strokeColor);
+    strokeWeight(this._renderCfg.strokeWeight);
+    noFill();
+
+    for (let ri = 0; ri < allSampleBuffers.length; ri++) {
+      const buf = allSampleBuffers[ri];
+      beginShape();
+      for (let i = 0; i < buf.count; i++) vertex(buf.xBuffer[i], buf.yBuffer[i]);
+      endShape();
+    }
+  }
+
+  renderConnectionSegments(connectionState) {
+    if (!this._renderCfg.drawConnections) return;
+
+    stroke(this._renderCfg.strokeColor);
+    strokeWeight(this._renderCfg.strokeWeight);
+
+    const segs = connectionState.connectionSegments;
+    for (let i = 0; i < segs.length; i++) {
+      line(segs[i].x1, segs[i].y1, segs[i].x2, segs[i].y2);
+    }
+  }
+
+  renderDenseSamplePoints(allSampleBuffers) {
+    if (!this._renderCfg.drawDenseSamplePoints) return;
+
+    stroke(this._renderCfg.strokeColor);
+    strokeWeight(this._renderCfg.strokeWeight);
+
+    for (let ri = 0; ri < allSampleBuffers.length; ri++) {
+      const buf = allSampleBuffers[ri];
+      for (let i = 0; i < buf.count; i++) point(buf.xBuffer[i], buf.yBuffer[i]);
+    }
+  }
+
+  renderRedistributedPoints(allRedistributedStates) {
+    if (!this._renderCfg.drawRedistributedPoints) return;
+
+    stroke(this._renderCfg.strokeColor);
+    strokeWeight(this._renderCfg.strokeWeight);
+
+    for (let ri = 0; ri < allRedistributedStates.length; ri++) {
+      const pts = allRedistributedStates[ri].equidistantPoints;
+      for (let i = 0; i < pts.length; i++) point(pts[i].x, pts[i].y);
+    }
+  }
+}
+
+
+/* ==========================================================================
+ * POLAR RING SYSTEM — Root compositor (v2)
+ * ========================================================================== */
+
+class PolarRingSystem {
+  constructor(cfg) {
+    this._cfg = cfg;
+
+    /* ----- Module construction ----- */
+    this._noiseFieldController      = new NoiseFieldController(cfg);
+    this._curlNoiseController       = new CurlNoiseController(cfg);
+    this._rotationalPhaseController = new RotationalPhaseController(cfg);
+    this._ringConfigurationResolver = new RingConfigurationResolver(cfg);
+
+    this._ringWaveformController = new RingWaveformController(
+      cfg,
+      this._noiseFieldController,
+      this._rotationalPhaseController,
+      this._ringConfigurationResolver
+    );
+
+    this._cartesianEmbeddingController = new CartesianEmbeddingController(cfg);
+
+    const ringCount      = cfg.ringGeometry.ringCount;
+    const sampleCapacity = cfg.sampling.denseSampleCount + 1;
+
+    this._perFrameNoiseCache = new PerFrameNoiseCache(ringCount, sampleCapacity);
+
+    this._denseRingSampler = new DenseRingSampler(
+      cfg,
+      this._ringWaveformController,
+      this._cartesianEmbeddingController,
+      this._noiseFieldController,
+      this._curlNoiseController,
+      this._perFrameNoiseCache
+    );
+
+    /*
+     * One PerimeterLengthAccumulator per ring, each with its own
+     * pre-allocated Float32Array. Eliminates all perimeter buffer allocation
+     * during the main loop.
+     */
+    this._perimeterLengthAccumulators = [];
+    for (let i = 0; i < ringCount; i++) {
+      const cumBuf = new Float32Array(sampleCapacity);
+      this._perimeterLengthAccumulators.push(
+        new PerimeterLengthAccumulator(cfg, cumBuf)
+      );
+    }
+
+    this._equidistantPointRedistributor = new EquidistantPointRedistributor(cfg);
+
+    this._generalisedConnectionBuilder = new GeneralisedConnectionBuilder(
+      cfg,
+      this._rotationalPhaseController,
+      new ConnectionModulatorEvaluator()
+    );
+
+    this._stabilityDiagnosticsController = new StabilityDiagnosticsController(
+      cfg,
+      this._noiseFieldController
+    );
+
+    this._lineRenderingController = new LineRenderingController(cfg);
+
+    /* ----- Pre-allocated per-ring state containers ----- */
+    this._denseRingSampleBuffers = [];
+    this._allRingStates          = [];
+    this._allPerimeterStates     = [];
+    this._allRedistributedStates = [];
+    this._connectionState        = { connectionSegments: [] };
+
+    this._currentFrameNumber     = 0;
+    this._hasReportedStartupDiag = false;
+  }
+
+  /* Allocate pre-allocated DenseRingSampleBuffers */
+  initialiseSystem() {
+    const ringCount      = this._cfg.ringGeometry.ringCount;
+    const sampleCapacity = this._cfg.sampling.denseSampleCount + 1;
+
+    for (let i = 0; i < ringCount; i++) {
+      this._denseRingSampleBuffers.push(new DenseRingSampleBuffer(sampleCapacity));
+    }
+  }
+
+  updateSystem(frameNumber) {
+    this._currentFrameNumber = frameNumber;
+    this._evaluateAllRingStates();
+    this._evaluateAllDenseSamples();
+    this._evaluateAllPerimeterLengths();
+    this._evaluateAllRedistributedPoints();
+    this._evaluateConnections();
+    this._evaluateDiagnostics();
+  }
+
+  renderSystem() {
+    this._lineRenderingController.renderConnectionSegments(this._connectionState);
+    this._lineRenderingController.renderRingCurves(this._denseRingSampleBuffers);
+    this._lineRenderingController.renderDenseSamplePoints(this._denseRingSampleBuffers);
+    this._lineRenderingController.renderRedistributedPoints(this._allRedistributedStates);
+  }
+
+  _evaluateAllRingStates() {
+    const ringCount = this._cfg.ringGeometry.ringCount;
+    this._allRingStates = [];
+    for (let i = 0; i < ringCount; i++) {
+      this._allRingStates.push(
+        this._ringWaveformController.evaluateRingState(i, this._currentFrameNumber)
+      );
+    }
+  }
+
+  _evaluateAllDenseSamples() {
+    for (let i = 0; i < this._allRingStates.length; i++) {
+      this._denseRingSampler.evaluateDenseRingSamples(
+        this._allRingStates[i],
+        this._denseRingSampleBuffers[i]
+      );
+    }
+  }
+
+  _evaluateAllPerimeterLengths() {
+    this._allPerimeterStates = [];
+    for (let i = 0; i < this._denseRingSampleBuffers.length; i++) {
+      this._allPerimeterStates.push(
+        this._perimeterLengthAccumulators[i].evaluatePerimeterLengths(
+          this._denseRingSampleBuffers[i]
+        )
+      );
+    }
+  }
+
+  _evaluateAllRedistributedPoints() {
+    this._allRedistributedStates = [];
+    for (let i = 0; i < this._denseRingSampleBuffers.length; i++) {
+      this._allRedistributedStates.push(
+        this._equidistantPointRedistributor.evaluateEquidistantPointSet(
+          this._denseRingSampleBuffers[i],
+          this._allPerimeterStates[i]
+        )
+      );
+    }
+  }
+
+  _evaluateConnections() {
+    this._connectionState = this._generalisedConnectionBuilder.evaluateConnections(
+      this._allRedistributedStates,
+      this._currentFrameNumber
+    );
+  }
+
+  _evaluateDiagnostics() {
+    if (!this._cfg.diagnostics.enableConsoleSummary) return;
+    if (this._cfg.diagnostics.reportAtStartupOnly && this._hasReportedStartupDiag) return;
+
+    const report = this._stabilityDiagnosticsController.evaluateDiagnostics(
+      this._currentFrameNumber,
+      this._allRingStates,
+      this._denseRingSampleBuffers,
+      this._allPerimeterStates
+    );
+
+    console.log('PolarRingSystem v2 Diagnostics', report);
+    this._hasReportedStartupDiag = true;
+  }
+}
+
+</script>
+</body>
+</html>

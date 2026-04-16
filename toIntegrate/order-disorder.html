@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GENUARY: Order / Disorder</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      background: #111;
+      min-height: 100vh;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      color: #eee;
+    }
+    #gui {
+      width: 280px;
+      padding: 20px;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    #gui h1 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .control-group {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .control-group:last-child { border-bottom: none; }
+    .control-group h2 {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+    .control {
+      margin-bottom: 12px;
+    }
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .control label span.value {
+      color: #fff;
+      font-weight: 500;
+    }
+    .control input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #333;
+      border-radius: 2px;
+      outline: none;
+    }
+    .control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .control input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #333;
+      border: none;
+      color: #fff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    button:hover { background: #444; }
+    button.primary { background: #fff; color: #111; }
+    button.primary:hover { background: #ddd; }
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    #stats {
+      font-size: 11px;
+      color: #666;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+    #stats span { color: #aaa; }
+  </style>
+</head>
+<body>
+  <div id="gui">
+    <h1>ORDER / DISORDER</h1>
+    
+    <div class="control-group">
+      <h2>Timing</h2>
+      <div class="control">
+        <label>Loop Length <span class="value" id="loopLengthVal">360</span></label>
+        <input type="range" id="loopLength" min="60" max="720" value="360">
+      </div>
+      <div class="control">
+        <label>Organise Frames <span class="value" id="organiseLengthVal">5</span></label>
+        <input type="range" id="organiseLength" min="1" max="30" value="5">
+      </div>
+      <div class="control">
+        <label>Disorganise Frames <span class="value" id="disorganiseLengthVal">5</span></label>
+        <input type="range" id="disorganiseLength" min="1" max="30" value="5">
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <h2>Poisson Field</h2>
+      <div class="control">
+        <label>Min Distance <span class="value" id="dMinVal">6</span></label>
+        <input type="range" id="dMin" min="3" max="20" value="6">
+      </div>
+      <div class="control">
+        <label>Max Points <span class="value" id="nMaxVal">500</span></label>
+        <input type="range" id="nMax" min="100" max="2000" value="500">
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <h2>Circle Geometry</h2>
+      <div class="control">
+        <label>Orbit Radius (rA) <span class="value" id="rAVal">0.33</span></label>
+        <input type="range" id="rA" min="0.1" max="0.5" step="0.01" value="0.33">
+      </div>
+      <div class="control">
+        <label>Influence Radius (rB) <span class="value" id="rBVal">0.33</span></label>
+        <input type="range" id="rB" min="0.1" max="0.5" step="0.01" value="0.33">
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <h2>Rendering</h2>
+      <div class="control">
+        <label>Point Size <span class="value" id="pointSizeVal">2</span></label>
+        <input type="range" id="pointSize" min="1" max="6" value="2">
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <button class="primary" id="regenerate">Regenerate Points</button>
+      <button id="pause">Pause</button>
+      <div id="stats">
+        Points: <span id="pointCount">0</span><br>
+        Frame: <span id="frameNum">0</span><br>
+        FPS: <span id="fps">0</span>
+      </div>
+    </div>
+  </div>
+  
+  <div id="canvas-container"></div>
+
+  <script>
+// === CONFIG ===
+const W = 1080;
+const H = 1080;
+
+const Config = {
+  loopLength: 360,
+  organiseLength: 5,
+  disorganiseLength: 5,
+  dMin: 6,
+  nMax: 500,
+  rA: W / 3,
+  rB: W / 3,
+  pointSize: 2
+};
+
+// === ENUMS ===
+const State = Object.freeze({
+  FREE: 'FREE',
+  ORGANISING: 'ORGANISING',
+  ORDERED: 'ORDERED',
+  DISORGANISING: 'DISORGANISING'
+});
+
+// === MATH UTILITIES ===
+class MathUtils {
+  static polarToCartesian(rho, theta) {
+    return { x: rho * Math.cos(theta), y: rho * Math.sin(theta) };
+  }
+
+  static cartesianToPolar(x, y) {
+    return { rho: Math.sqrt(x * x + y * y), theta: Math.atan2(y, x) };
+  }
+
+  static lerp(a, b, alpha) {
+    return a * (1 - alpha) + b * alpha;
+  }
+}
+
+// === POISSON DISK SAMPLER ===
+class PoissonDiskSampler {
+  constructor(width, height, minDist, maxPoints) {
+    this.width = width;
+    this.height = height;
+    this.minDist = minDist;
+    this.maxPoints = maxPoints;
+    this.cellSize = minDist / Math.SQRT2;
+    this.gridWidth = Math.ceil(width / this.cellSize);
+    this.gridHeight = Math.ceil(height / this.cellSize);
+    this.grid = new Array(this.gridWidth * this.gridHeight).fill(null);
+    this.points = [];
+    this.activeList = [];
+  }
+
+  generate() {
+    const firstPoint = { x: Math.random() * this.width, y: Math.random() * this.height };
+    this.addPoint(firstPoint);
+
+    while (this.activeList.length > 0 && this.points.length < this.maxPoints) {
+      const activeIndex = Math.floor(Math.random() * this.activeList.length);
+      const activePoint = this.activeList[activeIndex];
+      let found = false;
+
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = this.minDist + Math.random() * this.minDist;
+        const candidate = {
+          x: activePoint.x + Math.cos(angle) * distance,
+          y: activePoint.y + Math.sin(angle) * distance
+        };
+
+        if (this.isValid(candidate)) {
+          this.addPoint(candidate);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) this.activeList.splice(activeIndex, 1);
+    }
+
+    return this.points;
+  }
+
+  addPoint(point) {
+    this.points.push(point);
+    this.activeList.push(point);
+    const gridX = Math.floor(point.x / this.cellSize);
+    const gridY = Math.floor(point.y / this.cellSize);
+    this.grid[gridY * this.gridWidth + gridX] = point;
+  }
+
+  isValid(candidate) {
+    if (candidate.x < 0 || candidate.x >= this.width || candidate.y < 0 || candidate.y >= this.height) {
+      return false;
+    }
+
+    const gridX = Math.floor(candidate.x / this.cellSize);
+    const gridY = Math.floor(candidate.y / this.cellSize);
+
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = gridX + dx;
+        const ny = gridY + dy;
+        if (nx >= 0 && nx < this.gridWidth && ny >= 0 && ny < this.gridHeight) {
+          const neighbor = this.grid[ny * this.gridWidth + nx];
+          if (neighbor) {
+            const distSq = (candidate.x - neighbor.x) ** 2 + (candidate.y - neighbor.y) ** 2;
+            if (distSq < this.minDist * this.minDist) return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+}
+
+// === INFLUENCE CIRCLE ===
+class InfluenceCircle {
+  constructor(origin) {
+    this.origin = origin;
+    this.center = { x: origin.x, y: origin.y };
+  }
+
+  update(frameCount) {
+    const theta = (TWO_PI * (frameCount % Config.loopLength)) / Config.loopLength;
+    const offset = MathUtils.polarToCartesian(Config.rA, theta);
+    this.center.x = this.origin.x + offset.x;
+    this.center.y = this.origin.y + offset.y;
+  }
+
+  contains(px, py) {
+    const dx = px - this.center.x;
+    const dy = py - this.center.y;
+    return (dx * dx + dy * dy) <= (Config.rB * Config.rB);
+  }
+
+  computeGridTarget(px, py) {
+    const g = Config.dMin;
+    const u = px - this.center.x;
+    const v = py - this.center.y;
+    
+    let uQ = Math.round(u / g) * g;
+    let vQ = Math.round(v / g) * g;
+    
+    const polar = MathUtils.cartesianToPolar(uQ, vQ);
+    if (polar.rho > Config.rB) {
+      const clamped = MathUtils.polarToCartesian(Config.rB, polar.theta);
+      uQ = clamped.x;
+      vQ = clamped.y;
+    }
+    
+    return { x: this.center.x + uQ, y: this.center.y + vQ };
+  }
+}
+
+// === POINT ===
+class Point {
+  constructor(x, y) {
+    this.pRandom = { x, y };
+    this.pCurrent = { x, y };
+    this.pGrid = null;
+    this.state = State.FREE;
+    this.k = 0;
+  }
+
+  update(influenceCircle) {
+    const inside = influenceCircle.contains(this.pCurrent.x, this.pCurrent.y);
+    this.transition(inside, influenceCircle);
+    this.updatePosition();
+  }
+
+  transition(inside, influenceCircle) {
+    switch (this.state) {
+      case State.FREE:
+        if (inside) {
+          this.state = State.ORGANISING;
+          this.k = 0;
+          this.pGrid = influenceCircle.computeGridTarget(this.pCurrent.x, this.pCurrent.y);
+        }
+        break;
+
+      case State.ORGANISING:
+        if (!inside) {
+          this.state = State.DISORGANISING;
+          this.k = 0;
+        } else {
+          this.k++;
+          if (this.k >= Config.organiseLength) {
+            this.state = State.ORDERED;
+            this.k = 0;
+          }
+        }
+        break;
+
+      case State.ORDERED:
+        if (!inside) {
+          this.state = State.DISORGANISING;
+          this.k = 0;
+        }
+        break;
+
+      case State.DISORGANISING:
+        if (inside) {
+          this.state = State.ORGANISING;
+          this.k = 0;
+          this.pGrid = influenceCircle.computeGridTarget(this.pCurrent.x, this.pCurrent.y);
+        } else {
+          this.k++;
+          if (this.k >= Config.disorganiseLength) {
+            this.state = State.FREE;
+            this.k = 0;
+          }
+        }
+        break;
+    }
+  }
+
+  updatePosition() {
+    switch (this.state) {
+      case State.FREE:
+        this.pCurrent.x = this.pRandom.x;
+        this.pCurrent.y = this.pRandom.y;
+        break;
+
+      case State.ORGANISING:
+        const alpha = this.k / Config.organiseLength;
+        this.pCurrent.x = MathUtils.lerp(this.pRandom.x, this.pGrid.x, alpha);
+        this.pCurrent.y = MathUtils.lerp(this.pRandom.y, this.pGrid.y, alpha);
+        break;
+
+      case State.ORDERED:
+        this.pCurrent.x = this.pGrid.x;
+        this.pCurrent.y = this.pGrid.y;
+        break;
+
+      case State.DISORGANISING:
+        const beta = this.k / Config.disorganiseLength;
+        this.pCurrent.x = MathUtils.lerp(this.pGrid.x, this.pRandom.x, beta);
+        this.pCurrent.y = MathUtils.lerp(this.pGrid.y, this.pRandom.y, beta);
+        break;
+    }
+  }
+
+  draw() {
+    point(this.pCurrent.x, this.pCurrent.y);
+  }
+}
+
+// === POINT FIELD ===
+class PointField {
+  constructor() {
+    this.points = [];
+  }
+
+  initialize() {
+    const sampler = new PoissonDiskSampler(W, H, Config.dMin, Config.nMax);
+    const positions = sampler.generate();
+    this.points = positions.map(pos => new Point(pos.x, pos.y));
+  }
+
+  update(influenceCircle) {
+    for (const pt of this.points) pt.update(influenceCircle);
+  }
+
+  draw() {
+    for (const pt of this.points) pt.draw();
+  }
+}
+
+// === MAIN SKETCH ===
+let influenceCircle;
+let pointField;
+let paused = false;
+
+function setup() {
+  const canvas = createCanvas(W, H);
+  canvas.parent('canvas-container');
+  
+  influenceCircle = new InfluenceCircle({ x: W / 2, y: H / 2 });
+  pointField = new PointField();
+  pointField.initialize();
+  
+  setupGUI();
+  updateStats();
+}
+
+function draw() {
+  background(255);
+  stroke(0);
+  strokeWeight(Config.pointSize);
+  
+  if (!paused) {
+    influenceCircle.update(frameCount);
+    pointField.update(influenceCircle);
+  }
+  
+  pointField.draw();
+  
+  if (frameCount % 10 === 0) updateStats();
+}
+
+function setupGUI() {
+  const controls = [
+    { id: 'loopLength', key: 'loopLength', isInt: true },
+    { id: 'organiseLength', key: 'organiseLength', isInt: true },
+    { id: 'disorganiseLength', key: 'disorganiseLength', isInt: true },
+    { id: 'dMin', key: 'dMin', isInt: true },
+    { id: 'nMax', key: 'nMax', isInt: true },
+    { id: 'rA', key: 'rA', mult: W },
+    { id: 'rB', key: 'rB', mult: W },
+    { id: 'pointSize', key: 'pointSize', isInt: true }
+  ];
+
+  controls.forEach(ctrl => {
+    const input = document.getElementById(ctrl.id);
+    const valSpan = document.getElementById(ctrl.id + 'Val');
+    
+    input.addEventListener('input', () => {
+      const raw = parseFloat(input.value);
+      valSpan.textContent = ctrl.mult ? raw.toFixed(2) : raw;
+      Config[ctrl.key] = ctrl.mult ? raw * ctrl.mult : (ctrl.isInt ? parseInt(raw) : raw);
+    });
+  });
+
+  document.getElementById('regenerate').addEventListener('click', () => {
+    pointField.initialize();
+    updateStats();
+  });
+
+  document.getElementById('pause').addEventListener('click', function() {
+    paused = !paused;
+    this.textContent = paused ? 'Resume' : 'Pause';
+  });
+}
+
+function updateStats() {
+  document.getElementById('pointCount').textContent = pointField.points.length;
+  document.getElementById('frameNum').textContent = frameCount;
+  document.getElementById('fps').textContent = Math.round(frameRate());
+}
+  </script>
+</body>
+</html>

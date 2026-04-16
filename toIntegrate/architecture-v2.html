@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Displacement Matrix Pipeline v2 — Continuous Forces</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+
+  :root {
+    --bg: #08080a; --fg: #d4d4d8; --dim: #52525b;
+    --accent1: #f472b6; --accent2: #38bdf8; --accent3: #a78bfa;
+    --accent4: #34d399; --accent5: #fb923c; --accent6: #facc15;
+    --card: #111114; --border: #1e1e24;
+    --gen: #f472b618; --mod: #38bdf818; --con: #a78bfa18; --src: #34d39918;
+    --gen-b: #f472b640; --mod-b: #38bdf840; --con-b: #a78bfa40; --src-b: #34d39940;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; overflow-x: hidden; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 60px 40px 120px; }
+
+  h1 { font-family: 'Instrument Serif', serif; font-size: 42px; font-weight: 400; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; }
+  h1 em { color: var(--accent1); font-style: italic; }
+  .subtitle { color: var(--dim); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 60px; }
+  h2 { font-family: 'Instrument Serif', serif; font-size: 26px; font-weight: 400; color: #fff; margin: 60px 0 20px; }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin: 30px 0 12px; }
+
+  p { color: #a1a1aa; margin: 10px 0; font-size: 12px; }
+  p strong { color: var(--fg); }
+
+  .note { background: var(--card); border-left: 3px solid var(--accent2); padding: 14px 18px; margin: 20px 0; font-size: 11px; color: #a1a1aa; border-radius: 0 6px 6px 0; }
+  .note strong { color: var(--fg); }
+  .note.warn { border-color: var(--accent5); }
+  .note.green { border-color: var(--accent4); }
+
+  code { background: #1a1a20; padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+
+  /* ── Pipeline ── */
+  .pipeline { display: flex; flex-direction: column; gap: 2px; margin: 30px 0; }
+  .stage { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; position: relative; }
+  .stage::before { content: ''; position: absolute; left: 50%; top: -14px; width: 1px; height: 14px; background: var(--border); }
+  .stage:first-child::before { display: none; }
+  .stage-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .stage-label .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .stage.source .stage-label .dot { background: var(--accent4); }
+  .stage.damp .stage-label .dot { background: var(--accent6); }
+  .stage.generator .stage-label .dot { background: var(--accent1); }
+  .stage.modulator .stage-label .dot { background: var(--accent2); }
+  .stage.constraint .stage-label .dot { background: var(--accent3); }
+  .stage.output .stage-label .dot { background: var(--accent5); }
+  .stage.source { border-color: var(--src-b); background: var(--src); }
+  .stage.damp { border-color: #facc1540; background: #facc1510; }
+  .stage.generator { border-color: var(--gen-b); background: var(--gen); }
+  .stage.modulator { border-color: var(--mod-b); background: var(--mod); }
+  .stage.constraint { border-color: var(--con-b); background: var(--con); }
+  .stage-desc { color: var(--dim); font-size: 11px; margin-bottom: 12px; }
+  .modules { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mod-chip { font-size: 10px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+  .mod-chip .type { color: var(--dim); font-size: 8px; display: block; letter-spacing: 1px; text-transform: uppercase; }
+
+  .arrow-down { text-align: center; font-size: 20px; color: var(--dim); padding: 4px 0; letter-spacing: 4px; }
+  .loop-arrow { text-align: center; color: var(--accent6); font-size: 11px; padding: 8px 0; letter-spacing: 1px; }
+
+  /* ── Comparison ── */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+  .compare-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+  .compare-card h4 { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+  .compare-card.old h4 { color: #ef4444; }
+  .compare-card.new h4 { color: var(--accent4); }
+  .compare-card pre { font-size: 10px; line-height: 1.8; color: #a1a1aa; white-space: pre-wrap; }
+  .compare-card pre .hl { color: var(--accent1); }
+  .compare-card pre .h2 { color: var(--accent2); }
+  .compare-card pre .h3 { color: var(--accent3); }
+  .compare-card pre .h4 { color: var(--accent4); }
+  .compare-card pre .h5 { color: var(--accent5); }
+  .compare-card pre .h6 { color: var(--accent6); }
+  .compare-card pre .red { color: #ef4444; }
+
+  /* ── Flowchart ── */
+  .flowchart { font-size: 11px; line-height: 2; padding: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin: 20px 0; white-space: pre; overflow-x: auto; color: #a1a1aa; }
+  .flowchart .hl { color: var(--accent1); }
+  .flowchart .h2 { color: var(--accent2); }
+  .flowchart .h3 { color: var(--accent3); }
+  .flowchart .h4 { color: var(--accent4); }
+  .flowchart .h5 { color: var(--accent5); }
+  .flowchart .h6 { color: var(--accent6); }
+
+  /* ── Mix table ── */
+  table.mix { border-collapse: collapse; font-size: 11px; width: 100%; margin: 20px 0; }
+  table.mix th { background: var(--card); border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-weight: 600; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; }
+  table.mix td { border: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+  table.mix tr:nth-child(even) td { background: #0c0c0f; }
+  table.mix .dim { color: var(--dim); }
+
+  /* ── Category grid ── */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .cat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+  .cat-card h4 { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .cat-card.gen h4 { color: var(--accent1); }
+  .cat-card.modc h4 { color: var(--accent2); }
+  .cat-card.con h4 { color: var(--accent3); }
+  .cat-card.damp h4 { color: var(--accent6); }
+  .cat-card ul { list-style: none; padding: 0; }
+  .cat-card li { font-size: 11px; color: #a1a1aa; padding: 3px 0; border-bottom: 1px solid #1a1a1e; }
+  .cat-card li:last-child { border: none; }
+  .cat-card li strong { color: var(--fg); font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Displacement <em>Matrix</em> Pipeline v2</h1>
+<div class="subtitle">Continuous forces · persistent state · mix knobs</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Key Shift: Forces, Not Teleportation</h2>
+
+<div class="compare">
+  <div class="compare-card old">
+    <h4>Before — instant displacement</h4>
+    <pre>
+<span class="red">Each frame:</span>
+  matrix = zeros()         <span class="dim">← rebuilt from scratch</span>
+  matrix += gradient × 500 <span class="dim">← teleport 500px</span>
+  matrix += sine × 30      <span class="dim">← teleport 30px</span>
+  render(base + matrix)
+
+<span class="dim">Problems:</span>
+  No inertia, no settling
+  Magnetism needs separate pass
+  Forces fight each other instantly
+  Parameters scale as pixels (unintuitive)</pre>
+  </div>
+  <div class="compare-card new">
+    <h4>After — continuous forces</h4>
+    <pre>
+<span class="h4">Each frame:</span>
+  matrix *= (1 - damping)       <span class="dim">← decay toward rest</span>
+  matrix += gradient × str × dt <span class="dim">← gentle push</span>
+  matrix += sine × str × dt     <span class="dim">← gentle push</span>
+  matrix += magnetism × dt      <span class="dim">← same pipeline!</span>
+  modulate(matrix)              <span class="dim">← steer, scale</span>
+  render(base + matrix)
+
+<span class="h4">Benefits:</span>
+  Forces settle into equilibrium
+  Magnetism is just another force
+  Everything balances naturally
+  Damping prevents runaway</pre>
+  </div>
+</div>
+
+<div class="note green">
+  <strong>The matrix persists across frames.</strong> Forces don't set positions — they push. Damping pulls back toward zero. The equilibrium between force strength and damping determines final displacement. Turning a force off lets the matrix decay back to rest naturally.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Mix Knobs</h2>
+
+<p>Every module has a <strong>0–1 mix</strong> controlling its contribution. For generators and constraints, mix scales the force added per frame. For modulators, mix is a wet/dry blend on the transform.</p>
+
+<table class="mix">
+  <tr><th>Category</th><th>Mix = 0</th><th>Mix = 0.5</th><th>Mix = 1</th><th>Formula</th></tr>
+  <tr>
+    <td>Generator</td>
+    <td class="dim">Adds nothing</td>
+    <td>Half-strength push</td>
+    <td>Full push</td>
+    <td><code>matrix += force × mix × dt</code></td>
+  </tr>
+  <tr>
+    <td>Modulator</td>
+    <td class="dim">Pass-through</td>
+    <td>50/50 blend</td>
+    <td>Fully transformed</td>
+    <td><code>out = lerp(in, transformed, mix)</code></td>
+  </tr>
+  <tr>
+    <td>Constraint</td>
+    <td class="dim">No correction</td>
+    <td>Half-strength restoring</td>
+    <td>Full restoring force</td>
+    <td><code>matrix += correction × mix × dt</code></td>
+  </tr>
+  <tr>
+    <td>Damping</td>
+    <td class="dim">No decay (runaway!)</td>
+    <td>Slow return to rest</td>
+    <td>Near-instant decay</td>
+    <td><code>matrix *= (1 - damping × dt)</code></td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Revised Pipeline</h2>
+
+<div class="pipeline">
+  <div class="stage source">
+    <div class="stage-label"><span class="dot"></span>Stage 0 — Sources (read-only)</div>
+    <div class="stage-desc">Computed once at image load or per-frame for animated values</div>
+    <div class="modules">
+      <div class="mod-chip">VectorFieldMap <span class="type">angle · mag · lum · cosA · sinA · tanCos · tanSin</span></div>
+      <div class="mod-chip">Line Geometry <span class="type">base positions · perpendiculars · ordering</span></div>
+      <div class="mod-chip">Time + Origin <span class="type">t, dt, animated origin xy</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <div class="stage damp">
+    <div class="stage-label"><span class="dot"></span>Stage 1 — Damping</div>
+    <div class="stage-desc">Decay existing displacement toward zero. Without this, forces accumulate without bound. Controls how "fluid" the system feels — high damping = responsive, low = drifty.</div>
+    <div class="modules">
+      <div class="mod-chip">Global Damping <span class="type">matrix[l][p] *= (1 − damping × dt)</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <div class="stage generator">
+    <div class="stage-label"><span class="dot"></span>Stage 2 — Generators (additive forces)</div>
+    <div class="stage-desc">Each computes a force vector and adds it to the matrix, scaled by its mix knob and dt. All purely additive. Zero mix = no contribution.</div>
+    <div class="modules">
+      <div class="mod-chip">Fixed Angle <span class="type">mix · direction × lum × amp</span></div>
+      <div class="mod-chip">Origin Radial <span class="type">mix · unit vec from origin × lum × str</span></div>
+      <div class="mod-chip">Gradient Push <span class="type">mix · raw grad vector × str</span></div>
+      <div class="mod-chip">Tangent Push <span class="type">mix · raw tangent vector × str</span></div>
+      <div class="mod-chip">Flow Field <span class="type">mix · noise direction × str × lum</span></div>
+      <div class="mod-chip">Sine Waves <span class="type">mix · wave sum × perp dir × amp</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <div class="stage constraint">
+    <div class="stage-label"><span class="dot"></span>Stage 3 — Constraints (restoring forces)</div>
+    <div class="stage-desc">Continuous restoring forces that push lines toward structurally valid positions. Magnetism samples luminance between line pairs and applies a push force proportional to the error between current gap and target gap. Runs every frame. Propagates because pushing one line changes the gaps of its neighbors in the next frame.</div>
+    <div class="modules">
+      <div class="mod-chip">Magnetism <span class="type">mix · (targetGap − currentGap) × str × dt</span></div>
+      <div class="mod-chip">Boundary <span class="type">mix · push inward when near edge</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <div class="stage modulator">
+    <div class="stage-label"><span class="dot"></span>Stage 4 — Modulators (transform in-place)</div>
+    <div class="stage-desc">Operate on the composite vector. Each modulator blends between the unmodified vector and its transformed version using its mix knob. Applied to the accumulated result, not per-generator.</div>
+    <div class="modules">
+      <div class="mod-chip">Steer → Gradient <span class="type">mix · rotate direction toward gradient angle</span></div>
+      <div class="mod-chip">Steer → Tangent <span class="type">mix · rotate direction toward tangent angle</span></div>
+      <div class="mod-chip">Edge Mag Scale <span class="type">mix · attenuate by gradient strength</span></div>
+      <div class="mod-chip">Lum Scale <span class="type">mix · attenuate by brightness</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <div class="stage output">
+    <div class="stage-label"><span class="dot"></span>Stage 5 — Render</div>
+    <div class="stage-desc">Read final matrix. Draw: curveVertex(base[l][p] + matrix[l][p]). Apply colour.</div>
+    <div class="modules">
+      <div class="mod-chip">curveVertex(base + matrix)</div>
+    </div>
+  </div>
+</div>
+
+<div class="loop-arrow">↻ matrix persists — next frame starts from Stage 1 (damping)</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Magnetism as Continuous Force</h2>
+
+<div class="note warn">
+  <strong>Previous approach (broken):</strong> Snapshot all positions → compute ideal layout → teleport. One-shot per frame. No propagation. Other forces overwhelm it.
+</div>
+
+<div class="flowchart"><span class="h3">New approach — spring-like restoring force</span>
+
+For each column (sample index p):
+  For each consecutive line pair [i, i+1]:
+
+    <span class="h4">1. Read</span>   currentGap = perpPos[i+1] - perpPos[i]
+                perpPos = (base + matrix) projected onto perpendicular axis
+
+    <span class="h4">2. Sample</span> midpoint luminance between the two lines
+             midLum = vf.sample(midpoint).lum ^ lumExp
+
+    <span class="h4">3. Target</span> targetGap = baseGap × lumFactor(midLum)
+               lum=1.0 → <span class="hl">compress</span> = baseGap × 0.05  (nearly touching)
+               lum=0.5 → neutral = baseGap × 1.0    (no change)
+               lum=0.0 → <span class="h3">expand</span>  = baseGap × 5.0   (spread apart)
+
+    <span class="h4">4. Error</span>  error = targetGap − currentGap
+               positive → lines are too close, push apart
+               negative → lines are too far, pull together
+
+    <span class="h4">5. Apply</span>  force = error × magnetStr × mix × dt
+             matrix[i][p]   −= force × perpDir × 0.5  <span class="dim">(push line i outward)</span>
+             matrix[i+1][p] += force × perpDir × 0.5  <span class="dim">(push line i+1 outward)</span>
+
+<span class="h6">Why this works:</span>
+  • Each pair pushes/pulls toward target gap
+  • Pushing one line changes its gap with OTHER neighbors
+  • Next frame, those gaps generate corrective forces
+  • System settles into equilibrium over ~10-30 frames
+  • Combined with damping: steady-state displacement
+  • <span class="h4">Lines never cross</span> because force grows as gap shrinks → stronger push-apart</pre></div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Damping + Force Equilibrium</h2>
+
+<p>The beauty of the continuous model: <strong>final displacement = force / damping</strong>. This is analogous to terminal velocity. A constant force balanced by proportional drag reaches a steady state.</p>
+
+<div class="compare">
+  <div class="compare-card new" style="grid-column: 1/-1;">
+    <h4>Equilibrium math</h4>
+    <pre>
+At steady state: force × dt = damping × displacement × dt
+Therefore:       <span class="h4">displacement = force / damping</span>
+
+<span class="dim">Example:</span>
+  gradient force   = 0.5 (from Sobel mag × strength)
+  damping          = 0.1
+  → steady-state   = <span class="h4">5px displacement</span>
+
+  Increase force to 1.0 → displacement drifts to 10px over ~15 frames
+  Set force to 0         → displacement decays back to 0 over ~15 frames
+
+<span class="dim">Controls:</span>
+  <span class="hl">Damping slider (0.01 – 1.0)</span>
+    Low (0.01)  = slow, drifty, high displacement, takes many frames to settle
+    High (0.5)  = snappy, responsive, low displacement, settles in 2-3 frames
+    Max (1.0)   = near-instant (approaches v1 teleport behavior)</pre>
+  </div>
+</div>
+
+<div class="note green">
+  <strong>At high damping (≈1.0) the system behaves like the old instant-displacement model</strong> — matrix decays almost fully each frame, forces write near-fresh values. This means the continuous model is a strict superset: you can always get the old behavior back.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Module Reference</h2>
+
+<h3>Generators</h3>
+<div class="cat-grid">
+  <div class="cat-card gen">
+    <h4>Fixed Angle</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1 contribution blend</li>
+      <li><strong>amplitude</strong> — force magnitude</li>
+      <li><strong>angle</strong> — constant direction (degrees)</li>
+      <li><strong>xFactor / yFactor</strong> — axis scaling</li>
+      <li>Force: <code>dir × lum × amp × mix × dt</code></li>
+    </ul>
+  </div>
+  <div class="cat-card gen">
+    <h4>Origin Radial</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li><strong>strength</strong> — force magnitude</li>
+      <li><strong>animate</strong> — orbit mode, radius, speed</li>
+      <li>Force: <code>unitVec(pt→origin) × lum × str × mix × dt</code></li>
+    </ul>
+  </div>
+  <div class="cat-card gen">
+    <h4>Gradient Push</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li><strong>strength</strong> — force scaling</li>
+      <li>Force: <code>gradVec × mag × str × mix × dt</code></li>
+      <li>Direction AND magnitude from vector field</li>
+      <li>Sphere: pushes radially inward toward white</li>
+    </ul>
+  </div>
+  <div class="cat-card gen">
+    <h4>Tangent Push</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li><strong>strength</strong> — force scaling</li>
+      <li>Force: <code>tangVec × mag × str × mix × dt</code></li>
+      <li>Perpendicular to gradient = along iso-contours</li>
+      <li>Sphere: pushes in circular arcs</li>
+    </ul>
+  </div>
+  <div class="cat-card gen">
+    <h4>Flow Field</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li><strong>strength</strong> — force scaling</li>
+      <li><strong>noise scale</strong> — spatial frequency</li>
+      <li><strong>curl</strong> — 0=divergent, 1=rotational</li>
+      <li>Force: <code>noiseDir × lum × str × mix × dt</code></li>
+    </ul>
+  </div>
+  <div class="cat-card gen">
+    <h4>Sine Waves</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li><strong>amplitude</strong> — perpendicular displacement force</li>
+      <li><strong>3 waves</strong> — freq + mix each, stacked</li>
+      <li><strong>phase speed</strong> — animation rate</li>
+      <li>Force: <code>perpDir × waveSum × amp × mix × dt</code></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Constraints</h3>
+<div class="cat-grid">
+  <div class="cat-card con">
+    <h4>Magnetism</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1 restoring force strength</li>
+      <li><strong>compress</strong> — gap multiplier at white (0.01–1.0)</li>
+      <li><strong>expand</strong> — gap multiplier at black (1.0–8.0)</li>
+      <li>Force per pair: <code>(targetGap − currentGap) × mix × dt</code></li>
+      <li>Split 50/50 between the two lines in the pair</li>
+      <li>Propagates via neighbor cascade over frames</li>
+    </ul>
+  </div>
+  <div class="cat-card con">
+    <h4>Boundary</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li>Soft clamp: exponential restoring force near canvas edge</li>
+      <li>Prevents lines drifting off-screen</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Modulators</h3>
+<div class="cat-grid">
+  <div class="cat-card modc">
+    <h4>Steer → Gradient</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1 angular blend</li>
+      <li>Rotates composite vector toward gradient angle</li>
+      <li>Preserves magnitude</li>
+      <li><code>out = lerp(input, rotated, mix)</code></li>
+      <li>Only applies where gradient magnitude > dead zone</li>
+    </ul>
+  </div>
+  <div class="cat-card modc">
+    <h4>Steer → Tangent</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1 angular blend</li>
+      <li>Rotates toward tangent (along contours)</li>
+      <li>Sphere: all forces follow circular paths</li>
+    </ul>
+  </div>
+  <div class="cat-card modc">
+    <h4>Edge Magnitude Scale</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li>At edges (high grad mag): magnitude unchanged</li>
+      <li>At flats (low grad mag): magnitude attenuated</li>
+      <li><code>out = lerp(in, in × normMag, mix)</code></li>
+    </ul>
+  </div>
+  <div class="cat-card modc">
+    <h4>Luminance Scale</h4>
+    <ul>
+      <li><strong>mix</strong> — 0–1</li>
+      <li>Bright regions: full displacement</li>
+      <li>Dark regions: attenuated</li>
+      <li><code>out = lerp(in, in × lum, mix)</code></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Damping</h3>
+<div class="cat-card damp" style="max-width: 580px;">
+  <h4>Global Damping</h4>
+  <ul>
+    <li><strong>damping</strong> — 0.01 (drifty) to 1.0 (instant)</li>
+    <li>Applied FIRST each frame before any forces</li>
+    <li><code>matrix[l][p] *= (1 − damping × dt_norm)</code></li>
+    <li>At 1.0: matrix nearly zeroes each frame → old behavior</li>
+    <li>At 0.05: slow decay → forces accumulate → fluid settling</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Complete Frame Loop</h2>
+
+<div class="flowchart"><span class="h6">frame(t, dt)</span> {
+  │
+  ├─ update origin position (if animated)
+  │
+  ├─ <span class="h6">STAGE 1 — DAMP</span>
+  │   for each [l][p]:
+  │     matrix[l][p].fx *= (1 − damping)
+  │     matrix[l][p].fy *= (1 − damping)
+  │
+  ├─ <span class="hl">STAGE 2 — GENERATORS</span>
+  │   for each [l][p]:
+  │     sample vf at base[l][p]
+  │     compute perpN from line geometry
+  │     
+  │     if fixedAngle.mix > 0:
+  │       matrix += <span class="hl">dir × lum × amp</span> × mix × dt
+  │     if originRadial.mix > 0:
+  │       matrix += <span class="hl">unitVec(→origin) × lum × str</span> × mix × dt
+  │     if gradientPush.mix > 0:
+  │       matrix += <span class="hl">gradVec × gradMag × str</span> × mix × dt
+  │     if tangentPush.mix > 0:
+  │       matrix += <span class="hl">tanVec × gradMag × str</span> × mix × dt
+  │     if flowField.mix > 0:
+  │       matrix += <span class="hl">noiseDir × lum × str</span> × mix × dt
+  │     if sineWaves.mix > 0:
+  │       matrix += <span class="hl">perpN × waveVal × amp</span> × mix × dt
+  │
+  ├─ <span class="h3">STAGE 3 — CONSTRAINTS</span>
+  │   if magnetism.mix > 0:
+  │     for each column p:
+  │       for each line pair [i, i+1]:
+  │         currentGap = perpProject(base[i+1]+matrix[i+1]) − perpProject(base[i]+matrix[i])
+  │         midLum = vf.sample(midpoint).lum
+  │         targetGap = baseGap × lumFactor(midLum, compress, expand)
+  │         error = targetGap − currentGap
+  │         push = <span class="h3">error × mix × dt × 0.5</span>
+  │         matrix[i][p]   -= push × perpAxis
+  │         matrix[i+1][p] += push × perpAxis
+  │
+  ├─ <span class="h2">STAGE 4 — MODULATORS</span>
+  │   for each [l][p]:
+  │     {fx,fy} = matrix[l][p]
+  │     if steerGrad.mix > 0:
+  │       steered = rotateToward(fx,fy, gradAngle)
+  │       {fx,fy} = <span class="h2">lerp({fx,fy}, steered, mix)</span>
+  │     if steerTang.mix > 0:
+  │       steered = rotateToward(fx,fy, tangAngle)
+  │       {fx,fy} = <span class="h2">lerp({fx,fy}, steered, mix)</span>
+  │     if edgeMagScale.mix > 0:
+  │       {fx,fy} = <span class="h2">lerp({fx,fy}, {fx,fy}×normMag, mix)</span>
+  │     if lumScale.mix > 0:
+  │       {fx,fy} = <span class="h2">lerp({fx,fy}, {fx,fy}×lum, mix)</span>
+  │     matrix[l][p] = {fx,fy}
+  │
+  ├─ <span class="h5">STAGE 5 — RENDER</span>
+  │   for each line l:
+  │     beginShape()
+  │     for each point p:
+  │       colour from lum
+  │       curveVertex(base[l][p] + matrix[l][p])
+  │     endShape()
+  │
+  <span class="h6">↻ matrix persists to next frame</span>
+}</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Image-to-Image Distortion</h2>
+
+<p>The same matrix pipeline works for distorting images through other images. The vector field from Image A becomes the displacement map for Image B:</p>
+
+<div class="flowchart"><span class="h4">Image A</span> → VectorFieldMap → DisplacementMatrix pipeline → <span class="h5">UV Offset Map</span>
+
+For each output pixel (x, y):
+  offset = matrix[y][x]      <span class="dim">← same pipeline output, grid instead of lines</span>
+  sourceXY = (x + offset.fx, y + offset.fy)
+  outputPixel = <span class="h2">ImageB.sample(sourceXY)</span>
+
+The generators, modulators, and constraints all work identically.
+The only difference: instead of displacing line vertices, we displace pixel lookups.</div>
+
+</div>
+</body>
+</html>

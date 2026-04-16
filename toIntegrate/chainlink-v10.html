@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHAIN-LINK</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#c0c0cc;font-family:'DM Mono',monospace;font-size:11px;
+     display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+#bar{display:flex;align-items:center;gap:12px;padding:7px 14px;
+     background:#0d0d11;border-bottom:1px solid #1a1a22;flex-shrink:0;flex-wrap:wrap}
+.title{color:#99cc00;font-size:13px;font-weight:500;letter-spacing:.1em;margin-right:4px}
+.ctrl{display:flex;align-items:center;gap:5px}
+label{color:#3e3e52;font-size:10px}
+.val{color:#99cc00;font-size:10px;min-width:28px;text-align:right}
+input[type=range]{-webkit-appearance:none;width:68px;height:2px;background:#1e1e28;
+                  border-radius:1px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:8px;
+  background:#99cc00;border-radius:50%;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:8px;height:8px;background:#99cc00;
+  border-radius:50%;border:none;cursor:pointer}
+button{background:none;border:1px solid #1e1e28;color:#6a6a7c;font-family:inherit;
+       font-size:10px;padding:3px 8px;cursor:pointer;letter-spacing:.04em;
+       transition:border-color .1s,color .1s}
+button:hover{border-color:#99cc00;color:#99cc00}
+#playBar{display:none;align-items:center;gap:6px}
+#playBar.open{display:flex}
+#vPlayRing{color:#99cc00;font-size:10px;min-width:48px;text-align:center;font-family:'DM Mono',monospace}
+#sketch{display:flex;align-items:center;justify-content:center;flex:1;overflow:hidden;min-height:0}
+#sketch canvas{display:block}
+#sketch.view-fit    canvas{max-width:100%;max-height:100%;width:auto!important;height:auto!important}
+#sketch.view-fill   canvas{width:100%!important;height:100%!important;object-fit:cover}
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;
+          align-items:center;justify-content:center}
+#modal-bg.open{display:flex}
+#modal{background:#0d0d11;border:1px solid #1a1a22;width:min(820px,96vw);
+       max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+#modal-head{display:flex;align-items:center;justify-content:space-between;
+            padding:10px 16px;border-bottom:1px solid #1a1a22;flex-shrink:0}
+#modal-head span{color:#99cc00;font-size:12px;font-weight:500;letter-spacing:.1em}
+#modal-close{background:none;border:1px solid #1e1e28;color:#6a6a7c;font-family:inherit;
+             font-size:10px;padding:3px 8px;cursor:pointer;letter-spacing:.04em}
+#modal-close:hover{border-color:#99cc00;color:#99cc00}
+#modal-body{overflow-y:auto;padding:20px 24px;line-height:1.7;font-size:11px;color:#a0a0b4}
+#modal-body h1{color:#99cc00;font-size:14px;font-weight:500;letter-spacing:.08em;
+               margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid #1a1a22}
+#modal-body h2{color:#c0c0cc;font-size:12px;font-weight:500;letter-spacing:.06em;
+               margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #12121a}
+#modal-body h3{color:#8888aa;font-size:11px;font-weight:500;margin:14px 0 4px}
+#modal-body p{margin:0 0 8px;color:#8888aa}
+#modal-body code{font-family:'Courier New',monospace;font-size:10px;color:#99cc00;
+                 background:#0a0a10;padding:1px 4px;border:1px solid #1a1a22}
+#modal-body pre{background:#070710;border:1px solid #1a1a22;padding:12px 14px;
+                overflow-x:auto;margin:8px 0 12px}
+#modal-body pre code{background:none;border:none;padding:0;color:#b0b0c8}
+#modal-body ul,#modal-body ol{padding-left:18px;margin:0 0 8px}
+#modal-body li{margin:2px 0;color:#8888aa}
+#modal-body strong{color:#c0c0cc}
+#modal-body table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:10px}
+#modal-body th{color:#99cc00;border-bottom:1px solid #1a1a22;padding:4px 8px;text-align:left}
+#modal-body td{padding:4px 8px;border-bottom:1px solid #0e0e18;color:#8888aa}
+#modal-body hr{border:none;border-top:1px solid #1a1a22;margin:16px 0}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <span class="title">CHAIN-LINK</span>
+  <div class="ctrl"><label>size</label>
+    <input id="sCanvasSize" type="range" min="200" max="1600" step="50" value="700">
+    <span  id="vCanvasSize" class="val">700</span></div>
+  <div class="ctrl"><label>S</label>
+    <input id="sSpacing" type="range" min="4" max="40" step="1"  value="12">
+    <span  id="vSpacing" class="val">12</span></div>
+  <div class="ctrl"><label>min</label>
+    <input id="sMin"    type="range" min=".5" max="20" step=".5" value="3">
+    <span  id="vMin"    class="val">3</span></div>
+  <div class="ctrl"><label>max</label>
+    <input id="sMax"  type="range" min="2"  max="80" step="1"  value="22">
+    <span  id="vMax"  class="val">22</span></div>
+  <div class="ctrl"><label>rings</label>
+    <input id="sRings"   type="range" min="5" max="200" step="1"  value="51">
+    <span  id="vRings"   class="val">51</span></div>
+  <div class="ctrl"><label>sq</label>
+    <input id="sSquare"  type="range" min="0" max="1" step="0.05" value="1">
+    <span  id="vSquare"  class="val">1</span></div>
+  <div class="ctrl"><label>reach</label>
+    <input id="sSteps"   type="range" min="0.3" max="2" step="0.02" value="0.94">
+    <span  id="vSteps"   class="val">0.94</span></div>
+  <div class="ctrl"><label>edge thr</label>
+    <input id="sThresh"  type="range" min="0.02" max="0.5" step="0.02" value="0.15">
+    <span  id="vThresh"  class="val">0.15</span></div>
+  <button id="bInvert">B→MIN</button>
+  <button id="bOverlay">OVERLAY</button>
+  <div class="ctrl" id="ctrlOpacity" style="display:none"><label>opacity</label>
+    <input id="sOpacity" type="range" min="0.05" max="1" step="0.05" value="0.4">
+    <span  id="vOpacity" class="val">0.4</span></div>
+  <button id="bUpload">↑ IMAGE</button>
+  <span style="color:#1e1e28;margin:0 2px">│</span>
+  <button id="bRings"  class="on">RINGS</button>
+  <button id="bRadial" class="on">RAD</button>
+  <button id="bPoints">PTS</button>
+  <button id="bPtColor">LUMA</button>
+  <button id="bColor">MONO</button>
+  <div class="ctrl"><label>wt</label>
+    <input id="sWeight"  type="range" min="0.1" max="4" step="0.1" value="0.5">
+    <span  id="vWeight"  class="val">0.5</span></div>
+  <div class="ctrl"><label>α</label>
+    <input id="sLineAlpha" type="range" min="0.02" max="1" step="0.02" value="1">
+    <span  id="vLineAlpha" class="val">1</span></div>
+  <div class="ctrl"><label>pt</label>
+    <input id="sDotSize" type="range" min="1" max="10" step="0.5" value="3">
+    <span  id="vDotSize" class="val">3</span></div>
+  <button id="bView">ACTUAL</button>
+  <button id="bExport">EXPORT</button>
+  <button id="bStepMode">STEP</button>
+  <div id="playBar">
+    <button id="bToStart">⏮</button>
+    <button id="bStepBack">◀</button>
+    <button id="bPlayPause">▶</button>
+    <button id="bStepFwd">▶|</button>
+    <button id="bToEnd">⏭</button>
+    <span id="vPlayRing">0/0</span>
+    <div class="ctrl"><label>fps</label>
+      <input id="sFPS" type="range" min="1" max="60" step="1" value="8">
+      <span id="vFPS" class="val">8</span></div>
+  </div>
+  <button id="bInfo">INFO</button>
+  <input  id="fileIn" type="file" accept="image/*" style="display:none">
+</div>
+
+<div id="sketch"></div>
+
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════════════════
+// Pure geometry utilities
+// ════════════════════════════════════════════════════════════════════════════
+
+const PI  = Math.PI;
+const TAU = 2 * PI;
+const norm = a => ((a % TAU) + TAU) % TAU;
+
+// K(n): points per ring. K(0)=1 (centre), K(n)=8n for n≥1.
+// Cumulative = (2n+1)² — exact square-grid frame counts: 1, 9, 25, 49 …
+function K(n) { return n === 0 ? 1 : 8 * n; }
+
+// Polar-square radial scale factor blended with circle (sq=0) → square (sq=1)
+function rFactor(theta, sq) {
+  const rSq = 1 / Math.cos(((theta + PI / 4) % (PI / 2)) - PI / 4);
+  return 1 + sq * (rSq - 1);
+}
+
+// Cartesian conversion (R02, R03) — y-axis inverted in p5
+function toCanvas(rho, theta, cx, cy, sq) {
+  const r = rho * rFactor(theta, sq);
+  return [cx + r * Math.cos(theta),
+          cy - r * Math.sin(theta)];
+}
+
+// Log ramp: asymptote compression ρ → A·tanh(ρ/A)
+function logRamp(rho, A) { return A * Math.tanh(rho / A); }
+
+// Arc-length-uniform angle for ring n, index k
+// Ring 0: single point (angle irrelevant, position = centre)
+// Ring n≥1: corners NE=0, NW=2n, SW=4n, SE=6n
+//           u(j) = 1 − j/n scans +1 → −1 across each side
+function thetaFor(n, k) {
+  if (n === 0) return 0;
+
+  const NE = 0, NW = 2 * n, SW = 4 * n, SE = 6 * n;
+  const u  = j => 1 - j / n;
+
+  if (k === NE) return PI / 4;
+  if (k === NW) return 3 * PI / 4;
+  if (k === SW) return 5 * PI / 4;
+  if (k === SE) return 7 * PI / 4;
+
+  if (k < NW) return norm(Math.atan2( 1,       u(k)));
+  if (k < SW) return norm(Math.atan2( u(k-NW), -1));
+  if (k < SE) return norm(Math.atan2(-1,       -u(k-SW)));
+              return norm(Math.atan2(-u(k-SE),   1));
+}
+
+// Predecessor map — purely topological (R14, R15, R16)
+// Ring 1: all 8 points inherit from the single ring-0 centre.
+// Ring n≥2: corners NE=0, NW=2n, SW=4n, SE=6n → same-corner of ring n−1.
+//           flanks (adjacent to corners) → their corner predecessor, draw=true.
+//           interior: axis-aligned offsets 1/3/5/7 per side (proven above).
+function predMap(n, k) {
+  if (n === 1) {
+    // Corners (k=0,2,4,6) are diagonal → don't draw. Cardinals (k=1,3,5,7) form +.
+    const isCorner = (k % 2 === 0);
+    return { p: 0, draw: !isCorner };
+  }
+
+  const NE = 0, NW = 2 * n, SW = 4 * n, SE = 6 * n;
+  const Kn = 8 * n;
+
+  // Case 1 — corners
+  if (k === NE) return { p: 0,           draw: false };
+  if (k === NW) return { p: 2 * (n - 1), draw: false };
+  if (k === SW) return { p: 4 * (n - 1), draw: false };
+  if (k === SE) return { p: 6 * (n - 1), draw: false };
+
+  // Case 2 — flanks
+  if (k === 1     || k === Kn - 1) return { p: 0,           draw: true };
+  if (k === NW-1  || k === NW + 1) return { p: 2 * (n - 1), draw: true };
+  if (k === SW-1  || k === SW + 1) return { p: 4 * (n - 1), draw: true };
+  if (k === SE-1  || k === SE + 1) return { p: 6 * (n - 1), draw: true };
+
+  // Case 3 — interior (offsets 1/3/5/7)
+  if (k < NW) return { p: k - 1, draw: true };
+  if (k < SW) return { p: k - 3, draw: true };
+  if (k < SE) return { p: k - 5, draw: true };
+              return { p: k - 7, draw: true };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LuminanceSampler
+// ════════════════════════════════════════════════════════════════════════════
+class LuminanceSampler {
+  constructor(pixels, iw, ih, cw, ch) {
+    this._px = pixels;
+    this._iw = iw; this._ih = ih;
+    this._cw = cw; this._ch = ch;
+    // Reusable result object — A7: eliminates ~320k object literals per build at N=200.
+    // Caller must read all fields before the next marchToBoundary call.
+    this._hit = { x: 0, y: 0, t: 0, luma: 0 };
+  }
+
+  // Bresenham traversal — integer-only, all octants, callback-based.
+  _bresenhamVisit(x0, y0, x1, y1, visit) {
+    x0 = Math.round(x0); y0 = Math.round(y0);
+    x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : (x0 > x1 ? -1 : 0);
+    const sy = y0 < y1 ? 1 : (y0 > y1 ? -1 : 0);
+    let err = dx - dy;
+    while (true) {
+      if (visit(x0, y0)) return;
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = err * 2;
+      if (e2 > -dy) { err -= dy; x0 += sx; }
+      if (e2 <  dx) { err += dx; y0 += sy; }
+    }
+  }
+
+  // Bresenham march from (x0,y0) toward (x1,y1).
+  // (x0,y0) = predecessor's stored node position (pX,pY).
+  // (x1,y1) = predicted full-step canvas position.
+  //
+  // L0 = pred.luma — the luminance at the predecessor's stored position,
+  //   used as the threshold reference so the march detects departure from pred's zone.
+  //
+  // Pre-check at (x0,y0): if pred is already across a boundary vs L0, return t=0.
+  //
+  // Stop 1 (threshold, fires first): |L − L0| > lumaThresh — boundary detected.
+  // Stop 2 (distance cap, fallback):
+  //   cap = dMin + |sigma−L|*(dMax−dMin) — mirrors sfn.compute(L), always ≥ dMin.
+  //   Compared squared to keep loop body sqrt-free (G1).
+  //   cap2scale = fullDist²/fullRawStep² precomputed once before loop.
+  //
+  // Returns this._hit — reused object, read fields before next call (A7).
+  marchToBoundary(x0, y0, x1, y1, L0, lumaThresh, dMin, dMax, sigma, fullRawStep) {
+    const hit  = this._hit;
+    const fdx  = x1 - x0, fdy = y1 - y0;
+    const fd2  = fdx * fdx + fdy * fdy;
+    if (fd2 < 0.25) { hit.x = x1; hit.y = y1; hit.t = 1; hit.luma = L0; return hit; }
+
+    const fullDist  = Math.sqrt(fd2);
+    const invFull   = 1 / fullDist;
+    const dRange    = dMax - dMin;
+    // cap2scale: converts d-space cap to eucl2 threshold (coordinate-space safe).
+    // Derivation: we want eucl/fullDist ≥ cap/fullRawStep
+    //             i.e. eucl2 ≥ cap² × (fullDist/fullRawStep)²
+    const cap2scale = fd2 / (fullRawStep * fullRawStep);
+    // skipThresh2: skip luminance sampling until eucl ≥ dMin/2 in canvas-space.
+    // Canvas equivalent of dMin/2 d-space = (dMin/2) × (fullDist/fullRawStep).
+    // No boundary can exist closer than dMin/2 to the start — sampling is wasted work.
+    const skipThresh2 = (dMin * 0.5) * (dMin * 0.5) * cap2scale;
+
+    // NO pre-check at start pixel.
+    // Rationale: if pX,pY is already in a different luminance zone than L0, we must
+    // still march forward to find where the boundary lies in the outward direction.
+    // Returning t=0 here would place the current node on top of the predecessor,
+    // d does not advance, and the chain freezes permanently at that location.
+
+    const px0 = Math.round(x0), py0 = Math.round(y0);
+    let eucl2 = (px0 - x0) * (px0 - x0) + (py0 - y0) * (py0 - y0);
+    let ppx = px0, ppy = py0;
+    let hitX = x1, hitY = y1, hitT = 1, hitL = -1;
+
+    this._bresenhamVisit(x0, y0, x1, y1, (px, py) => {
+      const sx = px - ppx, sy = py - ppy;
+      eucl2 += 2 * sx * (ppx - x0) + sx * sx + 2 * sy * (ppy - y0) + sy * sy;
+      ppx = px; ppy = py;
+
+      // Skip sampling until we've moved at least dMin/2 from the start.
+      // Avoids false threshold triggers from sub-pixel noise near the predecessor.
+      if (eucl2 < skipThresh2) return false;
+
+      const L = this.sample(px, py);
+
+      // Stop 1: luminance threshold — fires first, catches any boundary crossing.
+      if (Math.abs(L - L0) > lumaThresh) {
+        hitX = px; hitY = py; hitT = Math.min(1, Math.sqrt(eucl2) * invFull); hitL = L;
+        return true;
+      }
+
+      // Stop 2: luma-scaled distance cap in canvas-space.
+      // cap = sfn.compute(L): the step size this luminance warrants (d-space px).
+      // cap/fullRawStep = fraction of fullDist we're allowed to travel at this luma.
+      // Compared squared (cap2scale) to avoid sqrt in loop body (G1).
+      const cap = dMin + Math.abs(sigma - L) * dRange;
+      if (eucl2 >= cap * cap * cap2scale) {
+        hitX = px; hitY = py; hitT = Math.min(1, Math.sqrt(eucl2) * invFull); hitL = L;
+        return true;
+      }
+
+      return false;
+    });
+
+    if (hitL < 0) hitL = this.sample(x1, y1);
+    hit.x = hitX; hit.y = hitY; hit.t = hitT; hit.luma = hitL;
+    return hit;
+  }
+
+  sample(cx, cy) {
+    const { _px: px, _iw: iw, _ih: ih, _cw: cw, _ch: ch } = this;
+    const ix  = (cx / cw) * iw;
+    const iy  = (cy / ch) * ih;
+    const x0  = Math.floor(ix), y0 = Math.floor(iy);
+    const cx0 = x0 < 0 ? 0 : x0 >= iw ? iw - 1 : x0;
+    const cy0 = y0 < 0 ? 0 : y0 >= ih ? ih - 1 : y0;
+    const cx1 = cx0 < iw - 1 ? cx0 + 1 : cx0;
+    const cy1 = cy0 < ih - 1 ? cy0 + 1 : cy0;
+    const fx  = ix - x0, fy = iy - y0;
+    const i00 = (cy0 * iw + cx0) << 2;
+    const i10 = (cy0 * iw + cx1) << 2;
+    const i01 = (cy1 * iw + cx0) << 2;
+    const i11 = (cy1 * iw + cx1) << 2;
+    const L00 = (0.299 * px[i00] + 0.587 * px[i00+1] + 0.114 * px[i00+2]) / 255;
+    const L10 = (0.299 * px[i10] + 0.587 * px[i10+1] + 0.114 * px[i10+2]) / 255;
+    const L01 = (0.299 * px[i01] + 0.587 * px[i01+1] + 0.114 * px[i01+2]) / 255;
+    const L11 = (0.299 * px[i11] + 0.587 * px[i11+1] + 0.114 * px[i11+2]) / 255;
+    return L00 * (1-fx) * (1-fy)
+         + L10 *    fx  * (1-fy)
+         + L01 * (1-fx) *    fy
+         + L11 *    fx  *    fy;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Step distance functions
+// ════════════════════════════════════════════════════════════════════════════
+class StepDistanceFunction {
+  constructor(dMin, dMax, sigma) {
+    this._min = dMin; this._range = dMax - dMin; this._sigma = sigma;
+  }
+  compute(luma) { return this._min + Math.abs(this._sigma - luma) * this._range; }
+}
+
+class ConstantStepFunction {
+  constructor(s) { this._s = s; }
+  compute()      { return this._s; }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PolarMeshPrecomputer
+// ════════════════════════════════════════════════════════════════════════════
+class PolarMeshPrecomputer {
+  // S          — grid spacing (independent of dMin/dMax)
+  // stepFn     — ConstantStepFunction | StepDistanceFunction
+  // sampler    — LuminanceSampler | null
+  // squareness — 0 (circle) → 1 (square)
+  // N            — explicit ring count
+  // useLog        — whether to apply tanh asymptote compression
+  // reach         — tanh asymptote multiplier: A = min(cx,cy)*reach
+  //                  <1 → aggressive compression; >1 → gentle (use 1.5–2 for large dMax)
+  // sampleThresh  — luma delta to trigger march boundary stop
+  constructor(cw, ch, S, N, stepFn, sampler, squareness, useLog, reach, sampleThresh, debug) {
+    this._cx = cw / 2; this._cy = ch / 2;
+    this._cw = cw;     this._ch = ch;
+    this._S           = S;
+    this._N           = N;
+    this._useLog      = useLog;
+    this._stepFn      = stepFn;
+    this._sampler     = sampler;
+    this._sq          = squareness;
+    this._reach       = reach        != null ? reach        : 0.94;
+    this._sampleThresh= sampleThresh != null ? sampleThresh : 0.15;
+    this._debug       = !!debug;
+  }
+
+  build() {
+    const { _cx: cx, _cy: cy, _sq: sq, _sampleThresh: sampleThresh } = this;
+    const sfn      = this._stepFn;
+    const smp      = this._sampler;
+    const isConst  = sfn instanceof ConstantStepFunction;
+    const N        = this._N;
+    const A        = Math.min(cx, cy) * this._reach;
+    const useLog   = this._useLog;
+    const doDebug  = this._debug;
+
+    // ── Hoist sfn constants above ring loop (A5) ──────────────────────────
+    const dMinVal   = isConst ? 0              : sfn._min;
+    const dMaxVal   = isConst ? sfn._s         : sfn._min + sfn._range;
+    const sigmaVal  = isConst ? 0              : sfn._sigma;
+
+    // ── Circ cull threshold (A3) ──────────────────────────────────────────
+    // In square mode rFactor(45°)=√2, so canvas distances near corners are
+    // amplified. Scale the cull threshold by the max rFactor for this sq value
+    // so corner circumferential segments are culled at the proportionally correct
+    // canvas distance. rFactorMax = 1 + sq*(√2−1).
+    const rFactorMax = 1 + sq * (Math.SQRT2 - 1);
+    const circCullThresh2 = isConst
+      ? Infinity
+      : (() => { const t = 2 * dMaxVal * rFactorMax; return t * t; })();
+
+    // ── Pre-allocate output buffers ──────────────────────────────────────
+    const nRad     = 4 * N * N;
+    const nPts     = (2 * N + 1) * (2 * N + 1);
+    const nCircMax = 4 * N * (N + 1);
+    const radSegs    = new Float32Array(nRad * 4);
+    const radSegLens = new Float32Array(nRad);
+    const radChains  = new Uint16Array(nRad);
+    const radDeltaTheta = new Float32Array(nRad); // |Δθ| between pred and child angles
+    // pointData: 12 floats per point —
+    //   [0] x           canvas x
+    //   [1] y           canvas y
+    //   [2] luma        sampled luminance [0,1]
+    //   [3] d           accumulated d-space apothem (raw, before tanh)
+    //   [4] chainId     topological chain ID
+    //   [5] n           ring index
+    //   [6] k           point index within ring
+    //   [7] eucl        canvas-px Euclidean distance pred→this (drawn segment length)
+    //   [8] theta       angle in radians [0, 2π)
+    //   [9] rho         display-space radial distance from centre (after tanh, × rFactor)
+    //   [10] deltaD     d-space radial increment this step (d − pD)
+    //   [11] diffEuclDeltaRho  eucl − |displayRho(d)−displayRho(pD)|
+    //                   measures tangential/oblique excess: 0 for pure radial,
+    //                   positive when march was oblique or squareness deflected the path
+    const PD_STRIDE  = 12;
+    const pointData  = new Float32Array(nPts * PD_STRIDE);
+    const circBuf    = new Float32Array(nCircMax * 4);
+    const circLens   = new Float32Array(nCircMax);
+    const circChains = new Uint16Array(nCircMax);   // chain ID of start point (k)
+    const ringRadEnds  = new Uint32Array(N + 1);
+    const ringCircEnds = new Uint32Array(N + 1);
+    const ringPtEnds   = new Uint32Array(N + 1);   // ptIdx after each ring (in points)
+    let radIdx = 0, lenIdx = 0, ptIdx = 0, circIdx = 0;
+    const debugRings = doDebug ? [] : null;
+
+    // Global corner ID counter — increments once per corner at every ring.
+    // Chain rule: centre=0, ring-1 cardinals inherit 0, ring-1 corners get 1-4,
+    // every subsequent ring's corners each get a fresh ID. All non-corners inherit.
+    // Stored in Uint16; Uint8 would overflow at ring 64 (4×64=256).
+    let nextCornerID = 1;
+
+    const displayRho = rhoRaw => useLog ? logRamp(rhoRaw, A) : rhoRaw;
+
+    // ── Parallel typed ring buffers (A1, A2) ──────────────────────────────
+    // Replaces per-ring `new Array(Kn)` of object literals with two sets of
+    // five Float32Arrays. Swap references each ring — zero allocation in hot loop.
+    const maxKn = 8 * N;
+    let prev = {
+      d: new Float32Array(maxKn), theta: new Float32Array(maxKn),
+      x: new Float32Array(maxKn), y:     new Float32Array(maxKn),
+      luma:  new Float32Array(maxKn),
+      chain: new Uint16Array(maxKn)
+    };
+    let cur = {
+      d: new Float32Array(maxKn), theta: new Float32Array(maxKn),
+      x: new Float32Array(maxKn), y:     new Float32Array(maxKn),
+      luma:  new Float32Array(maxKn),
+      chain: new Uint16Array(maxKn)
+    };
+
+    // ── Ring 0: single centre point ───────────────────────────────────────
+    {
+      const luma = isConst ? 0.5 : (smp ? smp.sample(cx, cy) : 0.5);
+      prev.d[0] = 0; prev.theta[0] = 0; prev.x[0] = cx; prev.y[0] = cy;
+      prev.luma[0] = luma; prev.chain[0] = 0;
+      const pi0 = ptIdx * PD_STRIDE;
+      pointData[pi0]=cx;  pointData[pi0+1]=cy;  pointData[pi0+2]=luma;
+      pointData[pi0+3]=0; pointData[pi0+4]=0;   pointData[pi0+5]=0;
+      pointData[pi0+6]=0; pointData[pi0+7]=0;   pointData[pi0+8]=0;
+      pointData[pi0+9]=0; pointData[pi0+10]=0;  pointData[pi0+11]=0;
+      ptIdx++;
+      if (doDebug) debugRings.push([{ ring: 0, k: 0, theta_deg: 0, d: 0,
+        x: +cx.toFixed(2), y: +cy.toFixed(2), luma: +luma.toFixed(4), predK: null, draw: null }]);
+    }
+
+    // ── Rings 1 … N ───────────────────────────────────────────────────────
+    for (let n = 1; n <= N; n++) {
+      const Kn  = K(n);
+      const dbg = (doDebug && n < 10) ? [] : null;
+
+      for (let k = 0; k < Kn; k++) {
+        const { p, draw } = predMap(n, k);
+
+        // Read predecessor from typed arrays — no object allocation
+        const pD = prev.d[p], pX = prev.x[p], pY = prev.y[p], pLuma = prev.luma[p];
+
+        const lumaForStep  = pLuma;
+        const fullRawStep  = sfn.compute(lumaForStep);
+        const dFull        = pD + fullRawStep;
+        const theta        = thetaFor(n, k);
+        const dDspFull     = displayRho(dFull);
+        const [xFull, yFull] = toCanvas(dDspFull, theta, cx, cy, sq);
+
+        let x, y, d, luma;
+        if (!isConst && smp) {
+          // March from the predecessor's actual node position (pX,pY) toward the
+          // predicted full-step position (xFull,yFull). This is the only correct
+          // choice: the march start, the segment start, and the predecessor node
+          // must all be the same point. The hit determines the current node x,y.
+          const hit = smp.marchToBoundary(
+            pX, pY, xFull, yFull,
+            lumaForStep, sampleThresh,
+            dMinVal, dMaxVal, sigmaVal, fullRawStep
+          );
+          x = hit.x; y = hit.y; luma = hit.luma;
+          d = pD + fullRawStep * hit.t;
+        } else {
+          x = xFull; y = yFull; d = dFull;
+          luma = 0.5;
+        }
+
+        // Chain ID — topological ancestry using monotone corner counter.
+        // Every corner at every ring gets a fresh unique ID (nextCornerID++).
+        // Both flanks adjacent to that corner inherit it → same colour.
+        // All non-corner points purely inherit from their predecessor → stable tracing.
+        // Corners at ring-1 are k=0,2,4,6 (draw=false); cardinals inherit origin ID=0.
+        const isCorner = (n === 1)
+          ? (k % 2 === 0)
+          : (k === 0 || k === 2*n || k === 4*n || k === 6*n);
+        let chainId;
+        if (isCorner) {
+          chainId = nextCornerID++;   // new unique ID — never reused
+        } else {
+          chainId = prev.chain[p];   // pure inheritance — all else
+        }
+
+        // Write to current ring typed arrays
+        cur.d[k] = d; cur.theta[k] = theta; cur.x[k] = x; cur.y[k] = y;
+        cur.luma[k] = luma; cur.chain[k] = chainId;
+
+        // Compute all analytical values for storage.
+        const edgeDx = x - pX, edgeDy = y - pY;
+        const eucl       = draw ? Math.sqrt(edgeDx*edgeDx + edgeDy*edgeDy) : 0;
+        // displayRho: actual canvas radial distance from centre (after tanh × rFactor)
+        const dspRho     = Math.sqrt((x-cx)*(x-cx) + (y-cy)*(y-cy));
+        const pDspRho    = Math.sqrt((pX-cx)*(pX-cx) + (pY-cy)*(pY-cy));
+        const deltaD     = d - pD;                    // d-space radial increment
+        const deltaRho   = dspRho - pDspRho;          // display-space radial increment (canvas px)
+        const diffEuclDeltaRho = eucl - Math.abs(deltaRho); // tangential excess
+
+        const pi = ptIdx * PD_STRIDE;
+        pointData[pi]   = x;          pointData[pi+1]  = y;
+        pointData[pi+2] = luma;       pointData[pi+3]  = d;
+        pointData[pi+4] = chainId;    pointData[pi+5]  = n;
+        pointData[pi+6] = k;          pointData[pi+7]  = eucl;
+        pointData[pi+8] = theta;      pointData[pi+9]  = dspRho;
+        pointData[pi+10]= deltaD;     pointData[pi+11] = diffEuclDeltaRho;
+        ptIdx++;
+
+        if (draw && eucl >= 0.5) {
+          radSegs[radIdx++] = pX; radSegs[radIdx++] = pY;
+          radSegs[radIdx++] = x;  radSegs[radIdx++] = y;
+          // deltaTheta: signed angular change from pred's angle to this point's angle.
+          // prev.theta[p] is the predecessor's stored theta from last ring.
+          // Wrapped to [-π, π] so it represents the smallest angular turn.
+          const predTheta = prev.theta[p];
+          let dth = theta - predTheta;
+          if (dth >  PI) dth -= TAU;
+          if (dth < -PI) dth += TAU;
+          radSegLens[lenIdx]      = eucl;
+          radChains[lenIdx]       = chainId;
+          radDeltaTheta[lenIdx]   = dth;
+          lenIdx++;
+        }
+
+        if (dbg) dbg.push({ ring: n, k,
+          theta_deg: +(theta * 180 / PI).toFixed(2), d: +d.toFixed(3),
+          x: +x.toFixed(2), y: +y.toFixed(2), luma: +luma.toFixed(4),
+          predK: p, draw });
+      }
+
+      // Circumferential segments with pre-computed cull threshold (A3, A4)
+      for (let k = 0; k < Kn; k++) {
+        const k1  = (k + 1) % Kn;
+        const cdx = cur.x[k1] - cur.x[k], cdy = cur.y[k1] - cur.y[k];
+        const cd2 = cdx * cdx + cdy * cdy;
+        if (cd2 <= circCullThresh2) {
+          const si = circIdx >> 2;
+          circBuf[circIdx]   = cur.x[k];  circBuf[circIdx+1] = cur.y[k];
+          circBuf[circIdx+2] = cur.x[k1]; circBuf[circIdx+3] = cur.y[k1];
+          circLens[si]   = Math.sqrt(cd2);
+          circChains[si] = cur.chain[k];   // chain ID of segment start point
+          circIdx += 4;
+        }
+      }
+
+      if (dbg) debugRings.push(dbg);
+
+      // Record cursors for playback — after this ring's segs are written
+      ringRadEnds[n]  = radIdx;
+      ringCircEnds[n] = circIdx;
+      ringPtEnds[n]   = ptIdx;
+
+      // Swap ring buffers — zero allocation (A1, A2)
+      const tmp = prev; prev = cur; cur = tmp;
+    }
+
+    return {
+      radSegs:    radSegs.subarray(0, radIdx),
+      circSegs:   circBuf.subarray(0, circIdx),
+      circLens:   circLens.subarray(0, circIdx >> 2),
+      circChains: circChains.subarray(0, circIdx >> 2),
+      radSegLens:    radSegLens.subarray(0, lenIdx),
+      radChains:     radChains.subarray(0, lenIdx),
+      radDeltaTheta: radDeltaTheta.subarray(0, lenIdx),
+      pointData:  pointData.subarray(0, ptIdx * PD_STRIDE),
+      PD_STRIDE,
+      ringRadEnds, ringCircEnds, ringPtEnds,
+      meshDMin:   dMinVal,
+      meshDMax:   dMaxVal,
+      debugRings,
+      ringCount:  N,
+      asymptote:  A,
+      totalChainIDs: nextCornerID   // for hue distribution in render
+    };
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// G4 — Validation test cases (gaps.md §5)
+// Call runValidation() from console to check known-value regression cases.
+// ════════════════════════════════════════════════════════════════════════════
+function runValidation() {
+  console.group('CHAIN-LINK validation');
+
+  // Case A: circumferential gap magnitude
+  {
+    const ringCount = 30, dMin = 2, dMax = 15;
+    const dW = ringCount * (dMin + 0.9 * (dMax - dMin));  // white chain d
+    const dD = ringCount * (dMin + 0.1 * (dMax - dMin));  // dark chain d
+    // Tanh-compress both (A = 400 approx, matches typical 800px canvas)
+    const A = 400, tW = A * Math.tanh(dW / A), tD = A * Math.tanh(dD / A);
+    const circSpan = Math.abs(tW - tD);
+    const cullThresh = 2 * dMax;
+    console.log(`Case A — circ span=${circSpan.toFixed(1)}px, cull@${cullThresh}px → ${circSpan > cullThresh ? 'CULLED ✓' : 'DRAWN (within threshold)'}`);
+  }
+
+  // Case B: radial march should equal step length for interior points
+  {
+    const step = 10, dPred = 120, theta = 46.5 * PI / 180;
+    const cx = 400, cy = 400, sq = 1;
+    const [xS] = toCanvas(dPred,        theta, cx, cy, sq);
+    const [xE] = toCanvas(dPred + step, theta, cx, cy, sq);
+    const marchLen = Math.abs(xE - xS);
+    console.log(`Case B — radial march length=${marchLen.toFixed(2)}px vs step=${step}px (ratio=${(marchLen/step).toFixed(2)}; expect ~1.0–1.5 for sq=1)`);
+  }
+
+  // Case C: 1-ring lag — post-lip chain cannot recover in single ring
+  {
+    const dMin = 2, dMax = 15, sigma = 0;
+    const postLipLuma = 0.85;
+    const step = dMin + Math.abs(sigma - postLipLuma) * (dMax - dMin);
+    console.log(`Case C — post-lip step=${step.toFixed(2)}px (dMin=${dMin}) — lag is structural, irreducible with forward propagation.`);
+  }
+
+  console.groupEnd();
+}
+window.runValidation = runValidation;
+
+// ════════════════════════════════════════════════════════════════════════════
+// G3 — Circumferential smoothing post-process (optional, gaps.md §4 Fix 2)
+// Scans circSegs for spans exceeding smoothThresh and inserts a midpoint
+// sampled from the image. Pure display interpolation — does not affect
+// propagation. Off by default; enable via app.smoothCirc = true.
+// ════════════════════════════════════════════════════════════════════════════
+function smoothCircSegs(circSegs, smoothThresh2, sampler) {
+  if (!sampler) return circSegs;
+  const out = [];
+  for (let i = 0; i < circSegs.length; i += 4) {
+    const x0 = circSegs[i], y0 = circSegs[i+1];
+    const x1 = circSegs[i+2], y1 = circSegs[i+3];
+    const dx = x1 - x0, dy = y1 - y0;
+    if (dx * dx + dy * dy > smoothThresh2) {
+      const mx = (x0 + x1) * 0.5, my = (y0 + y1) * 0.5;
+      out.push(x0, y0, mx, my, mx, my, x1, y1);
+    } else {
+      out.push(x0, y0, x1, y1);
+    }
+  }
+  return new Float32Array(out);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RingPlayer — drives ring-by-ring animated or stepped playback.
+// ════════════════════════════════════════════════════════════════════════════
+class RingPlayer {
+  constructor(getApp, renderFn) {
+    this._getApp   = getApp;
+    this._render   = renderFn;
+    this._raf      = null;
+    this._playing  = false;
+    this._fps      = 8;       // default rings per second
+    this._lastTime = 0;
+  }
+
+  get playing() { return this._playing; }
+
+  setFPS(fps) { this._fps = Math.max(1, fps); }
+
+  // Set ring directly (stops playback)
+  seek(ring) {
+    this._stop();
+    const app = this._getApp();
+    if (!app._mesh) return;
+    app._playRing = Math.max(0, Math.min(ring, app._mesh.ringCount));
+    this._render();
+    this._syncUI();
+  }
+
+  step(delta) { this.seek((this._getApp()._playRing ?? this._getApp()._mesh?.ringCount ?? 0) + delta); }
+
+  reset() { this.seek(0); }
+
+  play() {
+    if (this._playing) return;
+    const app = this._getApp();
+    if (!app._mesh) return;
+    // If at end, restart from 0
+    if ((app._playRing ?? app._mesh.ringCount) >= app._mesh.ringCount) app._playRing = 0;
+    this._playing = true;
+    this._lastTime = performance.now();
+    this._raf = requestAnimationFrame(t => this._tick(t));
+    this._syncUI();
+  }
+
+  pause() {
+    this._stop();
+    this._syncUI();
+  }
+
+  toggle() { this._playing ? this.pause() : this.play(); }
+
+  // Exit playback mode entirely — restore full mesh view
+  exit() {
+    this._stop();
+    const app = this._getApp();
+    app._playRing = null;
+    this._render();
+    this._syncUI();
+  }
+
+  _stop() {
+    this._playing = false;
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+  }
+
+  _tick(now) {
+    if (!this._playing) return;
+    const app    = this._getApp();
+    const mesh   = app._mesh;
+    if (!mesh) return;
+    const mspf   = 1000 / this._fps;
+    if (now - this._lastTime >= mspf) {
+      this._lastTime = now;
+      const cur = app._playRing ?? 0;
+      if (cur >= mesh.ringCount) {
+        this.pause();
+        return;
+      }
+      app._playRing = cur + 1;
+      this._render();
+      this._syncUI();
+    }
+    this._raf = requestAnimationFrame(t => this._tick(t));
+  }
+
+  _syncUI() {
+    const app  = this._getApp();
+    const ring = app._playRing;
+    const N    = app._mesh?.ringCount ?? 0;
+    const el   = document.getElementById('vPlayRing');
+    const pp   = document.getElementById('bPlayPause');
+    const sBar = document.getElementById('playBar');
+    const bStep= document.getElementById('bStepMode');
+    if (el)    el.textContent = ring != null ? `${ring}/${N}` : `${N}/${N}`;
+    if (pp)    pp.textContent = this._playing ? '⏸' : '▶';
+    if (sBar)  sBar.classList.toggle('open', ring != null);
+    if (bStep) bStep.classList.toggle('on', ring != null);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+class ChainLinkApp {
+  constructor(sz) {
+    this._sz          = sz;
+    this._S           = 12;
+    this._N           = 80;
+    this._useLog      = true;
+    this._dMin        = 2;
+    this._dMax        = 15;
+    this._sigma       = 0;
+    this._squareness  = 1;
+    this._reach       = 0.94;
+    this._sampleThresh= 0.15;
+    this._sampler     = null;
+    this._srcImg      = null;
+    this._showOverlay = false;
+    this._overlayOpacity = 0.4;
+    this._mesh        = null;
+    this._rebuildTimer= null;
+    this._debug       = false;
+    this._smoothCirc  = false;
+    this._playRing    = null;
+    this._lineWeight  = 0.5;
+    this._lineAlpha   = 1.0;
+    this._dotSize     = 3;
+    this._viewMode    = 0;    // 0=ACTUAL 1=FIT 2=FILL
+    this._ptColorMode = 0;    // 0=LUMA 1=CHAIN 2=POLAR 3=CART 4=CONNECT
+    // Diagnostic visibility
+    this._showRings   = true;
+    this._showRadial  = true;
+    this._showPoints  = false;
+    this._colorMode   = 0;
+  }
+
+  buildMesh() {
+    const sfn = this._sampler
+      ? new StepDistanceFunction(this._dMin, this._dMax, this._sigma)
+      : new ConstantStepFunction(this._S);
+    this._mesh = new PolarMeshPrecomputer(
+      this._sz, this._sz,
+      this._S, this._N, sfn, this._sampler,
+      this._squareness, this._useLog,
+      this._reach, this._sampleThresh, this._debug
+    ).build();
+  }
+
+  scheduleRebuild(cb) {
+    clearTimeout(this._rebuildTimer);
+    this._rebuildTimer = setTimeout(() => { this.buildMesh(); cb(); }, 250);
+  }
+
+  setSampler(pixels, iw, ih) {
+    this._sampler = new LuminanceSampler(pixels, iw, ih, this._sz, this._sz);
+  }
+
+  drawMesh(p) {
+    if (!this._mesh) return;
+
+    if (this._showOverlay && this._srcImg) {
+      p.ctx.save();
+      p.ctx.globalAlpha = this._overlayOpacity;
+      p.ctx.drawImage(this._srcImg, 0, 0, this._sz, this._sz);
+      p.ctx.restore();
+    }
+
+    const { radSegs: rsAll, radSegLens: rlAll, radChains: rcAll,
+            radDeltaTheta: rdtAll,
+            pointData: pd, PD_STRIDE,
+            meshDMin, meshDMax, totalChainIDs,
+            ringRadEnds, ringCircEnds, ringPtEnds, ringCount } = this._mesh;
+    const clAll    = this._mesh.circLens;
+    const ccAll    = this._mesh.circChains;
+    const S        = PD_STRIDE || 8;
+    const playRing = this._playRing;
+    const isPlaying = playRing != null;
+
+    const radEnd  = isPlaying ? ringRadEnds[playRing]  : rsAll.length;
+    const circEnd = isPlaying ? ringCircEnds[playRing] : this._mesh.circSegs.length;
+    const ptEnd   = isPlaying ? (ringPtEnds ? ringPtEnds[playRing] : 0) : pd.length / S;
+
+    const rs  = rsAll.subarray(0, radEnd);
+    const rl  = rlAll.subarray(0, radEnd >> 2);
+    const rc  = rcAll.subarray(0, radEnd >> 2);
+    const rdt = rdtAll ? rdtAll.subarray(0, radEnd >> 2) : null;
+    let cs   = this._mesh.circSegs.subarray(0, circEnd);
+    const cl = clAll ? clAll.subarray(0, circEnd >> 2) : null;
+    const cc = ccAll ? ccAll.subarray(0, circEnd >> 2) : null;
+    if (this._smoothCirc && this._sampler)
+      cs = smoothCircSegs(cs, meshDMax * meshDMax, this._sampler);
+
+    const dMin   = meshDMin, dMax = meshDMax;
+    const dRange = Math.max(1, dMax - dMin);
+    const dHalf  = dMin * 0.5;
+    const nChains = Math.max(2, totalChainIDs || 2);
+
+    // ── Shared colour utilities ───────────────────────────────────────────
+    // Golden-angle hue — maximally distinct colours for arbitrary chain count.
+    // Multiplying ID by golden ratio mod 1 spreads IDs uniformly around hue wheel.
+    const GA = 0.6180339887;
+    function chainColor(id) {
+      const h6 = ((id * GA) % 1) * 6;
+      const hi = h6 | 0, f = h6 - hi, q = 1 - f;
+      let rv, gv, bv;
+      switch (hi % 6) {
+        case 0: rv=1;gv=f;bv=0; break; case 1: rv=q;gv=1;bv=0; break;
+        case 2: rv=0;gv=1;bv=f; break; case 3: rv=0;gv=q;bv=1; break;
+        case 4: rv=f;gv=0;bv=1; break; default: rv=1;gv=0;bv=q;
+      }
+      return [Math.round(rv*255), Math.round(gv*255), Math.round(bv*255)];
+    }
+    function lenColor(len) {
+      if (len > dMax)   return [255,255,255];
+      if (len < dHalf)  return [255,0,220];
+      if (len < dMin)   return [255,140,0];
+      const t = (len-dMin)/dRange;
+      return [Math.round(t*255), Math.round((1-Math.abs(t-0.5)*2)*180), Math.round((1-t)*255)];
+    }
+    function vecColor(dx, dy) {
+      const h6 = (((Math.atan2(dy,dx)/(Math.PI*2))+1)%1)*6;
+      const hi = h6|0, f = h6-hi, q = 1-f;
+      let rv,gv,bv;
+      switch(hi%6){
+        case 0:rv=1;gv=f;bv=0;break; case 1:rv=q;gv=1;bv=0;break;
+        case 2:rv=0;gv=1;bv=f;break; case 3:rv=0;gv=q;bv=1;break;
+        case 4:rv=f;gv=0;bv=1;break; default:rv=1;gv=0;bv=q;
+      }
+      return [Math.round(rv*255), Math.round(gv*255), Math.round(bv*255)];
+    }
+
+    const ctx  = p.ctx;
+    const wt   = this._lineWeight;
+    const la   = this._lineAlpha;
+    const cm   = this._colorMode;
+    p.strokeWeight(wt);
+    p.noFill();
+
+    // ── Circumferential segments ──────────────────────────────────────────
+    // Colour modes mirror radial, but dimmed ~60% to visually sit behind radials.
+    // VEC for circ is tangential (perpendicular to radial) so naturally distinct.
+    if (this._showRings) {
+      ctx.save(); ctx.globalAlpha = la * 0.6;
+      if (cm === 0) {
+        // MONO — fixed steel blue
+        p.stroke(80, 100, 140);
+        for (let i=0; i<cs.length; i+=4) p.line(cs[i],cs[i+1],cs[i+2],cs[i+3]);
+      } else if (cm === 1 && cl) {
+        // LEN — same 5-zone scale as radial
+        for (let i=0,si=0; i<cs.length; i+=4,si++) {
+          const [r,g,b] = lenColor(cl[si]);
+          p.stroke(r,g,b); p.line(cs[i],cs[i+1],cs[i+2],cs[i+3]);
+        }
+      } else if (cm === 2) {
+        // VEC — direction angle (will be tangential, naturally different hues from radial)
+        for (let i=0; i<cs.length; i+=4) {
+          const [r,g,b] = vecColor(cs[i+2]-cs[i], cs[i+3]-cs[i+1]);
+          p.stroke(r,g,b); p.line(cs[i],cs[i+1],cs[i+2],cs[i+3]);
+        }
+      } else if (cm === 3 && cc) {
+        // CHAIN — same golden-angle ID mapping as radial
+        for (let i=0,si=0; i<cs.length; i+=4,si++) {
+          const [r,g,b] = chainColor(cc[si]);
+          p.stroke(r,g,b); p.line(cs[i],cs[i+1],cs[i+2],cs[i+3]);
+        }
+      }
+      ctx.restore();
+    }
+
+    // ── Radial segments ───────────────────────────────────────────────────
+    if (this._showRadial) {
+      ctx.save(); ctx.globalAlpha = la;
+      if (cm === 0) {
+        p.stroke(192,192,204);
+        for (let i=0; i<rs.length; i+=4) p.line(rs[i],rs[i+1],rs[i+2],rs[i+3]);
+      } else {
+        for (let i=0,si=0; i<rs.length; i+=4,si++) {
+          let col;
+          if      (cm===1) col = lenColor(rl[si]);
+          else if (cm===2) col = vecColor(rs[i+2]-rs[i], rs[i+3]-rs[i+1]);
+          else if (cm===3) col = chainColor(rc[si]);
+          else if (cm===4 && rdt) {
+            // DTHETA: signed angular change from pred.theta to child.theta.
+            // dth ∈ (-π, π).  0 = purely radial (no angular drift).
+            // Positive (CCW drift) → cyan-blue.  Negative (CW) → orange-red.
+            // Saturation = |dth| / 45°, clamped at 1.
+            const dth     = rdt[si];
+            const t       = Math.min(1, Math.abs(dth) / (PI * 0.25));
+            const g       = Math.round((1 - t * 0.5) * 200);
+            const rb      = Math.round(t * 255);
+            col = dth >= 0 ? [0, g, rb] : [rb, g, 0];
+          } else {
+            col = [192, 192, 204];
+          }
+          p.stroke(col[0],col[1],col[2]);
+          p.line(rs[i],rs[i+1],rs[i+2],rs[i+3]);
+        }
+      }
+      ctx.restore();
+    }
+
+    // ── Points ────────────────────────────────────────────────────────────
+    if (this._showPoints) {
+      const pcm  = this._ptColorMode;
+      const half = this._dotSize * 0.5;
+      const sz   = this._dotSize;
+      const cx_  = this._sz * 0.5, cy_ = this._sz * 0.5;
+      const maxD = this._mesh.asymptote || Math.min(cx_, cy_);
+      ctx.save(); ctx.globalAlpha = la;
+      for (let pi=0; pi<ptEnd; pi++) {
+        const base = pi * S;
+        const px = pd[base], py = pd[base+1], pluma = pd[base+2];
+        const pd_    = pd[base+3],  pchain = pd[base+4];
+        const peucl  = pd[base+7],  ptheta = pd[base+8];
+        const prho   = pd[base+9],  pdiff  = pd[base+11]; // diffEuclDeltaRho
+        let r,g,b;
+        if      (pcm===0) { const v=Math.round(pluma*255); r=v;g=v;b=v; }
+        else if (pcm===1) { [r,g,b] = chainColor(pchain); }
+        else if (pcm===2) {
+          // POLAR: stored theta→hue, stored rho→brightness
+          const th = ((ptheta/(Math.PI*2))+1)%1;
+          const br = Math.min(1, prho/maxD);
+          const h6=th*6, hi=h6|0, f=h6-hi, q=1-f;
+          let rv,gv,bv;
+          switch(hi%6){case 0:rv=1;gv=f;bv=0;break;case 1:rv=q;gv=1;bv=0;break;
+            case 2:rv=0;gv=1;bv=f;break;case 3:rv=0;gv=q;bv=1;break;
+            case 4:rv=f;gv=0;bv=1;break;default:rv=1;gv=0;bv=q;}
+          r=Math.round(rv*br*255);g=Math.round(gv*br*255);b=Math.round(bv*br*255);
+        }
+        else if (pcm===3) {
+          // CART: x→R, y→G, rho→B
+          r=Math.round((px/this._sz)*255);
+          g=Math.round((py/this._sz)*255);
+          b=Math.round(Math.min(1,prho/maxD)*255);
+        }
+        else {
+          // CONNECT: diffEuclDeltaRho (tangential excess) mapped through lenColor.
+          // Pure radial segment → diff≈0 → blue. Oblique/squareness deflection → higher diff → red/white.
+          [r,g,b] = lenColor(pdiff);
+        }
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(px-half, py-half, sz, sz);
+      }
+      ctx.restore();
+    }
+
+    // ── Playback frontier highlight ────────────────────────────────────────
+    if (isPlaying && playRing > 0) {
+      const rEnd   = ringRadEnds[playRing];
+      const rStart = ringRadEnds[playRing-1] ?? 0;
+      ctx.fillStyle = '#ffe040';
+      for (let i=rStart; i<rEnd; i+=4)
+        ctx.fillRect(rsAll[i+2]-2.5, rsAll[i+3]-2.5, 5, 5);
+    }
+  }
+
+  set S(v)           { this._S           = v; }
+  set N(v)           { this._N           = v; }
+  set useLog(v)      { this._useLog      = v; }
+  set dMin(v)        { this._dMin        = v; }
+  set dMax(v)        { this._dMax        = v; }
+  set sigma(v)       { this._sigma       = v; }
+  set squareness(v)  { this._squareness  = v; }
+  set reach(v)       { this._reach       = v; }
+  set sampleThresh(v){ this._sampleThresh= v; }
+  set showRings(v)   { this._showRings   = v; }
+  set showRadial(v)  { this._showRadial  = v; }
+  set showPoints(v)  { this._showPoints  = v; }
+  set colorMode(v)   { this._colorMode   = v; }
+  set ptColorMode(v) { this._ptColorMode = v; }
+  set lineWeight(v)  { this._lineWeight  = v; }
+  set lineAlpha(v)   { this._lineAlpha   = v; }
+  set dotSize(v)     { this._dotSize     = v; }
+  set viewMode(v)    { this._viewMode    = v; }
+  set debug(v)       { this._debug       = v; }
+  set smoothCirc(v)  { this._smoothCirc  = v; }
+  get sigma()        { return this._sigma; }
+  get colorMode()    { return this._colorMode; }
+  get ptColorMode()  { return this._ptColorMode; }
+  get showRings()    { return this._showRings; }
+  get showRadial()   { return this._showRadial; }
+  get showPoints()   { return this._showPoints; }
+  get viewMode()     { return this._viewMode; }
+
+  // ── Export ───────────────────────────────────────────────────────────────
+  exportData(format) {
+    const m = this._mesh;
+    if (!m) return;
+    const S = m.PD_STRIDE || 8;
+    const pd = m.pointData;
+    const n  = pd.length / S;
+    const cols = ['x','y','luma','d','chainId','ring','k','eucl','theta','rho','deltaD','diffEuclDeltaRho'];
+
+    if (format === 'csv') {
+      const rows = [cols.join(',')];
+      for (let i = 0; i < n; i++) {
+        const b = i * S;
+        rows.push([pd[b],pd[b+1],pd[b+2],pd[b+3],pd[b+4],pd[b+5],pd[b+6],pd[b+7]]
+          .map(v => +v.toFixed(4)).join(','));
+      }
+      this._download(rows.join('\n'), 'chainlink-points.csv', 'text/csv');
+    } else {
+      const points = [];
+      for (let i = 0; i < n; i++) {
+        const b = i * S;
+        const obj = {};
+        cols.forEach((c,ci) => obj[c] = +pd[b+ci].toFixed(4));
+        points.push(obj);
+      }
+      const out = {
+        meta: { dMin: m.meshDMin, dMax: m.meshDMax, rings: m.ringCount,
+                totalChainIDs: m.totalChainIDs, asymptote: m.asymptote },
+        points
+      };
+      this._download(JSON.stringify(out, null, 1), 'chainlink-points.json', 'application/json');
+    }
+  }
+
+  _download(text, name, mime) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// p5 sketch
+// ════════════════════════════════════════════════════════════════════════════
+let app;
+let player;
+let _canvasSz = 700;
+
+function _applyCanvasSize(sz) {
+  _canvasSz = sz;
+  resizeCanvas(sz, sz);
+  pixelDensity(window.devicePixelRatio || 1);
+  const cv = document.querySelector('#sketch canvas');
+  if (cv) { cv.style.width = sz + 'px'; cv.style.height = sz + 'px'; }
+  if (app) {
+    app._sz = sz;
+    // Update sampler canvas dimensions so coordinate mapping stays correct
+    if (app._sampler) { app._sampler._cw = sz; app._sampler._ch = sz; }
+    app.buildMesh();
+    renderAndDebug();
+  }
+}
+
+function setup() {
+  const bar    = document.getElementById('bar');
+  const availW = windowWidth;
+  const availH = windowHeight - (bar.offsetHeight || 40);
+  _canvasSz    = Math.max(200, Math.min(1600, availW, availH));
+  // Sync slider to actual computed size
+  const szSlider = document.getElementById('sCanvasSize');
+  if (szSlider) { szSlider.value = _canvasSz; document.getElementById('vCanvasSize').textContent = _canvasSz; }
+
+  const cv = createCanvas(_canvasSz, _canvasSz);
+  cv.parent('sketch');
+  // Pixel-perfect: backing store matches physical pixels
+  pixelDensity(window.devicePixelRatio || 1);
+  cv.elt.style.width  = _canvasSz + 'px';
+  cv.elt.style.height = _canvasSz + 'px';
+
+  app    = new ChainLinkApp(_canvasSz);
+  player = new RingPlayer(() => app, renderAndDebug);
+  app.buildMesh();
+
+  noLoop();
+  renderAndDebug();
+  bindUI();
+}
+
+function draw() {} // rendering driven by renderAndDebug(), not the loop
+
+function renderAndDebug() {
+  background(10, 10, 10);
+  app.drawMesh({
+    ctx:          drawingContext,
+    stroke:       (r, g, b) => stroke(r, g, b),
+    strokeWeight: w         => strokeWeight(w),
+    noStroke:     ()        => noStroke(),
+    noFill:       ()        => noFill(),
+    line:         (a, b, c, d) => line(a, b, c, d)
+  });
+}
+
+function bindUI() {
+  const $ = id => document.getElementById(id);
+
+  const bind = (sliderId, valId, setter, rebuild = true) => {
+    const el = $(sliderId);
+    el.addEventListener('input', () => {
+      $(valId).textContent = el.value;
+      setter(parseFloat(el.value));
+      if (rebuild) app.scheduleRebuild(renderAndDebug);
+    });
+  };
+
+  bind('sRings',   'vRings',   v => app.N = v);
+  bind('sSpacing', 'vSpacing', v => app.S = v);
+  bind('sMin',     'vMin',     v => app.dMin = v);
+  bind('sMax',     'vMax',     v => app.dMax = v);
+  bind('sSquare',  'vSquare',  v => app.squareness = v);
+  bind('sSteps',   'vSteps',   v => app.reach = v);
+  bind('sThresh',  'vThresh',  v => app.sampleThresh = v);
+
+  $('sCanvasSize').addEventListener('input', () => {
+    const sz = parseInt($('sCanvasSize').value);
+    $('vCanvasSize').textContent = sz;
+    _applyCanvasSize(sz);
+  });
+
+  $('bInvert').addEventListener('click', () => {
+    app.sigma = app.sigma === 0 ? 1 : 0;
+    $('bInvert').textContent = app.sigma === 0 ? 'B→MIN' : 'W→MIN';
+    $('bInvert').classList.toggle('on', app.sigma === 1);
+    app.buildMesh();
+    renderAndDebug();
+  });
+
+  // FileReader → HTMLImage → offscreen canvas → getImageData (no postMessage)
+  $('bOverlay').addEventListener('click', () => {
+    if (!app._srcImg) return;
+    app._showOverlay = !app._showOverlay;
+    $('bOverlay').classList.toggle('on', app._showOverlay);
+    $('ctrlOpacity').style.display = app._showOverlay ? 'flex' : 'none';
+    renderAndDebug();
+  });
+
+  $('sOpacity').addEventListener('input', () => {
+    app._overlayOpacity = parseFloat($('sOpacity').value);
+    $('vOpacity').textContent = $('sOpacity').value;
+    renderAndDebug();
+  });
+
+  // ── Diagnostic toggles ────────────────────────────────────────────────
+  $('bRings').addEventListener('click', () => {
+    app.showRings = !app.showRings;
+    $('bRings').classList.toggle('on', app.showRings);
+    renderAndDebug();
+  });
+  $('bRadial').addEventListener('click', () => {
+    app.showRadial = !app.showRadial;
+    $('bRadial').classList.toggle('on', app.showRadial);
+    renderAndDebug();
+  });
+  $('bPoints').addEventListener('click', () => {
+    app.showPoints = !app.showPoints;
+    $('bPoints').classList.toggle('on', app.showPoints);
+    renderAndDebug();
+  });
+
+  // Point colour mode
+  const ptColorLabels = ['LUMA','CHAIN','POLAR','CART','CONNECT'];
+  $('bPtColor').addEventListener('click', () => {
+    app.ptColorMode = (app.ptColorMode + 1) % ptColorLabels.length;
+    $('bPtColor').textContent = ptColorLabels[app.ptColorMode];
+    $('bPtColor').classList.toggle('on', app.ptColorMode > 0);
+    renderAndDebug();
+  });
+
+  // Line colour mode
+  const colorLabels = ['MONO', 'LEN', 'VEC', 'CHAIN', 'DTHETA'];
+  $('bColor').addEventListener('click', () => {
+    app.colorMode = (app.colorMode + 1) % 5;
+    $('bColor').textContent = colorLabels[app.colorMode];
+    $('bColor').classList.toggle('on', app.colorMode > 0);
+    renderAndDebug();
+  });
+
+  // Line weight, alpha, dot size (render-only, no rebuild)
+  $('sWeight').addEventListener('input', () => {
+    app.lineWeight = parseFloat($('sWeight').value);
+    $('vWeight').textContent = $('sWeight').value;
+    renderAndDebug();
+  });
+  $('sLineAlpha').addEventListener('input', () => {
+    app.lineAlpha = parseFloat($('sLineAlpha').value);
+    $('vLineAlpha').textContent = $('sLineAlpha').value;
+    renderAndDebug();
+  });
+  $('sDotSize').addEventListener('input', () => {
+    app.dotSize = parseFloat($('sDotSize').value);
+    $('vDotSize').textContent = $('sDotSize').value;
+    renderAndDebug();
+  });
+
+  // View mode: ACTUAL / FIT / FILL (CSS-only resize, no rebuild)
+  const viewLabels = ['ACTUAL','FIT','FILL'];
+  const sketch = document.getElementById('sketch');
+  $('bView').addEventListener('click', () => {
+    app.viewMode = (app.viewMode + 1) % 3;
+    $('bView').textContent = viewLabels[app.viewMode];
+    $('bView').classList.toggle('on', app.viewMode > 0);
+    sketch.classList.remove('view-fit','view-fill');
+    if (app.viewMode === 1) sketch.classList.add('view-fit');
+    if (app.viewMode === 2) sketch.classList.add('view-fill');
+  });
+
+  // Export
+  $('bExport').addEventListener('click', () => {
+    // Show a tiny menu: JSON or CSV
+    const menu = document.createElement('div');
+    menu.style.cssText = 'position:fixed;background:#0d0d11;border:1px solid #1a1a22;padding:4px;z-index:200;display:flex;flex-direction:column;gap:4px;';
+    ['JSON','CSV'].forEach(fmt => {
+      const b = document.createElement('button');
+      b.textContent = fmt; b.className = '';
+      b.style.cssText = 'font-family:inherit;font-size:10px;padding:3px 10px;cursor:pointer;background:none;border:1px solid #1e1e28;color:#6a6a7c;';
+      b.onclick = () => { app.exportData(fmt.toLowerCase()); document.body.removeChild(menu); };
+      menu.appendChild(b);
+    });
+    const br = $('bExport').getBoundingClientRect();
+    menu.style.left = br.left + 'px'; menu.style.top = (br.bottom+4)+'px';
+    document.body.appendChild(menu);
+    const close = e => { if(!menu.contains(e.target)){document.body.removeChild(menu);document.removeEventListener('click',close);} };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  });
+
+  // ── Ring playback ─────────────────────────────────────────────────────
+  $('bStepMode').addEventListener('click', () => {
+    if (app._playRing != null) {
+      player.exit();
+    } else {
+      player.seek(0);
+      $('playBar').classList.add('open');
+    }
+  });
+  $('bToStart').addEventListener('click',   () => player.seek(0));
+  $('bStepBack').addEventListener('click',  () => player.step(-1));
+  $('bPlayPause').addEventListener('click', () => player.toggle());
+  $('bStepFwd').addEventListener('click',   () => player.step(1));
+  $('bToEnd').addEventListener('click',     () => player.seek(app._mesh?.ringCount ?? 0));
+  $('sFPS').addEventListener('input', () => {
+    $('vFPS').textContent = $('sFPS').value;
+    player.setFPS(parseInt($('sFPS').value));
+  });
+  // Keyboard: left/right arrows step when playbar is open, space = play/pause
+  document.addEventListener('keydown', e => {
+    if (app._playRing == null) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); player.step(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); player.step(1); }
+    if (e.key === ' ')          { e.preventDefault(); player.toggle(); }
+  });
+
+  // INFO modal
+  const modalBg   = $('modal-bg');
+  const modalBody = $('modal-body');
+
+  function buildInfoHTML() {
+    return `
+<style>
+.ih1{color:#99cc00;font-size:13px;font-weight:500;margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid #1a1a22}
+.ih2{color:#c0c0cc;font-size:11px;font-weight:500;margin:14px 0 4px}
+.ip{color:#8888aa;font-size:10px;line-height:1.7;margin:0 0 6px}
+.ic{font-family:'Courier New',monospace;font-size:10px;color:#99cc00;background:#0a0a10;padding:1px 4px;border:1px solid #1a1a22}
+.ipre{background:#070710;border:1px solid #1a1a22;padding:10px 12px;overflow-x:auto;margin:6px 0 10px;font-family:'Courier New',monospace;font-size:10px;color:#b0b0c8;line-height:1.5;white-space:pre}
+.itbl{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:10px}
+.itbl th{color:#99cc00;border-bottom:1px solid #1a1a22;padding:3px 7px;text-align:left}
+.itbl td{padding:3px 7px;border-bottom:1px solid #0e0e18;color:#8888aa}
+.isvg{width:100%;margin:10px 0;background:#070710;border:1px solid #1a1a22;border-radius:2px;display:block}
+</style>
+
+<div class="ih1">CHAIN-LINK · technical reference v10</div>
+<p class="ip">Transforms source images into deformed polar square-wave mesh patterns. Each point's position is derived from its topological predecessor via luminance-guided ray-marching. Purely propagative — no global fitting, no iteration.</p>
+
+<div class="ih2">1 · Ring Topology</div>
+<p class="ip">Ring n contains <span class="ic">K(n) = 8n</span> points. Ring 0 is a single centre point. Cumulative counts = (2n+1)².</p>
+
+<svg class="isvg" viewBox="0 0 560 260">
+<defs><marker id="ia" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5"/></marker></defs>
+<circle cx="100" cy="130" r="6" fill="#1a1a22" stroke="#99cc00" stroke-width="1.5"/>
+<text x="100" y="133" text-anchor="middle" font-size="9" fill="#99cc00" font-family="Courier New">0</text>
+<circle cx="142" cy="88" r="4" fill="none" stroke="#3e3e52" stroke-width="1" stroke-dasharray="2 2"/>
+<circle cx="58" cy="88" r="4" fill="none" stroke="#3e3e52" stroke-width="1" stroke-dasharray="2 2"/>
+<circle cx="142" cy="172" r="4" fill="none" stroke="#3e3e52" stroke-width="1" stroke-dasharray="2 2"/>
+<circle cx="58" cy="172" r="4" fill="none" stroke="#3e3e52" stroke-width="1" stroke-dasharray="2 2"/>
+<circle cx="100" cy="68" r="5" fill="#1a2a3a" stroke="#378add" stroke-width="1.5"/>
+<circle cx="160" cy="130" r="5" fill="#1a2a3a" stroke="#378add" stroke-width="1.5"/>
+<circle cx="100" cy="192" r="5" fill="#1a2a3a" stroke="#378add" stroke-width="1.5"/>
+<circle cx="40" cy="130" r="5" fill="#1a2a3a" stroke="#378add" stroke-width="1.5"/>
+<line x1="100" y1="124" x2="100" y2="73" stroke="#378add" stroke-width="1" marker-end="url(#ia)"/>
+<line x1="106" y1="128" x2="155" y2="130" stroke="#378add" stroke-width="1" marker-end="url(#ia)"/>
+<line x1="100" y1="136" x2="100" y2="187" stroke="#378add" stroke-width="1" marker-end="url(#ia)"/>
+<line x1="94" y1="128" x2="45" y2="130" stroke="#378add" stroke-width="1" marker-end="url(#ia)"/>
+<circle cx="100" cy="28" r="4" fill="#0a1a0a" stroke="#5DCAA5" stroke-width="1"/>
+<circle cx="200" cy="130" r="4" fill="#0a1a0a" stroke="#5DCAA5" stroke-width="1"/>
+<text x="100" y="148" text-anchor="middle" font-size="8" fill="#3e3e52" font-family="Courier New">ring 0</text>
+<text x="100" y="56" text-anchor="middle" font-size="8" fill="#378add" font-family="Courier New">ring 1 cardinal (draw=true)</text>
+<text x="148" y="82" font-size="8" fill="#3e3e52" font-family="Courier New">corner (draw=false)</text>
+<text x="204" y="134" font-size="8" fill="#5DCAA5" font-family="Courier New">ring 2</text>
+<rect x="280" y="20" width="260" height="225" fill="#0a0a10" rx="2"/>
+<text x="290" y="40" font-size="9" fill="#99cc00" font-family="Courier New" font-weight="500">predecessor map</text>
+<text x="290" y="60" font-size="9" fill="#8888aa" font-family="Courier New">ring 1:  all inherit ring-0 centre</text>
+<text x="290" y="78" font-size="9" fill="#c8844a" font-family="Courier New">corner:  pred=prev corner, draw=false</text>
+<text x="290" y="96" font-size="9" fill="#5DCAA5" font-family="Courier New">flank:   pred=that corner, draw=true</text>
+<text x="290" y="114" font-size="9" fill="#8888aa" font-family="Courier New">interior top:    pred = k-1</text>
+<text x="290" y="130" font-size="9" fill="#8888aa" font-family="Courier New">interior left:   pred = k-3</text>
+<text x="290" y="146" font-size="9" fill="#8888aa" font-family="Courier New">interior bottom: pred = k-5</text>
+<text x="290" y="162" font-size="9" fill="#8888aa" font-family="Courier New">interior right:  pred = k-7</text>
+<text x="290" y="182" font-size="9" fill="#378add" font-family="Courier New">chain IDs: corners get fresh IDs</text>
+<text x="290" y="198" font-size="9" fill="#378add" font-family="Courier New">all others purely inherit pred.chain</text>
+<text x="290" y="218" font-size="9" fill="#3e3e52" font-family="Courier New">NE=0, NW=2n, SW=4n, SE=6n</text>
+<text x="290" y="234" font-size="9" fill="#3e3e52" font-family="Courier New">K(n)=8n  cumulative=(2n+1)^2</text>
+</svg>
+
+<div class="ih2">2 · Point Positioning Pipeline</div>
+<p class="ip">For every point (n,k). The segment drawn is always <span class="ic">pred.node → current.node</span> — edges connect stored positions only. The march start = pred node = segment start.</p>
+<div class="ipre">S1  {p,draw} = predMap(n,k)
+S2  pD,pX,pY,pLuma  ← prev ring typed arrays [p]
+S3  step  = dMin + |sigma - pLuma| x (dMax - dMin)
+S4  dFull = pD + step
+S5  theta = thetaFor(n,k)     ← angle on unit square
+S6  rho   = useLog ? A*tanh(dFull/A) : dFull
+S7  xFull = cx + rho*rFactor(theta,sq)*cos(theta)
+    yFull = cy - rho*rFactor(theta,sq)*sin(theta)
+S8  hit   = marchToBoundary(pX,pY, xFull,yFull)
+S9  x,y   = hit.x, hit.y       ← current node stored
+S10 luma  = sample(x,y)        ← drives NEXT ring step
+S11 if draw: emit segment pX,pY -> x,y</div>
+
+<svg class="isvg" viewBox="0 0 560 210">
+<defs><marker id="ib" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5"/></marker></defs>
+<circle cx="40" cy="175" r="4" fill="#3e3e52" stroke="#99cc00" stroke-width="1"/>
+<text x="40" y="190" text-anchor="middle" font-size="8" fill="#99cc00" font-family="Courier New">C</text>
+<circle cx="160" cy="105" r="6" fill="#0a1a2a" stroke="#378add" stroke-width="1.5"/>
+<text x="160" y="95" text-anchor="middle" font-size="8" fill="#378add" font-family="Courier New">pred (pX,pY)</text>
+<path d="M 40 175 Q 100 148 160 105" fill="none" stroke="#3e3e52" stroke-width="0.5" stroke-dasharray="3 2"/>
+<circle cx="220" cy="50" r="4" fill="none" stroke="#3e3e52" stroke-width="1" stroke-dasharray="2 2"/>
+<text x="228" y="47" font-size="8" fill="#3e3e52" font-family="Courier New">xFull (predicted)</text>
+<line x1="160" y1="105" x2="220" y2="50" stroke="#3e3e52" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="162" y="99" width="5" height="5" fill="none" stroke="#3e3e52" stroke-width="0.4"/>
+<rect x="166" y="89" width="5" height="5" fill="none" stroke="#3e3e52" stroke-width="0.4"/>
+<rect x="170" y="79" width="5" height="5" fill="none" stroke="#3e3e52" stroke-width="0.4"/>
+<rect x="174" y="69" width="6" height="6" fill="#4a2a00" stroke="#EF9F27" stroke-width="1"/>
+<text x="185" y="77" font-size="8" fill="#EF9F27" font-family="Courier New">threshold stop</text>
+<circle cx="195" cy="72" r="6" fill="#1a1a00" stroke="#EF9F27" stroke-width="1.5"/>
+<text x="204" y="70" font-size="8" fill="#EF9F27" font-family="Courier New">x,y (current node)</text>
+<line x1="160" y1="105" x2="195" y2="72" stroke="#EF9F27" stroke-width="2" marker-end="url(#ib)"/>
+<text x="155" y="92" font-size="8" fill="#EF9F27" font-family="Courier New">drawn segment</text>
+<path d="M 40 175 Q 118 148 195 72" fill="none" stroke="#3e3e52" stroke-width="0.5" stroke-dasharray="3 2"/>
+<line x1="28" y1="105" x2="28" y2="72" stroke="#5DCAA5" stroke-width="0.8"/>
+<line x1="24" y1="105" x2="32" y2="105" stroke="#5DCAA5" stroke-width="0.8"/>
+<line x1="24" y1="72" x2="32" y2="72" stroke="#5DCAA5" stroke-width="0.8"/>
+<text x="12" y="91" text-anchor="middle" font-size="7" fill="#5DCAA5" font-family="Courier New">deltaR</text>
+<text x="175" y="97" font-size="8" fill="#c0c0cc" font-family="Courier New">eucl</text>
+<rect x="295" y="15" width="250" height="185" fill="#0a0a10" rx="2"/>
+<text x="305" y="35" font-size="9" fill="#99cc00" font-family="Courier New" font-weight="500">march stop conditions</text>
+<text x="305" y="55" font-size="9" fill="#c8844a" font-family="Courier New">SKIP pixels where eucl2 &lt; skipThresh2</text>
+<text x="305" y="69" font-size="9" fill="#8888aa" font-family="Courier New">skipThresh2 = (dMin/2)^2 * cap2scale</text>
+<text x="305" y="83" font-size="9" fill="#8888aa" font-family="Courier New">no sampling closer than dMin/2</text>
+<line x1="305" y1="91" x2="535" y2="91" stroke="#1a1a22" stroke-width="0.5"/>
+<text x="305" y="108" font-size="9" fill="#e24b4a" font-family="Courier New">STOP 1 (first): |L - L0| &gt; lumaThresh</text>
+<text x="305" y="122" font-size="9" fill="#8888aa" font-family="Courier New">luminance boundary detected</text>
+<text x="305" y="136" font-size="9" fill="#8888aa" font-family="Courier New">L0 = pred.luma (reference luma)</text>
+<line x1="305" y1="144" x2="535" y2="144" stroke="#1a1a22" stroke-width="0.5"/>
+<text x="305" y="161" font-size="9" fill="#7F77DD" font-family="Courier New">STOP 2 (fallback): distance cap</text>
+<text x="305" y="175" font-size="9" fill="#8888aa" font-family="Courier New">cap = dMin + |sigma-L|*(dMax-dMin)</text>
+<text x="305" y="189" font-size="9" fill="#8888aa" font-family="Courier New">eucl2 &gt;= cap^2 * cap2scale</text>
+</svg>
+
+<div class="ih2">3 · Step Distance &amp; Log Ramp</div>
+<svg class="isvg" viewBox="0 0 560 160">
+<defs><marker id="ic" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5"/></marker></defs>
+<line x1="40" y1="130" x2="270" y2="130" stroke="#3e3e52" stroke-width="1" marker-end="url(#ic)"/>
+<line x1="40" y1="130" x2="40" y2="15" stroke="#3e3e52" stroke-width="1" marker-end="url(#ic)"/>
+<text x="274" y="134" font-size="8" fill="#3e3e52" font-family="Courier New">L</text>
+<text x="44" y="13" font-size="8" fill="#3e3e52" font-family="Courier New">step</text>
+<line x1="34" y1="120" x2="44" y2="120" stroke="#3e3e52" stroke-width="0.7"/>
+<text x="30" y="123" text-anchor="end" font-size="7" fill="#8888aa" font-family="Courier New">min</text>
+<line x1="34" y1="25" x2="44" y2="25" stroke="#3e3e52" stroke-width="0.7"/>
+<text x="30" y="28" text-anchor="end" font-size="7" fill="#8888aa" font-family="Courier New">max</text>
+<polyline points="40,25 155,120 270,25" fill="none" stroke="#378add" stroke-width="1.5"/>
+<text x="155" y="143" text-anchor="middle" font-size="7" fill="#378add" font-family="Courier New">B→MIN (sigma=0)</text>
+<polyline points="40,25 155,25 270,120" fill="none" stroke="#e24b4a" stroke-width="1.5" stroke-dasharray="4 2"/>
+<text x="240" y="112" font-size="7" fill="#e24b4a" font-family="Courier New">W→MIN</text>
+<text x="40" y="155" font-size="8" fill="#8888aa" font-family="Courier New">step = dMin + |sigma-L| x (dMax-dMin)</text>
+<line x1="300" y1="130" x2="540" y2="130" stroke="#3e3e52" stroke-width="1" marker-end="url(#ic)"/>
+<line x1="300" y1="130" x2="300" y2="15" stroke="#3e3e52" stroke-width="1" marker-end="url(#ic)"/>
+<text x="544" y="134" font-size="8" fill="#3e3e52" font-family="Courier New">d</text>
+<text x="304" y="13" font-size="8" fill="#3e3e52" font-family="Courier New">displayRho</text>
+<line x1="300" y1="32" x2="540" y2="32" stroke="#3e3e52" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="544" y="36" font-size="7" fill="#3e3e52" font-family="Courier New">A</text>
+<line x1="300" y1="130" x2="420" y2="32" stroke="#3e3e52" stroke-width="0.7" stroke-dasharray="2 2"/>
+<path d="M 300 130 C 330 112,360 88,390 70 C 420 54,450 42,480 38 C 505 35,525 33,540 32" fill="none" stroke="#378add" stroke-width="2"/>
+<text x="388" y="60" font-size="7" fill="#378add" font-family="Courier New">A*tanh(d/A)</text>
+<line x1="320" y1="130" x2="320" y2="108" stroke="#5DCAA5" stroke-width="0.7"/>
+<line x1="340" y1="130" x2="340" y2="90" stroke="#5DCAA5" stroke-width="0.7"/>
+<line x1="320" y1="130" x2="340" y2="130" stroke="#5DCAA5" stroke-width="2"/>
+<text x="317" y="98" font-size="6" fill="#5DCAA5" font-family="Courier New">Dd linear</text>
+<line x1="490" y1="130" x2="490" y2="37.5" stroke="#e24b4a" stroke-width="0.7"/>
+<line x1="510" y1="130" x2="510" y2="36.8" stroke="#e24b4a" stroke-width="0.7"/>
+<line x1="490" y1="130" x2="510" y2="130" stroke="#e24b4a" stroke-width="2"/>
+<text x="510" y="42" font-size="6" fill="#e24b4a" font-family="Courier New">Dd tiny</text>
+<text x="300" y="155" font-size="8" fill="#8888aa" font-family="Courier New">cap2scale = fullDist^2 / fullRawStep^2</text>
+</svg>
+
+<div class="ih2">4 · Squareness (rFactor)</div>
+<p class="ip"><span class="ic">rFactor(theta,sq)</span> scales the canvas radius at each angle. sq=0 gives a circle (rFactor=1 everywhere). sq=1 gives a square — corners (45°) are √2 further from centre than sides (0°) at the same d value. Both tanh and rFactor act in sequence: <span class="ic">canvas_r = A*tanh(d/A) * rFactor</span>. The <span class="ic">diffEuclDeltaRho</span> field measures the tangential excess introduced by squareness.</p>
+
+<svg class="isvg" viewBox="0 0 560 220">
+<circle cx="130" cy="120" r="80" fill="none" stroke="#3e3e52" stroke-width="0.8" stroke-dasharray="3 2"/>
+<text x="216" y="124" font-size="8" fill="#3e3e52" font-family="Courier New">sq=0</text>
+<path d="M 210 40 L 210 200 L 50 200 L 50 40 Z" fill="none" stroke="#378add" stroke-width="1.5"/>
+<text x="215" y="38" font-size="8" fill="#378add" font-family="Courier New">sq=1</text>
+<circle cx="130" cy="120" r="3" fill="#99cc00"/>
+<line x1="130" y1="120" x2="210" y2="120" stroke="#5DCAA5" stroke-width="1.5" stroke-dasharray="3 2"/>
+<text x="218" y="124" font-size="7" fill="#5DCAA5" font-family="Courier New">x1.0 (theta=0)</text>
+<line x1="130" y1="120" x2="210" y2="40" stroke="#EF9F27" stroke-width="1.5"/>
+<text x="185" y="36" font-size="7" fill="#EF9F27" font-family="Courier New">x1.414 (theta=45)</text>
+<text x="170" y="80" font-size="7" fill="#EF9F27" font-family="Courier New">+41%</text>
+<path d="M 175 120 A 45 45 0 0 0 162 88" fill="none" stroke="#8888aa" stroke-width="0.6"/>
+<text x="182" y="107" font-size="7" fill="#8888aa" font-family="Courier New">45deg</text>
+<rect x="255" y="20" width="285" height="185" fill="#0a0a10" rx="2"/>
+<text x="265" y="40" font-size="9" fill="#99cc00" font-family="Courier New" font-weight="500">rFactor values (sq=1)</text>
+<text x="265" y="58" font-size="9" fill="#8888aa" font-family="Courier New">theta=0     1.000</text>
+<text x="265" y="73" font-size="9" fill="#8888aa" font-family="Courier New">theta=30    1.155</text>
+<text x="265" y="88" font-size="9" fill="#EF9F27" font-family="Courier New">theta=45    1.414  (sqrt 2)</text>
+<text x="265" y="103" font-size="9" fill="#8888aa" font-family="Courier New">theta=60    1.155</text>
+<text x="265" y="118" font-size="9" fill="#8888aa" font-family="Courier New">theta=90    1.000</text>
+<line x1="265" y1="127" x2="530" y2="127" stroke="#1a1a22" stroke-width="0.5"/>
+<text x="265" y="144" font-size="9" fill="#5DCAA5" font-family="Courier New">rSq = 1/cos(((t+pi/4) mod pi/2)-pi/4)</text>
+<text x="265" y="159" font-size="9" fill="#5DCAA5" font-family="Courier New">rFactor = 1 + sq*(rSq-1)</text>
+<text x="265" y="177" font-size="9" fill="#378add" font-family="Courier New">x = cx + displayRho*rFactor*cos(t)</text>
+<text x="265" y="192" font-size="9" fill="#378add" font-family="Courier New">y = cy - displayRho*rFactor*sin(t)</text>
+</svg>
+
+<div class="ih2">5 · pointData[12] per point</div>
+<table class="itbl">
+<tr><th>#</th><th>field</th><th>description</th></tr>
+<tr><td>0</td><td>x</td><td>canvas x</td></tr>
+<tr><td>1</td><td>y</td><td>canvas y</td></tr>
+<tr><td>2</td><td>luma</td><td>sampled luminance [0,1] — drives next ring's step</td></tr>
+<tr><td>3</td><td>d</td><td>raw accumulated d-space apothem (before tanh)</td></tr>
+<tr><td>4</td><td>chainId</td><td>topological chain ID (corners fresh, others inherit)</td></tr>
+<tr><td>5</td><td>n</td><td>ring index</td></tr>
+<tr><td>6</td><td>k</td><td>point index within ring</td></tr>
+<tr><td>7</td><td>eucl</td><td>Euclidean canvas distance pred→this node</td></tr>
+<tr><td>8</td><td>theta</td><td>angle in radians [0, 2pi)</td></tr>
+<tr><td>9</td><td>rho</td><td>display-space radial distance from centre (after tanh × rFactor)</td></tr>
+<tr><td>10</td><td>deltaD</td><td>d-space radial increment this step</td></tr>
+<tr><td>11</td><td>diffEuclDeltaRho</td><td>eucl minus |deltaRho| — tangential excess from squareness/oblique march</td></tr>
+</table>
+
+<div class="ih2">6 · Diagnostic Modes</div>
+<table class="itbl">
+<tr><th>mode</th><th>lines</th><th>points</th></tr>
+<tr><td>MONO</td><td>grey radial / steel-blue circ</td><td>LUMA — greyscale by luma</td></tr>
+<tr><td>LEN</td><td colspan="2">5-zone: <span class="ic" style="color:#3B8BD4">blue</span>=in-range, <span class="ic" style="color:#EF9F27">orange</span>=under-min, <span class="ic" style="color:#e040ff">magenta</span>=under-min/2, <span class="ic" style="color:#fff">white</span>=over-max</td></tr>
+<tr><td>VEC</td><td>hue from direction angle</td><td>CHAIN — golden-angle hue per chain ID</td></tr>
+<tr><td>CHAIN</td><td>golden-angle hue per chain ID</td><td>POLAR — theta→hue, rho→brightness</td></tr>
+<tr><td>—</td><td>—</td><td>CART — x→R, y→G, rho→B</td></tr>
+<tr><td>—</td><td>—</td><td>CONNECT — diffEuclDeltaRho through LEN scale</td></tr>
+</table>
+
+<div class="ih2">7 · Known Limitations</div>
+<p class="ip"><strong style="color:#c0c0cc">1-ring lag:</strong> step at ring n uses luma from ring n−1. Hard edges appear one ring late. Irreducible with forward-only propagation.</p>
+<p class="ip"><strong style="color:#c0c0cc">Case A (circ gaps):</strong> adjacent chains diverging across a boundary accumulate N×(dMax−dMin) canvas-px divergence. Cull threshold 2×dMax×rFactorMax prevents worst artifacts; only reducing dMax−dMin truly fixes it.</p>
+<p class="ip"><strong style="color:#c0c0cc">Case B (oblique march, flanks):</strong> march from corner pred to flank child crosses tangential content, not the child's exact radial direction. Thin features at the flank angle may be missed. Geometry is still correct.</p>
+<p class="ip"><strong style="color:#c0c0cc">Case C (thin feature bypass):</strong> once a chain steps past a thin feature it never looks back. Mitigate with smaller dMax and higher ring count.</p>
+
+<div class="ih2">8 · Architecture</div>
+<div class="ipre">LuminanceSampler     bilinear interp; Bresenham march; _hit reuse (no alloc)
+StepDistanceFunction d(L) = dMin + |sigma-L|*range
+ConstantStepFunction d()  = S (REST mesh, no image)
+PolarMeshPrecomputer full forward pass ring 0..N; emits typed arrays
+  radSegs[4N^2*4]      radSegLens[4N^2]     radChains[4N^2]
+  circSegs             circLens             circChains
+  pointData[12*(2N+1)^2]
+  ringRadEnds/ringCircEnds/ringPtEnds  (playback cursors)
+RingPlayer           frame-by-frame or animated ring stepping
+ChainLinkApp         orchestrator; owns all state</div>
+`;
+  }
+
+  $('bInfo').addEventListener('click', () => {
+    modalBody.innerHTML = buildInfoHTML();
+    modalBg.classList.add('open');
+  });
+
+  $('modal-close').addEventListener('click', () => modalBg.classList.remove('open'));
+  modalBg.addEventListener('click', e => { if (e.target === modalBg) modalBg.classList.remove('open'); });
+
+  $('bUpload').addEventListener('click', () => $('fileIn').click());
+  $('fileIn').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const oc = document.createElement('canvas');
+        oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+        oc.getContext('2d').drawImage(img, 0, 0);
+        const { data } = oc.getContext('2d').getImageData(0, 0, oc.width, oc.height);
+        app.setSampler(data, oc.width, oc.height);
+        app._srcImg = oc;  // store offscreen canvas for overlay
+        app.buildMesh();
+        renderAndDebug();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+}
+</script>
+
+<div id="modal-bg">
+  <div id="modal">
+    <div id="modal-head">
+      <span>CHAIN-LINK · PROJECT DOCUMENTATION</span>
+      <button id="modal-close">CLOSE ✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+</body>
+</html>

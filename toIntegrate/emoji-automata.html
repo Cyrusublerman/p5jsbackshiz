@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Cellular Automata</title>
+<style>
+  html,body{margin:0;padding:0;background:#000;color:#000;font-family:serif;height:100vh;width:100vw;overflow:hidden}
+  #shell{display:flex;flex-direction:column;height:100vh;width:100vw;overflow:hidden}
+  #ui{background:#ddd;padding:4px 8px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  #status{font-family:monospace;font-size:11px;padding:2px 8px;background:#ccc;flex-shrink:0}
+  #canvas-wrap{background:#000;display:flex;justify-content:center;align-items:flex-start;flex-shrink:0;overflow:hidden}
+  canvas#c{display:block}
+  canvas#gl-ca{display:none;position:absolute;left:-9999px}
+  #tally-wrap{background:#ddd;padding:4px 8px;border-top:1px solid #999;flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  #tally-header{flex-shrink:0;font-size:12px;margin-bottom:2px}
+  #tally-grid{display:flex;flex-wrap:wrap;gap:1px;font-family:monospace;font-size:11px;flex:1 1 0;min-height:0;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+  #tally-grid::-webkit-scrollbar{display:none}
+  .ti{padding:1px 3px;white-space:nowrap}.ti.has{background:#fff}.ti.zero{color:#999}
+  label{font-size:12px}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="ui">
+    <button id="btnPlay">Play</button>
+    <button id="btnStep">Step</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnClear">Clear</button>
+    <select id="selA"><option value="life" selected>A: Life</option><option value="highlife">A: HighLife</option><option value="daynight">A: Day&Night</option><option value="anneal">A: Anneal</option><option value="maze">A: Maze</option><option value="seeds">A: Seeds</option><option value="replicator">A: Replicator</option><option value="diamoeba">A: Diamoeba</option></select>
+    <select id="selB"><option value="daynight" selected>B: Day&Night</option><option value="life">B: Life</option><option value="highlife">B: HighLife</option><option value="anneal">B: Anneal</option><option value="maze">B: Maze</option><option value="seeds">B: Seeds</option><option value="replicator">B: Replicator</option><option value="diamoeba">B: Diamoeba</option></select>
+    <select id="selC"><option value="anneal" selected>C: Anneal</option><option value="life">C: Life</option><option value="highlife">C: HighLife</option><option value="daynight">C: Day&Night</option><option value="maze">C: Maze</option><option value="seeds">C: Seeds</option><option value="replicator">C: Replicator</option><option value="diamoeba">C: Diamoeba</option></select>
+    <label>Speed <input type="range" id="speedSlider" min="1" max="30" value="8"></label>
+    <label>Zoom <input type="range" id="zoomSlider" min="4" max="24" value="10"></label>
+    <label>Noise scale <input type="range" id="noiseScale" min="1" max="100" value="25"></label>
+    <label>Shift range <input type="range" id="shiftRange" min="1" max="1928" value="200"></label>
+    <label>Density <input type="range" id="densitySlider" min="10" max="95" value="55"></label>
+    <label>Res <input type="number" id="resInput" min="16" max="512" value="128" style="width:50px"></label>
+    <label><input type="checkbox" id="wrapToggle" checked> Wrap</label>
+    <button id="btnTallyReset">Reset Tally</button>
+  </div>
+  <div id="status">Gen 0 | Paused</div>
+  <div id="canvas-wrap"><canvas id="c"></canvas></div>
+  <canvas id="gl-ca"></canvas>
+  <div id="tally-wrap">
+    <div id="tally-header"><b>Cumulative emoji frequency (all frames):</b></div>
+    <div id="tally-grid"></div>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════════
+// PERLIN NOISE
+// ═══════════════════════════════════════════
+class PerlinNoise {
+  constructor(){this.p=new Uint8Array(512);this.reseed()}
+  reseed(){const p=new Uint8Array(256);for(let i=0;i<256;i++)p[i]=i;for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]]}for(let i=0;i<512;i++)this.p[i]=p[i&255]}
+  _f(t){return t*t*t*(t*(t*6-15)+10)}
+  _l(a,b,t){return a+t*(b-a)}
+  _g(h,x,y){const v=h&3,u=v<2?x:y,w=v<2?y:x;return((v&1)?-u:u)+((v&2)?-w:w)}
+  n2(x,y){const X=Math.floor(x)&255,Y=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y),u=this._f(xf),v=this._f(yf),p=this.p,a=p[X]+Y,b=p[X+1]+Y;return this._l(this._l(this._g(p[a],xf,yf),this._g(p[b],xf-1,yf),u),this._l(this._g(p[a+1],xf,yf-1),this._g(p[b+1],xf-1,yf-1),u),v)}
+  fbm(x,y,oct){let v=0,a=.5,f=1;for(let i=0;i<oct;i++){v+=a*this.n2(x*f,y*f);a*=.5;f*=2}return v}
+}
+
+// ═══════════════════════════════════════════
+// EMOJI TABLE
+// ═══════════════════════════════════════════
+class EmojiTable {
+  constructor(){this.emojis=[];this._build()}
+  _r(a,b){for(let c=a;c<=b;c++)this.emojis.push(String.fromCodePoint(c))}
+  _build(){this._r(0x1F600,0x1F64F);this._r(0x1F300,0x1F5FF);this._r(0x1F680,0x1F6FF);this._r(0x1F900,0x1F9FF);this._r(0x1FA00,0x1FA6F);this._r(0x1FA70,0x1FAFF);this._r(0x2702,0x27B0);this._r(0x2600,0x26FF);this.emojis=[...new Set(this.emojis)]}
+  get count(){return this.emojis.length}
+  at(i){const c=this.count;return this.emojis[((i%c)+c)%c]}
+}
+
+// ═══════════════════════════════════════════
+// CA RULES
+// ═══════════════════════════════════════════
+class CARule {
+  constructor(birth,surv,name){this.birthArr=new Uint8Array(9);this.survArr=new Uint8Array(9);for(const b of birth)this.birthArr[b]=1;for(const s of surv)this.survArr[s]=1;this.name=name}
+}
+class RuleLibrary {
+  constructor(){const R=(b,s,n)=>new CARule(b,s,n);this.rules={life:R([3],[2,3],'Life'),highlife:R([3,6],[2,3],'HighLife'),daynight:R([3,6,7,8],[3,4,6,7,8],'Day&Night'),anneal:R([4,6,7,8],[3,5,6,7,8],'Anneal'),maze:R([3],[1,2,3,4,5],'Maze'),seeds:R([2],[0],'Seeds'),replicator:R([1,3,5,7],[1,3,5,7],'Replicator'),diamoeba:R([3,5,6,7,8],[5,6,7,8],'Diamoeba')}}
+  get(n){return this.rules[n]||this.rules.life}
+}
+
+// ═══════════════════════════════════════════
+// GPU CA — R=A, G=B, B=C
+// ═══════════════════════════════════════════
+class GpuCA {
+  constructor(cols,rows){
+    this.cols=cols;this.rows=rows;
+    this.canvas=document.getElementById('gl-ca');
+    this.canvas.width=cols;this.canvas.height=rows;
+    this.gl=this.canvas.getContext('webgl2',{antialias:false,depth:false});
+    this.wrap=true;this._initGL();
+  }
+  _initGL(){
+    const gl=this.gl;
+    this.vbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+    this.texs=[this._mkT(),this._mkT()];
+    this.fbs=this.texs.map(t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f});
+    this.readIdx=0;this.program=null;
+  }
+  _mkT(){const gl=this.gl,t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,this.cols,this.rows,0,gl.RGBA,gl.UNSIGNED_BYTE,null);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);return t}
+  _cs(src,type){const gl=this.gl,s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));return null}return s}
+  resize(cols,rows){this.cols=cols;this.rows=rows;const gl=this.gl;this.canvas.width=cols;this.canvas.height=rows;for(let i=0;i<2;i++){gl.bindTexture(gl.TEXTURE_2D,this.texs[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,cols,rows,0,gl.RGBA,gl.UNSIGNED_BYTE,null)}this.readIdx=0}
+  setRules(rA,rB,rC){
+    const gl=this.gl;if(this.program)gl.deleteProgram(this.program);
+    const ba=[],sa=[],bb=[],sb=[],bc=[],sc=[];
+    for(let n=0;n<9;n++){ba.push(rA.birthArr[n]);sa.push(rA.survArr[n]);bb.push(rB.birthArr[n]);sb.push(rB.survArr[n]);bc.push(rC.birthArr[n]);sc.push(rC.survArr[n])}
+    const vs=`#version 300 es\nin vec2 a_pos;out vec2 v_uv;void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0,1);}`;
+    const fs=`#version 300 es
+precision highp float;in vec2 v_uv;out vec4 fc;
+uniform sampler2D u_tex;uniform vec2 u_res;uniform int u_wrap;
+int bA[9]=int[9](${ba.join(',')});int sA[9]=int[9](${sa.join(',')});
+int bB[9]=int[9](${bb.join(',')});int sB[9]=int[9](${sb.join(',')});
+int bC[9]=int[9](${bc.join(',')});int sC[9]=int[9](${sc.join(',')});
+void main(){
+  vec2 px=1./u_res;vec4 me=texture(u_tex,v_uv);
+  int cA=0,cB=0,cC=0;
+  for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++){
+    if(dx==0&&dy==0)continue;
+    vec2 nu=v_uv+vec2(float(dx),float(dy))*px;
+    if(u_wrap==1){nu=fract(nu);}else{if(nu.x<0.||nu.x>1.||nu.y<0.||nu.y>1.)continue;}
+    vec4 nb=texture(u_tex,nu);
+    if(nb.r>.5)cA++;if(nb.g>.5)cB++;if(nb.b>.5)cC++;
+  }
+  float nA=me.r>.5?float(sA[cA]):float(bA[cA]);
+  float nB=me.g>.5?float(sB[cB]):float(bB[cB]);
+  float nC=me.b>.5?float(sC[cC]):float(bC[cC]);
+  fc=vec4(nA,nB,nC,1.);
+}`;
+    const vsh=this._cs(vs,gl.VERTEX_SHADER),fsh=this._cs(fs,gl.FRAGMENT_SHADER);
+    const p=gl.createProgram();gl.attachShader(p,vsh);gl.attachShader(p,fsh);gl.linkProgram(p);
+    if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(p));
+    this.program=p;
+    this.loc={aPos:gl.getAttribLocation(p,'a_pos'),uTex:gl.getUniformLocation(p,'u_tex'),uRes:gl.getUniformLocation(p,'u_res'),uW:gl.getUniformLocation(p,'u_wrap')};
+    gl.deleteShader(vsh);gl.deleteShader(fsh);
+  }
+  step(){
+    const gl=this.gl,wi=1-this.readIdx;
+    gl.useProgram(this.program);gl.bindBuffer(gl.ARRAY_BUFFER,this.vbo);
+    gl.enableVertexAttribArray(this.loc.aPos);gl.vertexAttribPointer(this.loc.aPos,2,gl.FLOAT,false,0,0);
+    gl.viewport(0,0,this.cols,this.rows);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texs[this.readIdx]);
+    gl.uniform1i(this.loc.uTex,0);gl.uniform2f(this.loc.uRes,this.cols,this.rows);
+    gl.uniform1i(this.loc.uW,this.wrap?1:0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbs[wi]);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    this.readIdx=wi;
+  }
+  readback(){const gl=this.gl,t=this.cols*this.rows,px=new Uint8Array(t*4);gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbs[this.readIdx]);gl.readPixels(0,0,this.cols,this.rows,gl.RGBA,gl.UNSIGNED_BYTE,px);gl.bindFramebuffer(gl.FRAMEBUFFER,null);return px}
+  randomise(d){const gl=this.gl,t=this.cols*this.rows,px=new Uint8Array(t*4);for(let i=0;i<t;i++){px[i*4]=Math.random()<d?255:0;px[i*4+1]=Math.random()<d?255:0;px[i*4+2]=Math.random()<d?255:0;px[i*4+3]=255}gl.bindTexture(gl.TEXTURE_2D,this.texs[this.readIdx]);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,this.cols,this.rows,gl.RGBA,gl.UNSIGNED_BYTE,px)}
+  clear(){const gl=this.gl,px=new Uint8Array(this.cols*this.rows*4);gl.bindTexture(gl.TEXTURE_2D,this.texs[this.readIdx]);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,this.cols,this.rows,gl.RGBA,gl.UNSIGNED_BYTE,px)}
+  setCell(x,y,a,b,c){const gl=this.gl,px=new Uint8Array([a?255:0,b?255:0,c?255:0,255]);gl.bindTexture(gl.TEXTURE_2D,this.texs[this.readIdx]);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px)}
+}
+
+// ═══════════════════════════════════════════
+// TALLY
+// ═══════════════════════════════════════════
+class TallyTracker {
+  constructor(ec){this.counts=new Uint32Array(ec);this.ec=ec;this.totalFrames=0}
+  record(indices,total){for(let i=0;i<total;i++)this.counts[indices[i]]++;this.totalFrames++}
+  reset(){this.counts.fill(0);this.totalFrames=0}
+  uniqueSeen(){let c=0;for(let i=0;i<this.ec;i++)if(this.counts[i]>0)c++;return c}
+}
+class TallyRenderer {
+  constructor(et){this.et=et;this.el=document.getElementById('tally-grid');this.els=[];this._build()}
+  _build(){const f=document.createDocumentFragment();for(let i=0;i<this.et.count;i++){const s=document.createElement('span');s.className='ti zero';const cn=document.createTextNode('0');s.appendChild(document.createTextNode(this.et.emojis[i]+':'));s.appendChild(cn);f.appendChild(s);this.els.push({s,cn,lv:0})}this.el.appendChild(f)}
+  update(counts){for(let i=0;i<this.et.count;i++){const c=counts[i],e=this.els[i];if(c!==e.lv){e.cn.nodeValue=c;e.lv=c;e.s.className=c>0?'ti has':'ti zero'}}}
+}
+
+// ═══════════════════════════════════════════
+// APP
+// ═══════════════════════════════════════════
+class App {
+  constructor(){
+    this.gridSize=128;
+    this.density=0.55;
+    this.emoji=new EmojiTable();
+    this.ruleLib=new RuleLibrary();
+    this.tallyT=new TallyTracker(this.emoji.count);
+    this.tallyR=new TallyRenderer(this.emoji);
+    this.perlin=new PerlinNoise();
+    this.gpu=null;
+    this.indices=null; // emoji index per cell (0-based into table)
+    this.noiseScale=0.25;
+    this.shiftRange=200;
+    this.frame=0;
+    this.playing=false;
+    this.frameSkip=4;
+    this.generation=0;
+    this.lastTR=0;
+    this.rA='life';this.rB='daynight';this.rC='anneal';
+    // display
+    this.cellSize=10;
+    this.dispCanvas=document.getElementById('c');
+    this.dispCtx=this.dispCanvas.getContext('2d');
+  }
+
+  init(){
+    this._buildGpu();
+    this._applyRules();
+    this._resizeDisplay();
+    this.gpu.randomise(this.density);
+    this.generation=0;this.frame=0;
+    this._process();
+    this._status();
+    this._loop();
+    window.addEventListener('resize',()=>this._fitLayout());
+  }
+
+  _buildGpu(){
+    this.gpu=new GpuCA(this.gridSize,this.gridSize);
+    this.indices=new Uint16Array(this.gridSize*this.gridSize);
+  }
+
+  _applyRules(){this.gpu.setRules(this.ruleLib.get(this.rA),this.ruleLib.get(this.rB),this.ruleLib.get(this.rC))}
+
+  _resizeDisplay(){
+    this.dispCanvas.width=this.gridSize*this.cellSize;
+    this.dispCanvas.height=this.gridSize*this.cellSize;
+    this._fitLayout();
+  }
+
+  _fitLayout(){
+    const ui=document.getElementById('ui'),st=document.getElementById('status');
+    const used=ui.offsetHeight+st.offsetHeight+30+8;
+    const avail=window.innerHeight-used;
+    const cH=this.dispCanvas.height;
+    document.getElementById('canvas-wrap').style.height=Math.min(cH,Math.max(80,avail-60))+'px';
+  }
+
+  // Core: read GPU state, compute (A+1)*(B+1)+C, add Perlin offset
+  _process(){
+    const raw=this.gpu.readback();
+    const gs=this.gridSize,total=gs*gs;
+    const ec=this.emoji.count;
+    const sc=this.noiseScale,sr=this.shiftRange;
+    const perlin=this.perlin;
+    const fr=this.frame;
+    // frame-based drift offsets
+    const tx=fr*0.02, ty=fr*0.015;
+
+    for(let y=0;y<gs;y++){
+      for(let x=0;x<gs;x++){
+        const i=y*gs+x, i4=i*4;
+        const a=raw[i4]>127?1:0;
+        const b=raw[i4+1]>127?1:0;
+        const c=raw[i4+2]>127?1:0;
+
+        // (A+1)*(B+1)+C → range 1..5, every cell always alive
+        const base=(a+1)*(b+1)+c;
+
+        // base gives coarse position: spread 5 states evenly across table
+        const stride=Math.floor(ec/5);
+        const baseOffset=(base-1)*stride;
+
+        // Perlin noise offset, modulated by frame
+        const n=perlin.fbm(x*sc+tx, y*sc+ty, 3); // ~-0.5..0.5
+        const noiseOffset=Math.round(n*sr);
+
+        // final index, modulo-wrapped
+        const raw2=baseOffset+noiseOffset;
+        this.indices[i]=((raw2%ec)+ec)%ec;
+      }
+    }
+    this.frame++;
+  }
+
+  _draw(){
+    const ctx=this.dispCtx, cs=this.cellSize, gs=this.gridSize;
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,gs*cs,gs*cs);
+    ctx.font=cs+'px sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    const emojis=this.emoji.emojis;
+    for(let y=0;y<gs;y++){
+      for(let x=0;x<gs;x++){
+        ctx.fillText(emojis[this.indices[y*gs+x]], x*cs+cs*.5, y*cs+cs*.5);
+      }
+    }
+  }
+
+  _status(){
+    document.getElementById('status').textContent=
+      'Gen '+this.generation+
+      ' | (A+1)*(B+1)+C'+
+      ' | A:'+this.ruleLib.get(this.rA).name+
+      ' B:'+this.ruleLib.get(this.rB).name+
+      ' C:'+this.ruleLib.get(this.rC).name+
+      ' | Shift:'+this.shiftRange+
+      ' | '+this.gridSize+'x'+this.gridSize+
+      ' | Tally:'+this.tallyT.totalFrames+
+      ' | Unique:'+this.tallyT.uniqueSeen()+'/'+this.emoji.count+
+      ' | '+(this.playing?'Running':'Paused');
+  }
+
+  _loop(){
+    let fc=0;
+    const tick=()=>{
+      if(this.playing&&fc%this.frameSkip===0){
+        this.gpu.step();
+        this.generation++;
+        this._process();
+        this.tallyT.record(this.indices,this.gridSize*this.gridSize);
+        this._status();
+      }
+      this._draw();
+      const now=performance.now();
+      if(now-this.lastTR>500){this.tallyR.update(this.tallyT.counts);this.lastTR=now}
+      fc++;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  step(){
+    this.gpu.step();this.generation++;
+    this._process();
+    this.tallyT.record(this.indices,this.gridSize*this.gridSize);
+    this._draw();this._status();
+    this.tallyR.update(this.tallyT.counts);
+  }
+
+  reset(){this.gpu.randomise(this.density);this.generation=0;this.frame=0;this._process();this._status()}
+  clear(){this.gpu.clear();this.generation=0;this._process();this._status()}
+  tallyReset(){this.tallyT.reset();this.tallyR.update(this.tallyT.counts);this._status()}
+
+  zoom(s){this.cellSize=s;this._resizeDisplay()}
+
+  setRes(n){
+    n=Math.max(16,Math.min(512,n));
+    this.gridSize=n;
+    this.gpu.resize(n,n);
+    this._applyRules();
+    this.indices=new Uint16Array(n*n);
+    this.gpu.randomise(this.density);
+    this.generation=0;this.frame=0;
+    this._resizeDisplay();
+    this._process();this._status();
+  }
+
+  paint(mx,my,erase){
+    const cs=this.cellSize,rect=this.dispCanvas.getBoundingClientRect(),gs=this.gridSize;
+    const gx=Math.floor((mx-rect.left)/cs),gy=Math.floor((my-rect.top)/cs);
+    if(gx>=0&&gx<gs&&gy>=0&&gy<gs){
+      if(erase)this.gpu.setCell(gx,gy,0,0,0);
+      else this.gpu.setCell(gx,gy,1,1,1);
+      // immediately reprocess this cell would be costly; just let next frame catch it
+    }
+  }
+}
+
+const app=new App();
+app.init();
+
+// input
+const cvs=document.getElementById('c');
+let md=false;
+cvs.addEventListener('mousedown',e=>{md=true;app.paint(e.clientX,e.clientY,e.shiftKey)});
+cvs.addEventListener('mousemove',e=>{if(md)app.paint(e.clientX,e.clientY,e.shiftKey)});
+window.addEventListener('mouseup',()=>md=false);
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('touchstart',e=>{e.preventDefault();app.paint(e.touches[0].clientX,e.touches[0].clientY,false)},{passive:false});
+cvs.addEventListener('touchmove',e=>{e.preventDefault();app.paint(e.touches[0].clientX,e.touches[0].clientY,false)},{passive:false});
+
+document.getElementById('btnPlay').addEventListener('click',function(){app.playing=!app.playing;this.textContent=app.playing?'Pause':'Play';app._status()});
+document.getElementById('btnStep').addEventListener('click',()=>{app.playing=false;document.getElementById('btnPlay').textContent='Play';app.step()});
+document.getElementById('btnReset').addEventListener('click',()=>app.reset());
+document.getElementById('btnClear').addEventListener('click',()=>app.clear());
+document.getElementById('btnTallyReset').addEventListener('click',()=>app.tallyReset());
+document.getElementById('selA').addEventListener('change',function(){app.rA=this.value;app._applyRules();app.reset()});
+document.getElementById('selB').addEventListener('change',function(){app.rB=this.value;app._applyRules();app.reset()});
+document.getElementById('selC').addEventListener('change',function(){app.rC=this.value;app._applyRules();app.reset()});
+document.getElementById('speedSlider').addEventListener('input',function(){app.frameSkip=31-parseInt(this.value)});
+document.getElementById('zoomSlider').addEventListener('input',function(){app.zoom(parseInt(this.value))});
+document.getElementById('noiseScale').addEventListener('input',function(){app.noiseScale=parseInt(this.value)/100});
+document.getElementById('shiftRange').addEventListener('input',function(){app.shiftRange=parseInt(this.value)});
+document.getElementById('densitySlider').addEventListener('input',function(){app.density=parseInt(this.value)/100});
+document.getElementById('resInput').addEventListener('change',function(){app.setRes(parseInt(this.value))});
+document.getElementById('wrapToggle').addEventListener('change',function(){app.gpu.wrap=this.checked});
+</script>
+</body>
+</html>

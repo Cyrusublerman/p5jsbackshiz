@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Luminance Flow Distortion</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0a0a;color:#ccc;font-family:'Courier New',monospace;display:flex;height:100vh;overflow:hidden}
+  #canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;background:#050505}
+  #controls{width:290px;padding:12px;background:#111;border-left:1px solid #222;overflow-y:auto;font-size:11px;flex-shrink:0}
+  #controls h2{font-size:11px;color:#fff;margin:0 0 8px;letter-spacing:2px;text-transform:uppercase}
+  .grp{margin-bottom:10px;border-bottom:1px solid #1a1a1a;padding-bottom:8px}
+  .gt{font-size:8px;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
+  .r{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .r label{flex:1;color:#666;font-size:9px}
+  .r input[type="range"]{width:100px;accent-color:#555}
+  .r .v{width:40px;text-align:right;color:#888;font-size:8px;font-family:inherit}
+  select,button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;padding:2px 5px;font-family:inherit;font-size:9px;cursor:pointer;width:100%}
+  button:hover{background:#222}
+  button+button{margin-top:4px}
+  #drop-zone{border:1px dashed #333;padding:14px;text-align:center;color:#555;margin-bottom:5px;cursor:pointer;font-size:9px;transition:border-color .2s}
+  #drop-zone:hover,#drop-zone.over{border-color:#888;color:#aaa}
+  #file-input{display:none}
+  .cb{display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:9px}
+  .cb input{accent-color:#555}
+  .cb label{color:#666}
+  #img-info{font-size:8px;color:#444;margin-bottom:8px;text-align:center}
+  .sep{height:1px;background:#1a1a1a;margin:6px 0}
+  button#resetBtn{background:#2a1a1a;border-color:#3a2222}
+  button#resetBtn:hover{background:#3a2222}
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="controls">
+  <h2>Luminance Flow</h2>
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">Drop image or click</div>
+  <input type="file" id="file-input" accept="image/*">
+  <div id="img-info">No image — Perlin noise</div>
+
+  <div class="grp">
+    <div class="gt">Image</div>
+    <div class="r"><label>Scale</label>
+      <select id="imgScale">
+        <option value="0.25">1/4x</option>
+        <option value="0.5" selected>1/2x</option>
+        <option value="1">1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+      </select>
+    </div>
+    <div class="cb"><input type="checkbox" id="showImage"><label>Show source</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Pattern</div>
+    <div class="r"><label>Type</label>
+      <select id="patternType">
+        <option value="horizontal">Horizontal</option>
+        <option value="vertical">Vertical</option>
+        <option value="grid">Grid</option>
+        <option value="radial">Radial</option>
+        <option value="concentric">Concentric</option>
+        <option value="diagonal">Diagonal</option>
+      </select>
+    </div>
+    <div class="r"><label>Spacing</label><input type="range" id="spacing" min="1" max="40" value="8"><span class="v">8</span></div>
+    <div class="r"><label>Stroke</label><input type="range" id="strokeW" min="0.1" max="4" step="0.1" value="0.7"><span class="v">0.7</span></div>
+    <div class="r"><label>Step</label><input type="range" id="resolution" min="1" max="10" value="2"><span class="v">2</span></div>
+    <button id="resetBtn">Reset Lines</button>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Adaptive Density</div>
+    <div class="cb"><input type="checkbox" id="adaptiveSpacing"><label>Luminance-driven spacing</label></div>
+    <div class="r"><label>Min Gap</label><input type="range" id="adaptMin" min="1" max="20" value="2"><span class="v">2</span></div>
+    <div class="r"><label>Max Gap</label><input type="range" id="adaptMax" min="5" max="60" value="25"><span class="v">25</span></div>
+    <div class="r"><label>Samples</label><input type="range" id="adaptSamples" min="5" max="50" value="20"><span class="v">20</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Advection</div>
+    <div class="r"><label>Nudge Rate</label><input type="range" id="nudgeRate" min="0" max="1" step="0.005" value="0.1"><span class="v">0.100</span></div>
+    <div class="r"><label>Damping</label><input type="range" id="damping" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="r"><label>Return</label><input type="range" id="returnStr" min="0" max="0.2" step="0.001" value="0"><span class="v">0.000</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Vector Field Steering</div>
+    <div class="r"><label>Steer → Gradient</label><input type="range" id="steerGrad" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="r"><label>Steer → Tangent</label><input type="range" id="steerTang" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="r"><label>Dead Zone</label><input type="range" id="deadZone" min="0" max="0.1" step="0.001" value="0.01"><span class="v">0.010</span></div>
+    <div class="cb"><input type="checkbox" id="magScaleForces"><label>Magnitude scales forces</label></div>
+    <div class="cb"><input type="checkbox" id="showVectorField"><label>Show vector field</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Magnetism</div>
+    <div class="r"><label>Strength</label><input type="range" id="magnetStr" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Origin Vector</div>
+    <div class="r"><label>Strength</label><input type="range" id="originStr" min="0" max="3" step="0.05" value="0"><span class="v">0.00</span></div>
+    <div class="cb"><input type="checkbox" id="animateOrigin"><label>Animate origin</label></div>
+    <div class="r"><label>Orbit R</label><input type="range" id="orbitR" min="0" max="400" value="120"><span class="v">120</span></div>
+    <div class="r"><label>Orbit Spd</label><input type="range" id="orbitSpeed" min="0.1" max="5" step="0.1" value="0.8"><span class="v">0.8</span></div>
+    <div class="r"><label>Mode</label>
+      <select id="originMode">
+        <option value="circular">Circular</option>
+        <option value="lissajous">Lissajous</option>
+        <option value="noise">Perlin Wander</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Gradient / Tangent</div>
+    <div class="r"><label>Gradient</label><input type="range" id="gradStr" min="0" max="2000" step="10" value="0"><span class="v">0</span></div>
+    <div class="r"><label>Tangent</label><input type="range" id="tangStr" min="0" max="2000" step="10" value="0"><span class="v">0</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Fixed Angle</div>
+    <div class="r"><label>Amplitude</label><input type="range" id="amplitude" min="0" max="80" value="0"><span class="v">0</span></div>
+    <div class="r"><label>X Factor</label><input type="range" id="xFactor" min="-2" max="2" step="0.05" value="1"><span class="v">1.00</span></div>
+    <div class="r"><label>Y Factor</label><input type="range" id="yFactor" min="-2" max="2" step="0.05" value="0.5"><span class="v">0.50</span></div>
+    <div class="r"><label>Angle</label><input type="range" id="dispAngle" min="0" max="360" value="90"><span class="v">90</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Sine Waves</div>
+    <div class="cb"><input type="checkbox" id="useSine"><label>Enable</label></div>
+    <div class="r"><label>Amplitude</label><input type="range" id="sineAmp" min="0" max="60" step="0.5" value="10"><span class="v">10.0</span></div>
+    <div class="sep"></div>
+    <div class="r"><label>W1 Freq</label><input type="range" id="sine1Freq" min="0.1" max="400" step="0.1" value="8"><span class="v">8.0</span></div>
+    <div class="r"><label>W1 Mix</label><input type="range" id="sine1Mix" min="0" max="1" step="0.01" value="1"><span class="v">1.00</span></div>
+    <div class="sep"></div>
+    <div class="r"><label>W2 Freq</label><input type="range" id="sine2Freq" min="0.1" max="500" step="0.1" value="24"><span class="v">24.0</span></div>
+    <div class="r"><label>W2 Mix</label><input type="range" id="sine2Mix" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="sep"></div>
+    <div class="r"><label>W3 Freq</label><input type="range" id="sine3Freq" min="0.1" max="600" step="0.1" value="55"><span class="v">55.0</span></div>
+    <div class="r"><label>W3 Mix</label><input type="range" id="sine3Mix" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="sep"></div>
+    <div class="r"><label>Phase Spd</label><input type="range" id="sinePhaseSpd" min="0" max="0.2" step="0.001" value="0"><span class="v">0.000</span></div>
+    <div class="cb"><input type="checkbox" id="sineLumScale"><label>Lum scales amplitude</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Force — Flow Field</div>
+    <div class="cb"><input type="checkbox" id="useFlow"><label>Enable</label></div>
+    <div class="r"><label>Strength</label><input type="range" id="flowStr" min="0" max="100" value="20"><span class="v">20</span></div>
+    <div class="r"><label>Noise Scl</label><input type="range" id="flowNS" min="0.001" max="0.1" step="0.001" value="0.008"><span class="v">0.008</span></div>
+    <div class="r"><label>Curl</label><input type="range" id="flowCurl" min="0" max="1" step="0.01" value="0"><span class="v">0.00</span></div>
+    <div class="cb"><input type="checkbox" id="showFlow"><label>Show flow vectors</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="gt">Global</div>
+    <div class="r"><label>Time Spd</label><input type="range" id="timeSpeed" min="0" max="0.05" step="0.001" value="0.005"><span class="v">0.005</span></div>
+    <div class="r"><label>Lum Exp</label><input type="range" id="lumExp" min="0.2" max="4" step="0.1" value="1"><span class="v">1.0</span></div>
+    <div class="r"><label>BG Alpha</label><input type="range" id="bgAlpha" min="0" max="255" value="255"><span class="v">255</span></div>
+    <div class="cb"><input type="checkbox" id="colorMode"><label>Colour by luminance</label></div>
+    <div class="r"><label>Palette</label>
+      <select id="palette">
+        <option value="mono">Mono</option>
+        <option value="thermal">Thermal</option>
+        <option value="ocean">Ocean</option>
+        <option value="neon">Neon</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="saveBtn">Save PNG</button>
+</div>
+
+<script>
+/* ===================================================================
+   ParamManager
+   =================================================================== */
+class ParamManager {
+  constructor() {
+    this.cache = {};
+    const ids = [
+      'spacing','strokeW','resolution',
+      'adaptMin','adaptMax','adaptSamples',
+      'nudgeRate','damping','returnStr',
+      'steerGrad','steerTang','deadZone',
+      'magnetStr',
+      'amplitude','xFactor','yFactor','dispAngle',
+      'originStr','orbitR','orbitSpeed',
+      'gradStr','tangStr',
+      'sineAmp','sine1Freq','sine1Mix','sine2Freq','sine2Mix',
+      'sine3Freq','sine3Mix','sinePhaseSpd',
+      'flowStr','flowNS','flowCurl',
+      'timeSpeed','lumExp','bgAlpha'
+    ];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (!el) { console.warn('Missing:', id); continue; }
+      this.cache[id] = parseFloat(el.value);
+      const vs = el.parentElement.querySelector('.v');
+      el.addEventListener('input', () => {
+        this.cache[id] = parseFloat(el.value);
+        if (vs) {
+          const s = el.getAttribute('step');
+          vs.textContent = (s && s.includes('.'))
+            ? this.cache[id].toFixed(s.split('.')[1].length)
+            : this.cache[id];
+        }
+      });
+    }
+  }
+  get(k) { return this.cache[k]; }
+  getStr(id) { return document.getElementById(id).value; }
+  getBool(id) { return document.getElementById(id).checked; }
+}
+
+/* ===================================================================
+   VectorFieldMap — pre-computed polar gradient field
+   =================================================================== */
+class VectorFieldMap {
+  constructor() {
+    this.w = 0; this.h = 0; this.ready = false;
+    this.lum = null; this.angle = null; this.mag = null;
+    this.cosA = null; this.sinA = null;
+    this.tanCosA = null; this.tanSinA = null;
+    this.maxMag = 0;
+  }
+
+  build(pixels, w, h, deadZone) {
+    this.w = w; this.h = h;
+    const len = w * h;
+    const lumRaw = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      const j = i * 4;
+      lumRaw[i] = (0.2126*pixels[j] + 0.7152*pixels[j+1] + 0.0722*pixels[j+2]) / 255;
+    }
+
+    const gx = new Float32Array(len);
+    const gy = new Float32Array(len);
+    for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
+      const i = y*w+x;
+      gx[i] = -lumRaw[(y-1)*w+x-1]+lumRaw[(y-1)*w+x+1]
+               -2*lumRaw[y*w+x-1]+2*lumRaw[y*w+x+1]
+               -lumRaw[(y+1)*w+x-1]+lumRaw[(y+1)*w+x+1];
+      gy[i] = -lumRaw[(y-1)*w+x-1]-2*lumRaw[(y-1)*w+x]-lumRaw[(y-1)*w+x+1]
+               +lumRaw[(y+1)*w+x-1]+2*lumRaw[(y+1)*w+x]+lumRaw[(y+1)*w+x+1];
+    }
+
+    this.lum = lumRaw;
+    this.angle = new Float32Array(len);
+    this.mag = new Float32Array(len);
+    this.cosA = new Float32Array(len);
+    this.sinA = new Float32Array(len);
+    this.tanCosA = new Float32Array(len);
+    this.tanSinA = new Float32Array(len);
+
+    let maxM = 0;
+    for (let i = 0; i < len; i++) {
+      const rm = Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
+      if (rm > maxM) maxM = rm;
+    }
+    this.maxMag = maxM;
+
+    const dzFade = deadZone * 2;
+    for (let i = 0; i < len; i++) {
+      const rm = Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
+      let t = 0;
+      if (rm > deadZone) {
+        t = Math.min((rm-deadZone)/(dzFade+0.0001), 1);
+        t = t*t*(3-2*t);
+      }
+      this.mag[i] = rm * t;
+      this.angle[i] = Math.atan2(gy[i], gx[i]);
+      if (rm > 0.0001) {
+        this.cosA[i] = gx[i]/rm; this.sinA[i] = gy[i]/rm;
+      }
+      this.tanCosA[i] = -this.sinA[i];
+      this.tanSinA[i] = this.cosA[i];
+    }
+    this.ready = true;
+  }
+
+  sample(x, y) {
+    if (!this.ready) return {lum:.5,angle:0,mag:0,cosA:0,sinA:0,tanCosA:0,tanSinA:1};
+    const ix = Math.max(0,Math.min(~~x,this.w-1));
+    const iy = Math.max(0,Math.min(~~y,this.h-1));
+    const i = iy*this.w+ix;
+    return {lum:this.lum[i],angle:this.angle[i],mag:this.mag[i],
+            cosA:this.cosA[i],sinA:this.sinA[i],tanCosA:this.tanCosA[i],tanSinA:this.tanSinA[i]};
+  }
+
+  avgLumStrip(pos, axis, len, n) {
+    if (!this.ready) return 0.5;
+    let sum = 0;
+    for (let s = 0; s < n; s++) {
+      const t = (s/(n-1))*len;
+      const ix = axis==='y' ? Math.max(0,Math.min(~~t,this.w-1)) : Math.max(0,Math.min(~~pos,this.w-1));
+      const iy = axis==='y' ? Math.max(0,Math.min(~~pos,this.h-1)) : Math.max(0,Math.min(~~t,this.h-1));
+      sum += this.lum[iy*this.w+ix];
+    }
+    return sum / n;
+  }
+}
+
+/* ===================================================================
+   Steering
+   =================================================================== */
+class Steering {
+  static steer(fx, fy, vf, steerGrad, steerTang, magScale, maxMag) {
+    const totalSteer = steerGrad + steerTang;
+    if (totalSteer < 0.001 && !magScale) return {fx, fy};
+    if (totalSteer < 0.001) {
+      const ms = maxMag > 0 ? vf.mag/maxMag : 1;
+      return {fx:fx*ms, fy:fy*ms};
+    }
+    const forceMag = Math.sqrt(fx*fx+fy*fy);
+    if (forceMag < 0.001) return {fx:0, fy:0};
+    const nativeAng = Math.atan2(fy, fx);
+    let tCos, tSin;
+    if (steerGrad > 0 && steerTang > 0) {
+      const w = steerGrad/totalSteer;
+      tCos = vf.cosA*w + vf.tanCosA*(1-w);
+      tSin = vf.sinA*w + vf.tanSinA*(1-w);
+      const tm = Math.sqrt(tCos*tCos+tSin*tSin)+0.0001;
+      tCos /= tm; tSin /= tm;
+    } else if (steerGrad > 0) {
+      tCos = vf.cosA; tSin = vf.sinA;
+    } else {
+      tCos = vf.tanCosA; tSin = vf.tanSinA;
+    }
+    const targetAng = Math.atan2(tSin, tCos);
+    const blend = Math.min(totalSteer, 1);
+    let diff = targetAng - nativeAng;
+    while (diff > Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    const finalAng = nativeAng + diff * blend;
+    let oFx = Math.cos(finalAng)*forceMag;
+    let oFy = Math.sin(finalAng)*forceMag;
+    if (magScale && maxMag > 0) { const ms = vf.mag/maxMag; oFx *= ms; oFy *= ms; }
+    return {fx:oFx, fy:oFy};
+  }
+}
+
+/* ===================================================================
+   ForceSystem
+   =================================================================== */
+class ForceSystem {
+  constructor(vf, p) { this.vf = vf; this.p = p; }
+
+  fixedAngle(lum,amp,xF,yF,cosA,sinA) {
+    return {fx:cosA*lum*amp*xF, fy:sinA*lum*amp*yF};
+  }
+  originVector(bx,by,ox,oy,lum,str) {
+    const vx=bx-ox,vy=by-oy,d=Math.sqrt(vx*vx+vy*vy);
+    if (d<0.01) return {fx:0,fy:0};
+    const s=lum*str*30;
+    return {fx:(vx/d)*s,fy:(vy/d)*s};
+  }
+  gradientPush(vf,str) {
+    return {fx:vf.cosA*vf.mag*str, fy:vf.sinA*vf.mag*str};
+  }
+  tangentPush(vf,str) {
+    return {fx:vf.tanCosA*vf.mag*str, fy:vf.tanSinA*vf.mag*str};
+  }
+  flowField(bx,by,t,ns,curl,str,lum) {
+    const a=this.p.noise(bx*ns,by*ns,t)*Math.PI*4;
+    let nx=Math.cos(a),ny=Math.sin(a);
+    if (curl>0) {const rx=-ny,ry=nx;nx=nx*(1-curl)+rx*curl;ny=ny*(1-curl)+ry*curl;}
+    const m=Math.sqrt(nx*nx+ny*ny)+.0001;
+    return {fx:(nx/m)*str*lum, fy:(ny/m)*str*lum};
+  }
+  sineWave(ptIndex,perpNx,perpNy,phase,sineAmp,lumScale,lum,pm) {
+    const m1=pm.get('sine1Mix'),m2=pm.get('sine2Mix'),m3=pm.get('sine3Mix');
+    let w=0;
+    if(m1>0)w+=Math.sin(ptIndex*pm.get('sine1Freq')*.01+phase)*m1;
+    if(m2>0)w+=Math.sin(ptIndex*pm.get('sine2Freq')*.01+phase*1.3)*m2;
+    if(m3>0)w+=Math.sin(ptIndex*pm.get('sine3Freq')*.01+phase*.7)*m3;
+    let d=w*sineAmp; if(lumScale)d*=lum;
+    return {fx:perpNx*d,fy:perpNy*d};
+  }
+  magnetism(perpNx,perpNy,magDir,lum,str,gapPrev,gapNext) {
+    let mag=magDir*(1-2*lum)*str;
+    const ref=Math.min(gapPrev,gapNext);
+    mag*=ref;
+    if(mag>0)mag=Math.min(mag,gapNext*.45);
+    else mag=Math.max(mag,-gapPrev*.45);
+    return {fx:perpNx*mag,fy:perpNy*mag};
+  }
+}
+
+/* ===================================================================
+   OriginAnimator
+   =================================================================== */
+class OriginAnimator {
+  constructor(cx,cy,p){this.cx=cx;this.cy=cy;this.x=cx;this.y=cy;this.p=p;}
+  recenter(cx,cy){this.cx=cx;this.cy=cy;}
+  update(t,r,spd,mode){
+    const ph=t*spd;
+    if(mode==='circular'){this.x=this.cx+Math.cos(ph)*r;this.y=this.cy+Math.sin(ph)*r;}
+    else if(mode==='lissajous'){this.x=this.cx+Math.cos(ph*3)*r;this.y=this.cy+Math.sin(ph*2)*r;}
+    else{this.x=this.cx+(this.p.noise(t*spd*.5,0)-.5)*r*2;this.y=this.cy+(this.p.noise(0,t*spd*.5)-.5)*r*2;}
+  }
+}
+
+/* ===================================================================
+   ColorMapper
+   =================================================================== */
+class ColorMapper {
+  constructor(){this.palettes={
+    mono:l=>[l*255,l*255,l*255],thermal:l=>[l*255,l*80,(1-l)*200],
+    ocean:l=>[(1-l)*30,l*120+80,l*200+55],neon:l=>[l*255,(1-l)*255,180+l*75],
+  };}
+  getColor(l,n){return(this.palettes[n]||this.palettes.mono)(l);}
+}
+
+/* ===================================================================
+   LineGenerator
+   =================================================================== */
+class LineGenerator {
+  constructor(vf){this.vf=vf;}
+  generate(type,w,h,sp,adaptive,adaptMin,adaptMax,adaptSamp){
+    if(adaptive&&(type==='horizontal'||type==='vertical'||type==='diagonal'))
+      return this._build(type,w,h,this._adaptPos(type,w,h,adaptMin,adaptMax,adaptSamp));
+    if(type==='radial'||type==='concentric') return this._buildRC(type,w,h,sp);
+    return this._build(type,w,h,this._uniPos(type,w,h,sp));
+  }
+  _uniPos(type,w,h,sp){
+    const o=[];
+    if(type==='horizontal'||type==='grid'){for(let y=0;y<h;y+=sp)o.push(y);}
+    else if(type==='vertical'){for(let x=0;x<w;x+=sp)o.push(x);}
+    else if(type==='diagonal'){for(let d=-h;d<w+h;d+=sp)o.push(d);}
+    return o;
+  }
+  _adaptPos(type,w,h,minG,maxG,nS){
+    const o=[],vf=this.vf;
+    if(type==='horizontal'){let y=0;while(y<h){o.push(y);y+=Math.max(minG+(maxG-minG)*(1-vf.avgLumStrip(y,'y',w,nS)),.5);}}
+    else if(type==='vertical'){let x=0;while(x<w){o.push(x);x+=Math.max(minG+(maxG-minG)*(1-vf.avgLumStrip(x,'x',h,nS)),.5);}}
+    else if(type==='diagonal'){
+      let d=-h;while(d<w+h){o.push(d);let sum=0,cnt=0;
+      for(let tt=0;tt<w+h;tt+=Math.max(1,~~((w+h)/nS))){const x=d+tt*.707,y=tt*.707;if(x>=0&&x<w&&y>=0&&y<h){sum+=vf.sample(x,y).lum;cnt++;}}
+      d+=Math.max(minG+(maxG-minG)*(1-(cnt>0?sum/cnt:.5)),.5);}
+    }
+    return o;
+  }
+  _build(type,w,h,positions){
+    const out=[],n=positions.length;
+    for(let i=0;i<n;i++){
+      const pos=positions[i];
+      const gP=Math.abs(i>0?pos-positions[i-1]:(n>1?positions[1]-positions[0]:9999));
+      const gN=Math.abs(i<n-1?positions[i+1]-pos:(n>1?positions[n-1]-positions[n-2]:9999));
+      const f=n>1?i/(n-1):.5;const pts=[];
+      if(type==='horizontal'||type==='grid'){for(let x=0;x<w;x++)pts.push({x,y:pos});}
+      else if(type==='vertical'){for(let y=0;y<h;y++)pts.push({x:pos,y});}
+      else if(type==='diagonal'){for(let tt=0;tt<w+h;tt++){const x=pos+tt*.707,y=tt*.707;if(x>=0&&x<w&&y>=0&&y<h)pts.push({x,y});}}
+      if(pts.length>2)out.push({pts,f,gapPrev:gP,gapNext:gN});
+    }
+    if(type==='grid'){
+      const sp=n>1?positions[1]-positions[0]:10;
+      const vP=[];for(let x=0;x<w;x+=sp)vP.push(x);const nv=vP.length;
+      for(let i=0;i<nv;i++){
+        const pos=vP[i],gP=Math.abs(i>0?pos-vP[i-1]:(nv>1?vP[1]-vP[0]:9999));
+        const gN=Math.abs(i<nv-1?vP[i+1]-pos:(nv>1?vP[nv-1]-vP[nv-2]:9999));
+        const pts=[];for(let y=0;y<h;y++)pts.push({x:pos,y});
+        out.push({pts,f:nv>1?i/(nv-1):.5,gapPrev:gP,gapNext:gN});
+      }
+    }
+    return out;
+  }
+  _buildRC(type,w,h,sp){
+    const out=[],PI2=Math.PI*2,cx=w/2,cy=h/2,mr=Math.sqrt(cx*cx+cy*cy);
+    if(type==='radial'){
+      const as=sp*.02,pos=[];for(let a=0;a<PI2;a+=as)pos.push(a);
+      const n=pos.length,gA=mr*.4*as;
+      for(let i=0;i<n;i++){const a=pos[i],pts=[];for(let r=0;r<mr;r+=2)pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});
+      out.push({pts,f:i/((n-1)||1),gapPrev:gA,gapNext:gA});}
+    }else{
+      const pos=[];for(let r=sp;r<mr;r+=sp)pos.push(r);const n=pos.length;
+      for(let i=0;i<n;i++){const r=pos[i],pts=[],segs=Math.max(60,~~(r*.5));
+      for(let j=0;j<=segs;j++){const a=(j/segs)*PI2;pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});}
+      out.push({pts,f:n>1?i/(n-1):.5,gapPrev:i>0?r-pos[i-1]:sp,gapNext:i<n-1?pos[i+1]-r:sp});}
+    }
+    return out;
+  }
+}
+
+/* ===================================================================
+   LineState — persistent vertex positions for advection
+   
+   Holds two parallel arrays per vertex: current position (cx,cy)
+   and base position (bx,by). Forces are computed at current position
+   and nudge current position. Return spring pulls back toward base.
+   =================================================================== */
+class LineState {
+  constructor() {
+    this.lines = [];    // [{cx,cy,bx,by},...] per line
+    this.meta = [];     // {f, gapPrev, gapNext} per line
+    this.dirty = true;  // needs rebuild
+    this.lastType = '';
+    this.lastSpacing = 0;
+    this.lastW = 0;
+    this.lastH = 0;
+    this.lastAdaptive = false;
+  }
+
+  /** Check if pattern config changed — if so, rebuild */
+  needsRebuild(type, sp, w, h, adaptive) {
+    return this.dirty || type !== this.lastType || sp !== this.lastSpacing ||
+           w !== this.lastW || h !== this.lastH || adaptive !== this.lastAdaptive;
+  }
+
+  /** Build from LineGenerator output, copy base positions */
+  buildFrom(generatedLines, type, sp, w, h, adaptive) {
+    this.lines = [];
+    this.meta = [];
+    for (const line of generatedLines) {
+      const vertices = [];
+      for (const pt of line.pts) {
+        vertices.push({ cx: pt.x, cy: pt.y, bx: pt.x, by: pt.y });
+      }
+      this.lines.push(vertices);
+      this.meta.push({ f: line.f, gapPrev: line.gapPrev, gapNext: line.gapNext });
+    }
+    this.lastType = type;
+    this.lastSpacing = sp;
+    this.lastW = w;
+    this.lastH = h;
+    this.lastAdaptive = adaptive;
+    this.dirty = false;
+  }
+
+  /** Reset all vertices to their base positions */
+  reset() {
+    for (const verts of this.lines) {
+      for (const v of verts) { v.cx = v.bx; v.cy = v.by; }
+    }
+  }
+
+  /** Nudge vertex positions by velocity, with damping and return spring */
+  advect(lineIdx, vertIdx, vx, vy, nudgeRate, damping, returnStr) {
+    const v = this.lines[lineIdx][vertIdx];
+
+    // Apply velocity
+    v.cx += vx * nudgeRate;
+    v.cy += vy * nudgeRate;
+
+    // Return spring toward base
+    if (returnStr > 0) {
+      v.cx += (v.bx - v.cx) * returnStr;
+      v.cy += (v.by - v.cy) * returnStr;
+    }
+
+    // Damping: shrink displacement toward base
+    if (damping > 0) {
+      v.cx = v.cx + (v.bx - v.cx) * damping;
+      v.cy = v.cy + (v.by - v.cy) * damping;
+    }
+  }
+}
+
+/* ===================================================================
+   DebugOverlay
+   =================================================================== */
+class DebugOverlay {
+  constructor(vf,forces,p){this.vf=vf;this.forces=forces;this.p=p;}
+  drawVectorField(w,h){
+    const p=this.p,step=16,maxM=this.vf.maxMag;if(maxM<.001)return;p.strokeWeight(.6);
+    for(let x=0;x<w;x+=step)for(let y=0;y<h;y+=step){
+      const s=this.vf.sample(x,y),nm=s.mag/maxM,len=nm*step*.9;if(len<.5)continue;
+      const hue=(s.angle/Math.PI+1)*.5;
+      p.stroke((Math.cos(hue*Math.PI*2)*.5+.5)*255,(Math.cos(hue*Math.PI*2+2.09)*.5+.5)*255,
+               (Math.cos(hue*Math.PI*2+4.19)*.5+.5)*255,80+nm*120);
+      p.line(x,y,x+s.cosA*len,y+s.sinA*len);
+    }
+  }
+  drawFlowVectors(w,h,t,ns,curl){
+    const p=this.p,step=20;p.stroke(0,255,120,50);p.strokeWeight(.7);
+    for(let x=0;x<w;x+=step)for(let y=0;y<h;y+=step){
+      const fv=this.forces.flowField(x,y,t,ns,curl,1,1);
+      p.line(x,y,x+fv.fx*step*.7,y+fv.fy*step*.7);
+    }
+  }
+  drawOrigin(ox,oy){
+    const p=this.p;p.noFill();p.stroke(255,80,80,180);p.strokeWeight(1);
+    p.ellipse(ox,oy,14,14);p.line(ox-9,oy,ox+9,oy);p.line(ox,oy-9,ox,oy+9);
+  }
+}
+
+/* ===================================================================
+   Bootstrap
+   =================================================================== */
+let app=null,rawHtmlImg=null,rawImgW=0,rawImgH=0;
+
+new p5((p)=>{
+  let pm,vf,lineGen,fs,cm,oa,dov,lineState;
+  let srcImg=null,cw,ch,t=0;
+
+  function resizeTo(tw,th){cw=tw;ch=th;p.resizeCanvas(cw,ch);oa.recenter(cw/2,ch/2);lineState.dirty=true;}
+
+  function applyImage(htmlImg,scale){
+    const tw=Math.round(rawImgW*scale),th=Math.round(rawImgH*scale);
+    resizeTo(tw,th);
+    const oc=document.createElement('canvas');oc.width=tw;oc.height=th;
+    const ctx=oc.getContext('2d');ctx.drawImage(htmlImg,0,0,tw,th);
+    const imgData=ctx.getImageData(0,0,tw,th);
+    const p5Img=p.createImage(tw,th);p5Img.loadPixels();
+    for(let i=0;i<imgData.data.length;i++)p5Img.pixels[i]=imgData.data[i];
+    p5Img.updatePixels();srcImg=p5Img;
+    vf.build(imgData.data,tw,th,pm.get('deadZone'));
+    document.getElementById('img-info').textContent=rawImgW+'\u00d7'+rawImgH+' \u2192 '+tw+'\u00d7'+th+' ('+scale+'x)';
+  }
+
+  p.setup=()=>{
+    const wrap=document.getElementById('canvas-wrap');cw=wrap.clientWidth;ch=wrap.clientHeight;
+    p.createCanvas(cw,ch).parent('canvas-wrap');
+    pm=new ParamManager(); vf=new VectorFieldMap(); lineGen=new LineGenerator(vf);
+    fs=new ForceSystem(vf,p); cm=new ColorMapper();
+    oa=new OriginAnimator(cw/2,ch/2,p); dov=new DebugOverlay(vf,fs,p);
+    lineState=new LineState();
+
+    const px=new Uint8ClampedArray(cw*ch*4);
+    for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
+      const v=p.noise(x*.008,y*.008)*255;const i=(y*cw+x)*4;
+      px[i]=px[i+1]=px[i+2]=v;px[i+3]=255;
+    }
+    vf.build(px,cw,ch,pm.get('deadZone'));
+    app={p,vf,applyImage,pm,lineState};
+  };
+
+  p.draw=()=>{
+    p.background(10,pm.get('bgAlpha'));
+    t+=pm.get('timeSpeed');
+
+    if(pm.getBool('showImage')&&srcImg){p.tint(255,60);p.image(srcImg,0,0,cw,ch);p.noTint();}
+
+    if(pm.getBool('animateOrigin'))
+      oa.update(t*60,pm.get('orbitR'),pm.get('orbitSpeed'),pm.getStr('originMode'));
+    else{oa.x=cw/2;oa.y=ch/2;}
+
+    // ─── Rebuild line state if pattern changed ───────
+    const type=pm.getStr('patternType');
+    const sp=pm.get('spacing');
+    const adaptive=pm.getBool('adaptiveSpacing');
+
+    if(lineState.needsRebuild(type,sp,cw,ch,adaptive)){
+      const generated=lineGen.generate(type,cw,ch,sp,adaptive,pm.get('adaptMin'),pm.get('adaptMax'),pm.get('adaptSamples'));
+      lineState.buildFrom(generated,type,sp,cw,ch,adaptive);
+    }
+
+    // ─── Force params ────────────────────────────────
+    const res=pm.get('resolution'), lExp=pm.get('lumExp');
+    const nudgeRate=pm.get('nudgeRate'), damping=pm.get('damping'), returnStr=pm.get('returnStr');
+    const F={
+      amp:pm.get('amplitude'),xF:pm.get('xFactor'),yF:pm.get('yFactor'),
+      cosA:Math.cos(pm.get('dispAngle')*Math.PI/180),sinA:Math.sin(pm.get('dispAngle')*Math.PI/180),
+      oStr:pm.get('originStr'),ox:oa.x,oy:oa.y,
+      gStr:pm.get('gradStr'),tStr:pm.get('tangStr'),
+      magnetStr:pm.get('magnetStr'),
+      doSine:pm.getBool('useSine'),sineAmp:pm.get('sineAmp'),
+      sinePhase:t*60*pm.get('sinePhaseSpd'),sineLumScale:pm.getBool('sineLumScale'),
+      doFlow:pm.getBool('useFlow'),flowStr:pm.get('flowStr'),
+      flowNS:pm.get('flowNS'),flowCurl:pm.get('flowCurl'),
+      doColor:pm.getBool('colorMode'),pal:pm.getStr('palette'),
+      steerGrad:pm.get('steerGrad'),steerTang:pm.get('steerTang'),
+      magScale:pm.getBool('magScaleForces'),maxMag:vf.maxMag,
+    };
+    const doSteer=F.steerGrad>.001||F.steerTang>.001||F.magScale;
+
+    p.strokeWeight(pm.get('strokeW'));
+    p.noFill();
+
+    // ─── Advect + draw each line ─────────────────────
+    for(let li=0;li<lineState.lines.length;li++){
+      const verts=lineState.lines[li];
+      const meta=lineState.meta[li];
+      const magDir=(meta.f-.5)*2;
+      const nVerts=verts.length;
+
+      p.beginShape();
+      for(let i=0;i<nVerts;i+=res){
+        const vert=verts[i];
+        // Sample at CURRENT position
+        const s=vf.sample(vert.cx,vert.cy);
+        const lum=Math.pow(s.lum,lExp);
+
+        // Per-point perpendicular from current line geometry
+        const iPr=Math.max(0,i-res), iNx=Math.min(nVerts-1,i+res);
+        const tx=verts[iNx].cx-verts[iPr].cx, ty=verts[iNx].cy-verts[iPr].cy;
+        const tm=Math.sqrt(tx*tx+ty*ty)+.001;
+        const perpNx=-ty/tm, perpNy=tx/tm;
+
+        // ─── Sum all forces → velocity ──────────
+        let fx=0,fy=0,v;
+
+        if(F.amp>0){
+          v=fs.fixedAngle(lum,F.amp,F.xF,F.yF,F.cosA,F.sinA);
+          if(doSteer)v=Steering.steer(v.fx,v.fy,s,F.steerGrad,F.steerTang,F.magScale,F.maxMag);
+          fx+=v.fx;fy+=v.fy;
+        }
+        if(F.oStr>0){
+          v=fs.originVector(vert.cx,vert.cy,F.ox,F.oy,lum,F.oStr);
+          if(doSteer)v=Steering.steer(v.fx,v.fy,s,F.steerGrad,F.steerTang,F.magScale,F.maxMag);
+          fx+=v.fx;fy+=v.fy;
+        }
+        if(F.gStr>0){v=fs.gradientPush(s,F.gStr);fx+=v.fx;fy+=v.fy;}
+        if(F.tStr>0){v=fs.tangentPush(s,F.tStr);fx+=v.fx;fy+=v.fy;}
+        if(F.doFlow&&F.flowStr>0){
+          v=fs.flowField(vert.cx,vert.cy,t,F.flowNS,F.flowCurl,F.flowStr,lum);
+          if(doSteer)v=Steering.steer(v.fx,v.fy,s,F.steerGrad,F.steerTang,F.magScale,F.maxMag);
+          fx+=v.fx;fy+=v.fy;
+        }
+        if(F.doSine&&F.sineAmp>0){
+          v=fs.sineWave(i,perpNx,perpNy,F.sinePhase,F.sineAmp,F.sineLumScale,lum,pm);
+          if(doSteer)v=Steering.steer(v.fx,v.fy,s,F.steerGrad,F.steerTang,F.magScale,F.maxMag);
+          fx+=v.fx;fy+=v.fy;
+        }
+        if(F.magnetStr>0){
+          v=fs.magnetism(perpNx,perpNy,magDir,lum,F.magnetStr,meta.gapPrev,meta.gapNext);
+          fx+=v.fx;fy+=v.fy;
+        }
+
+        // ─── Advect: nudge position by velocity ─
+        lineState.advect(li,i,fx,fy,nudgeRate,damping,returnStr);
+
+        // ─── Draw at current position ───────────
+        if(F.doColor){
+          const c=cm.getColor(lum,F.pal);
+          p.stroke(c[0],c[1],c[2],200);
+        }else{
+          p.stroke(255,50+lum*200);
+        }
+        p.curveVertex(vert.cx,vert.cy);
+      }
+      p.endShape();
+    }
+
+    // Overlays
+    if(pm.getBool('showVectorField'))dov.drawVectorField(cw,ch);
+    if(pm.getBool('showFlow'))dov.drawFlowVectors(cw,ch,t,pm.get('flowNS'),pm.get('flowCurl'));
+    if(pm.getBool('animateOrigin'))dov.drawOrigin(oa.x,oa.y);
+  };
+});
+
+/* ===================================================================
+   Image Loading + Events
+   =================================================================== */
+function loadUserImage(file){
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    if(!app)return;const img=new Image();
+    img.onload=()=>{rawHtmlImg=img;rawImgW=img.naturalWidth;rawImgH=img.naturalHeight;
+    app.applyImage(rawHtmlImg,parseFloat(document.getElementById('imgScale').value));};
+    img.src=e.target.result;};
+  reader.readAsDataURL(file);
+}
+document.getElementById('imgScale').addEventListener('change',()=>{
+  if(!rawHtmlImg||!app)return;app.applyImage(rawHtmlImg,parseFloat(document.getElementById('imgScale').value));});
+document.getElementById('deadZone').addEventListener('change',()=>{
+  if(!app||!rawHtmlImg)return;app.applyImage(rawHtmlImg,parseFloat(document.getElementById('imgScale').value));});
+document.getElementById('resetBtn').addEventListener('click',()=>{if(app)app.lineState.reset();});
+// Rebuild lines when pattern/spacing/adaptive changes
+for(const id of['patternType','adaptiveSpacing','adaptMin','adaptMax','adaptSamples']){
+  document.getElementById(id).addEventListener('change',()=>{if(app)app.lineState.dirty=true;});
+}
+const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
+dz.addEventListener('dragover',(e)=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',(e)=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])loadUserImage(e.dataTransfer.files[0]);});
+fi.addEventListener('change',(e)=>{if(e.target.files[0])loadUserImage(e.target.files[0]);});
+document.getElementById('saveBtn').addEventListener('click',()=>{if(app)app.p.saveCanvas('luminance-flow','png');});
+</script>
+</body>
+</html>

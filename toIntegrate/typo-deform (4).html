@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Typographic Quadrilateral Deformation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.18/paper-full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;font-size:12px;background:#fff;color:#000;display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;height:100vh;overflow:hidden}
+header{grid-column:1/-1;border-bottom:2px solid #000;padding:4px 10px}
+header h1{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+#controls{border-right:2px solid #000;padding:6px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:11px}
+#controls label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+#controls input[type="text"],#controls select,#controls textarea{width:100%;border:1px solid #000;padding:2px 3px;font-family:inherit;font-size:11px;background:#fff}
+#controls textarea{height:36px;resize:vertical}
+#controls input[type="range"]{width:100%;margin:1px 0}
+#controls input[type="file"]{font-size:10px}
+#controls input[type="checkbox"]{margin-right:4px}
+#controls button{border:1px solid #000;background:#000;color:#fff;padding:3px 6px;font-family:inherit;font-size:10px;cursor:pointer;text-transform:uppercase}
+#controls button:hover{background:#333}
+#controls button.active{background:#fff;color:#000;border:2px solid #000}
+.val{font-size:10px;color:#555}
+.sh{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #000;padding-bottom:2px;margin-top:5px}
+#viewport-wrap{position:relative;overflow:hidden}
+#viewport{width:100%;height:100%;display:block}
+#diagnostics{position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);border-top:2px solid #000;padding:4px 8px;font-size:10px;line-height:1.4;max-height:120px;overflow-y:auto;display:none}
+#diagnostics.open{display:block}
+.sep{border-top:1px solid #ccc;margin:3px 0}
+.mode-btns{display:flex;gap:3px}
+.mode-btns button{flex:1}
+.row{display:flex;gap:4px;align-items:center}
+.row label{margin:0;flex:1}
+.vec-list{font-size:10px;max-height:80px;overflow-y:auto;border:1px solid #ccc;padding:2px}
+.vec-item{padding:1px 3px;cursor:pointer;border-bottom:1px solid #eee}
+.vec-item.sel{background:#000;color:#fff}
+.hidden{display:none}
+#skeleton-canvas{display:none}
+.info-doc{font-size:11px;line-height:1.55;overflow-y:auto;max-height:calc(100vh - 180px)}
+.info-doc h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #000;padding-bottom:2px;margin:10px 0 4px}
+.info-doc h3{font-size:11px;font-weight:700;margin:8px 0 2px}
+.info-doc p{margin:3px 0}
+.info-doc code{background:#eee;padding:0 3px;font-size:10px}
+.info-doc .eq{font-family:'Courier New',monospace;background:#f5f5f5;padding:4px 6px;margin:4px 0;display:block;border-left:2px solid #000;font-size:10px}
+.info-doc ul{margin:2px 0 2px 14px;padding:0}
+.info-doc li{margin:1px 0}
+</style>
+</head>
+<body>
+<header><h1>Typographic Quadrilateral Deformation</h1></header>
+<section id="controls">
+  <div class="sh">Mode</div>
+  <div class="mode-btns">
+    <button id="btn-mode-container" class="active">Container</button>
+    <button id="btn-mode-vectors">Vectors</button>
+    <button id="btn-mode-voronoi">Voronoi</button>
+    <button id="btn-mode-skeleton">Skeleton</button>
+    <button id="btn-mode-info">Info</button>
+  </div>
+
+  <div class="sep"></div>
+  <div class="sh">Font</div>
+  <select id="inp-font-select"></select>
+  <input type="file" id="inp-font" accept=".ttf,.otf,.woff,.woff2">
+  <span class="val" id="font-name">loading...</span>
+
+  <div class="sh">Text Settings</div>
+  <label>Glyph Resolution <span class="val" id="v-size">12</span></label>
+  <input type="range" id="inp-size" min="3" max="40" value="12">
+  <label>Letter Gap % <span class="val" id="v-track">0</span></label>
+  <input type="range" id="inp-track" min="0" max="30" value="0">
+  <label>Quad Subdivisions <span class="val" id="v-subdiv">1</span></label>
+  <input type="range" id="inp-subdiv" min="1" max="16" value="1">
+  <label>Line Height <span class="val" id="v-leading">1.2</span></label>
+  <input type="range" id="inp-leading" min="0.6" max="3" value="1.2" step="0.05">
+
+  <div class="sh">Layout</div>
+  <label>Cell Margin <span class="val" id="v-margin">0.06</span></label>
+  <input type="range" id="inp-margin" min="0" max="0.3" value="0.06" step="0.01">
+  <label>Max Skew° <span class="val" id="v-skew">45</span></label>
+  <input type="range" id="inp-skew" min="5" max="90" value="45">
+  <label>Fill <span class="val" id="v-fill">0.92</span></label>
+  <input type="range" id="inp-fill" min="0.3" max="1" value="0.92" step="0.01">
+
+  <div id="panel-container">
+    <div class="sep"></div>
+    <div class="sh">Container</div>
+    <label>Text</label>
+    <input type="text" id="inp-text" value="DEFORM">
+    <label>Shape</label>
+    <select id="inp-container">
+      <option value="rect">Rectangle</option><option value="trapezoid">Trapezoid</option>
+      <option value="lens" selected>Lens</option><option value="wave">Wave Strip</option><option value="arch">Arch</option>
+    </select>
+    <label>LOD</label>
+    <select id="inp-lod"><option value="0">LOD0</option><option value="1" selected>LOD1</option><option value="2">LOD2</option></select>
+    <label>Motion <span class="val" id="v-motion">0.5</span></label>
+    <input type="range" id="inp-motion" min="0" max="1" value="0.5" step="0.01">
+    <label>Speed <span class="val" id="v-speed">1</span></label>
+    <input type="range" id="inp-speed" min="0.1" max="5" value="1" step="0.1">
+    <button id="btn-animate">Start Animation</button>
+  </div>
+
+  <div id="panel-vectors" class="hidden">
+    <div class="sep"></div>
+    <div class="sh">Vectors</div>
+    <div class="mode-btns">
+      <button id="btn-draw-free" class="active">Free</button>
+      <button id="btn-draw-line">Poly</button>
+      <button id="btn-draw-select">Sel</button>
+    </div>
+    <label>Simplify <span class="val" id="v-simplify">5</span></label>
+    <input type="range" id="inp-simplify" min="1" max="30" value="5">
+    <label>Vector Text</label>
+    <input type="text" id="inp-vec-text" placeholder="text for selected">
+    <label><input type="checkbox" id="inp-show-throughline">Show Through-Line</label>
+    <div class="vec-list" id="vec-list"></div>
+    <div class="row"><button id="btn-vec-delete">Delete</button><button id="btn-vec-clear">Clear</button></div>
+  </div>
+
+  <div id="panel-voronoi" class="hidden">
+    <div class="sep"></div>
+    <div class="sh">Voronoi</div>
+    <label>Seeds <span class="val" id="v-seeds">20</span></label>
+    <input type="range" id="inp-seeds" min="3" max="80" value="20">
+    <label>Words</label>
+    <textarea id="inp-words">WARP BEND,FOLD TWIST,MORPH SHIFT,FLUX PULL,PUSH SPIN,TURN TILT,LEAN BULGE,PINCH SWELL,DRIFT SLIDE,BLOOM PULSE,CRACK SPLIT,MERGE FUSE,WAVE,SHIFT,FLUX,MORPH</textarea>
+    <button id="btn-vor-regen">Regenerate</button>
+    <button id="btn-vor-anim">Start Motion</button>
+    <label>Jitter <span class="val" id="v-jitter">0.3</span></label>
+    <input type="range" id="inp-jitter" min="0" max="1" value="0.3" step="0.01">
+  </div>
+
+  <div id="panel-skeleton" class="hidden">
+    <div class="sep"></div>
+    <div class="sh">Skeleton / Medial Axis</div>
+    <label>Character</label>
+    <input type="text" id="inp-skel-char" value="A" maxlength="1">
+    <label>Resolution <span class="val" id="v-skel-res">64</span></label>
+    <input type="range" id="inp-skel-res" min="32" max="128" value="64">
+    <label>Threshold <span class="val" id="v-skel-thresh">1.5</span></label>
+    <input type="range" id="inp-skel-thresh" min="0.3" max="5" value="1.5" step="0.1">
+    <button id="btn-skel-extract">Extract Skeleton</button>
+    <button id="btn-skel-all">Extract A-Z</button>
+    <label>Cached: <span class="val" id="skel-cache-count">0</span></label>
+  </div>
+
+  <div id="panel-info" class="hidden info-doc"></div>
+
+  <div class="sep"></div>
+  <button id="btn-download">Download PNG</button>
+  <button id="btn-diag">Diagnostics</button>
+  <button id="btn-debug">Debug Overlay</button>
+</section>
+<div id="viewport-wrap">
+  <canvas id="viewport" resize></canvas>
+  <canvas id="skeleton-canvas" width="128" height="128"></canvas>
+  <div id="diagnostics"></div>
+</div>
+<script>
+// ================================================================
+// GOOGLE FONTS LIST — 30+ typefaces with CDN URLs
+// ================================================================
+const GOOGLE_FONTS=[
+  {name:'Inter',w:'700',url:'https://cdn.jsdelivr.net/npm/@fontsource/inter/files/inter-latin-700-normal.woff'},
+  {name:'Roboto',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/roboto/Roboto-Bold.ttf'},
+  {name:'Roboto',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/roboto/Roboto-Regular.ttf'},
+  {name:'Oswald',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/oswald/Oswald-Bold.ttf'},
+  {name:'Montserrat',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/montserrat/Montserrat-Bold.ttf'},
+  {name:'Montserrat',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/montserrat/Montserrat-Regular.ttf'},
+  {name:'Playfair Display',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/playfairdisplay/PlayfairDisplay-Bold.ttf'},
+  {name:'Playfair Display',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/playfairdisplay/PlayfairDisplay-Regular.ttf'},
+  {name:'Lora',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/lora/Lora-Bold.ttf'},
+  {name:'Lora',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/lora/Lora-Regular.ttf'},
+  {name:'Raleway',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/raleway/Raleway-Bold.ttf'},
+  {name:'Raleway',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/raleway/Raleway-Regular.ttf'},
+  {name:'PT Serif',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/ptserif/PTSerif-Bold.ttf'},
+  {name:'Source Code Pro',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/sourcecodepro/SourceCodePro-Bold.ttf'},
+  {name:'Source Code Pro',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/sourcecodepro/SourceCodePro-Regular.ttf'},
+  {name:'Merriweather',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/merriweather/Merriweather-Bold.ttf'},
+  {name:'Bebas Neue',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/bebasneue/BebasNeue-Regular.ttf'},
+  {name:'Anton',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/anton/Anton-Regular.ttf'},
+  {name:'Archivo Black',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/archivoblack/ArchivoBlack-Regular.ttf'},
+  {name:'Poppins',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/poppins/Poppins-Bold.ttf'},
+  {name:'Poppins',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/poppins/Poppins-Regular.ttf'},
+  {name:'Nunito',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/nunito/Nunito-Bold.ttf'},
+  {name:'Space Mono',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/spacemono/SpaceMono-Bold.ttf'},
+  {name:'DM Serif Display',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/dmserifdisplay/DMSerifDisplay-Regular.ttf'},
+  {name:'Barlow Condensed',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/barlowcondensed/BarlowCondensed-Bold.ttf'},
+  {name:'Barlow Condensed',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/barlowcondensed/BarlowCondensed-Regular.ttf'},
+  {name:'Josefin Sans',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/josefinsans/JosefinSans-Bold.ttf'},
+  {name:'Abril Fatface',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/abrilfatface/AbrilFatface-Regular.ttf'},
+  {name:'Righteous',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/righteous/Righteous-Regular.ttf'},
+  {name:'Vollkorn',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/vollkorn/Vollkorn-Bold.ttf'},
+  {name:'Cabin',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/cabin/Cabin-Bold.ttf'},
+  {name:'Inconsolata',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/inconsolata/Inconsolata-Bold.ttf'},
+  {name:'Permanent Marker',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/apache/permanentmarker/PermanentMarker-Regular.ttf'},
+  {name:'Alfa Slab One',w:'400',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/alfaslabone/AlfaSlabOne-Regular.ttf'},
+  {name:'Signika',w:'700',url:'https://cdn.jsdelivr.net/gh/google/fonts/ofl/signika/Signika-Bold.ttf'},
+];
+
+// ================================================================
+// CORE CLASSES
+// ================================================================
+class DirtyFlags{constructor(){this.reset();this.setAll()}reset(){this.textDirty=false;this.containerDirty=false;this.layoutDirty=false;this.renderDirty=false}setAll(){this.textDirty=true;this.containerDirty=true;this.layoutDirty=true;this.renderDirty=true}}
+
+class FontManager{
+  constructor(){this._fonts=new Map();this._active=null;this._activeKey=null}
+  async loadFont(source,key){
+    if(this._fonts.has(key)){this._active=this._fonts.get(key);this._activeKey=key;return this._active}
+    return new Promise((resolve,reject)=>{
+      if(typeof source==='string'){opentype.load(source,(err,font)=>{if(err)return reject(err);this._fonts.set(key,font);this._active=font;this._activeKey=key;resolve(font)})}
+      else{try{const font=opentype.parse(source);this._fonts.set(key,font);this._active=font;this._activeKey=key;resolve(font)}catch(e){reject(e)}}})}
+  getActive(){return this._active}getActiveKey(){return this._activeKey}
+}
+
+class TextShaper{
+  shapeText(text,font,fontSize,letterSpacing){
+    const scale=fontSize/font.unitsPerEm;const glyphs=[];let x=0;const ls=letterSpacing||0;
+    for(let i=0;i<text.length;i++){
+      const g=font.charToGlyph(text[i]);if(!g||(g.index===0&&text[i]!==' '))continue;
+      const adv=(g.advanceWidth||0)*scale;let kern=0;
+      if(i>0){const prev=font.charToGlyph(text[i-1]);if(prev)kern=font.getKerningValue(prev,g)*scale}
+      const gap=i>0?ls:0;
+      // advance includes the glyph's width + its share of letter spacing
+      glyphs.push({glyphId:g.index,glyph:g,char:text[i],advance:adv+gap,kern,offsetX:x+gap+kern,vertexStart:0,vertexCount:0,contourStart:0,contourCount:0,boundsOutline:null});
+      x+=adv+kern+gap}
+    return{glyphs,totalAdvance:x}}
+}
+
+class GlyphGeometryBuilder{
+  buildGeometry(shapedRun,font,fontSize,tol){
+    const aV=[],aU=[],aC=[],pG=[];let gvi=0,gci=0;
+    for(const entry of shapedRun.glyphs){
+      const path=entry.glyph.getPath(0,0,fontSize);const contours=this._pc(path,tol);
+      const gV=[];const cR=[];let ls=0;
+      for(const c of contours){cR.push({start:gvi+ls,count:c.length/2});for(let k=0;k<c.length;k++)gV.push(c[k]);ls+=c.length/2}
+      let xn=1e9,yn=1e9,xx=-1e9,yx=-1e9;
+      for(let k=0;k<gV.length;k+=2){if(gV[k]<xn)xn=gV[k];if(gV[k]>xx)xx=gV[k];if(gV[k+1]<yn)yn=gV[k+1];if(gV[k+1]>yx)yx=gV[k+1]}
+      if(xx-xn<.01){xn-=.5;xx+=.5}if(yx-yn<.01){yn-=.5;yx+=.5}
+      const bo={x:xn,y:yn,w:xx-xn,h:yx-yn};
+      const uvs=new Float32Array(gV.length);
+      for(let k=0;k<gV.length;k+=2){uvs[k]=(gV[k]-xn)/(xx-xn);uvs[k+1]=(gV[k+1]-yn)/(yx-yn)}
+      entry.vertexStart=gvi;entry.vertexCount=gV.length/2;entry.contourStart=gci;entry.contourCount=cR.length;entry.boundsOutline=bo;
+      for(const v of gV)aV.push(v);for(const u of uvs)aU.push(u);for(const cr of cR)aC.push(cr);
+      pG.push({vertexStart:gvi,vertexCount:gV.length/2,contourStart:gci,contourCount:cR.length,boundsOutline:bo});
+      gvi+=gV.length/2;gci+=cR.length}
+    return{positions:new Float32Array(aV),uvs:new Float32Array(aU),contourRanges:aC,perGlyph:pG,totalVertices:gvi}}
+  buildLODs(sr,f,fs){return[this.buildGeometry(sr,f,fs,{tolerance:.15}),this.buildGeometry(sr,f,fs,{tolerance:.4}),this.buildGeometry(sr,f,fs,{tolerance:1.2})]}
+  _pc(path,opts){const tol=(opts&&opts.tolerance)||.5;const cs=[];let cur=[];
+    for(const cmd of path.commands){switch(cmd.type){case'M':if(cur.length>0)cs.push(new Float32Array(cur));cur=[cmd.x,cmd.y];break;case'L':cur.push(cmd.x,cmd.y);break;
+      case'Q':this._fQ(cur,cur[cur.length-2],cur[cur.length-1],cmd.x1,cmd.y1,cmd.x,cmd.y,tol);break;
+      case'C':this._fC(cur,cur[cur.length-2],cur[cur.length-1],cmd.x1,cmd.y1,cmd.x2,cmd.y2,cmd.x,cmd.y,tol);break;
+      case'Z':if(cur.length>0)cs.push(new Float32Array(cur));cur=[];break}}if(cur.length>0)cs.push(new Float32Array(cur));return cs}
+  _fQ(a,x0,y0,x1,y1,x2,y2,t){const dx=(x0+x2)/2-(x0+2*x1+x2)/4,dy=(y0+y2)/2-(y0+2*y1+y2)/4;
+    if(dx*dx+dy*dy<t*t){a.push(x2,y2)}else{const ax=(x0+x1)/2,ay=(y0+y1)/2,bx=(x1+x2)/2,by=(y1+y2)/2,cx=(ax+bx)/2,cy=(ay+by)/2;this._fQ(a,x0,y0,ax,ay,cx,cy,t);this._fQ(a,cx,cy,bx,by,x2,y2,t)}}
+  _fC(a,x0,y0,x1,y1,x2,y2,x3,y3,t){const dx=(x0+x3)/2-(x0+3*x1+3*x2+x3)/8,dy=(y0+y3)/2-(y0+3*y1+3*y2+y3)/8;
+    if(dx*dx+dy*dy<t*t){a.push(x3,y3)}else{const a1x=(x0+x1)/2,a1y=(y0+y1)/2,a2x=(x1+x2)/2,a2y=(y1+y2)/2,a3x=(x2+x3)/2,a3y=(y2+y3)/2,
+      b1x=(a1x+a2x)/2,b1y=(a1y+a2y)/2,b2x=(a2x+a3x)/2,b2y=(a2y+a3y)/2,cx=(b1x+b2x)/2,cy=(b1y+b2y)/2;this._fC(a,x0,y0,a1x,a1y,b1x,b1y,cx,cy,t);this._fC(a,cx,cy,b2x,b2y,a3x,a3y,x3,y3,t)}}
+}
+
+class ContainerModel{
+  constructor(){this._type='lens';this._b={x:0,y:0,w:600,h:200}}
+  setType(t){this._type=t}setBounds(x,y,w,h){this._b={x,y,w,h}}
+  sample(ns,amp,time){const b=this._b,t=new Float32Array(ns),up=new Float32Array(ns*2),lo=new Float32Array(ns*2);
+    for(let i=0;i<ns;i++){const s=i/(ns-1);t[i]=s;const x=b.x+s*b.w;const{top,bottom}=this._ev(s,amp,time);up[i*2]=x;up[i*2+1]=b.y+top*b.h;lo[i*2]=x;lo[i*2+1]=b.y+bottom*b.h}
+    let valid=true;for(let i=0;i<ns;i++)if(up[i*2+1]>=lo[i*2+1]){valid=false;break}
+    return{t,upper:up,lower:lo,valid,numSamples:ns}}
+  _ev(s,a,t){switch(this._type){case'rect':return{top:0,bottom:1};case'trapezoid':{const p=.15+a*.1*Math.sin(t*.7);return{top:p*(1-Math.abs(s*2-1)),bottom:1-p*(1-Math.abs(s*2-1))}}
+    case'lens':{const bu=.3+a*.15*Math.sin(t*.5),c=Math.sin(s*Math.PI);return{top:.5-(.15+bu*c),bottom:.5+(.15+bu*c)}}
+    case'wave':{const w1=a*.12*Math.sin(s*Math.PI*3+t),w2=a*.08*Math.sin(s*Math.PI*2-t*.6);return{top:.2+w1,bottom:.8+w2}}
+    case'arch':{const ah=.35+a*.15*Math.sin(t*.4),ar=Math.sin(s*Math.PI);return{top:.5-ah*ar,bottom:.85}}default:return{top:0,bottom:1}}}
+}
+
+class SliceAllocator{
+  allocate(glyphs,tracking){if(!glyphs.length)return{slices:[],totalWidth:0};
+    const ws=glyphs.map(g=>g.advance),tw=ws.reduce((a,b)=>a+b,0)||1,sl=[];let acc=0;
+    for(let i=0;i<glyphs.length;i++){const nw=ws[i]/tw;sl.push({tStart:acc,tEnd:acc+nw});acc+=nw}return{slices:sl,totalWidth:tw}}
+}
+
+class LatticeBuilder{
+  buildCells(cs,sa){const cells=[];const{upper:up,lower:lo,numSamples:ns,t:tA}=cs;
+    for(const sl of sa.slices){const p00=this._sb(up,tA,ns,sl.tStart),p10=this._sb(up,tA,ns,sl.tEnd),p01=this._sb(lo,tA,ns,sl.tStart),p11=this._sb(lo,tA,ns,sl.tEnd);
+      const area=this._qa(p00,p10,p01,p11);cells.push({p00x:p00.x,p00y:p00.y,p10x:p10.x,p10y:p10.y,p01x:p01.x,p01y:p01.y,p11x:p11.x,p11y:p11.y,area,valid:area>.5})}return cells}
+  _sb(b,tA,n,tT){if(tT<=tA[0])return{x:b[0],y:b[1]};if(tT>=tA[n-1])return{x:b[(n-1)*2],y:b[(n-1)*2+1]};
+    let lo=0,hi=n-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(tA[mid]<=tT)lo=mid;else hi=mid}
+    const f=(tT-tA[lo])/(tA[hi]-tA[lo]||1);return{x:b[lo*2]+f*(b[hi*2]-b[lo*2]),y:b[lo*2+1]+f*(b[hi*2+1]-b[lo*2+1])}}
+  _qa(a,b,c,d){return .5*Math.abs((b.x-a.x)*(c.y-a.y)-(c.x-a.x)*(b.y-a.y))+.5*Math.abs((b.x-d.x)*(c.y-d.y)-(c.x-d.x)*(b.y-d.y))}
+}
+
+class DeformationEngine{
+  deform(uvs,cells,pg,out){for(let gi=0;gi<pg.length;gi++){const p=pg[gi],c=cells[gi];if(!c||!c.valid)continue;
+    const vs=p.vertexStart,vc=p.vertexCount;
+    for(let v=0;v<vc;v++){const i=(vs+v)*2,u=uvs[i],vv=uvs[i+1],mu=1-u,mv=1-vv;
+      out[i]=mu*mv*c.p00x+u*mv*c.p10x+mu*vv*c.p01x+u*vv*c.p11x;
+      out[i+1]=mu*mv*c.p00y+u*mv*c.p10y+mu*vv*c.p01y+u*vv*c.p11y}}}
+}
+
+class RenderSynchroniser{
+  constructor(){this._paths=[];this._dg=null;this._gg=null}
+  init(ps){this._s=ps;this._gg=new ps.Group();this._dg=new ps.Group();this._dg.visible=false}
+  getGlyphGroup(){return this._gg}getDebugGroup(){return this._dg}
+  rebuildPaths(cr,pg){this._gg.removeChildren();this._paths=[];
+    for(const p of pg){const cp=new this._s.CompoundPath({fillColor:'#000',fillRule:'evenodd'});
+      for(let ci=0;ci<p.contourCount;ci++){const c=cr[p.contourStart+ci];const pa=new this._s.Path();for(let v=0;v<c.count;v++)pa.add(new this._s.Point(0,0));pa.closed=true;cp.addChild(pa)}
+      this._gg.addChild(cp);this._paths.push(cp)}}
+  syncPositions(dp,cr,pg){for(let gi=0;gi<pg.length;gi++){const p=pg[gi],cp=this._paths[gi];if(!cp)continue;let ci2=0;
+    for(let ci=0;ci<p.contourCount;ci++){const c=cr[p.contourStart+ci];const pa=cp.children[ci2++];if(!pa)continue;
+      for(let v=0;v<c.count;v++){const i=(c.start+v)*2;const seg=pa.segments[v];if(seg){seg.point.x=dp[i];seg.point.y=dp[i+1]}}}}}
+  drawDebug(cs,cells,show){this._dg.removeChildren();this._dg.visible=show;if(!show||!cs)return;const S=this._s;
+    const{upper:up,lower:lo,numSamples:ns}=cs;
+    const uP=new S.Path({strokeColor:'#06f',strokeWidth:1});for(let i=0;i<ns;i++)uP.add(new S.Point(up[i*2],up[i*2+1]));this._dg.addChild(uP);
+    const lP=new S.Path({strokeColor:'#f30',strokeWidth:1});for(let i=0;i<ns;i++)lP.add(new S.Point(lo[i*2],lo[i*2+1]));this._dg.addChild(lP);
+    if(cells)for(const c of cells)this._dg.addChild(new S.Path({segments:[[c.p00x,c.p00y],[c.p10x,c.p10y],[c.p11x,c.p11y],[c.p01x,c.p01y]],closed:true,strokeColor:c.valid?'#0a0':'#f00',strokeWidth:.5,fillColor:c.valid?'rgba(0,180,0,.15)':'rgba(255,0,0,.2)'}))}
+}
+
+class AnimationController{
+  constructor(){this._running=false;this._time=0;this._speed=1;this._amp=.5}
+  setRunning(v){this._running=v}isRunning(){return this._running}setSpeed(s){this._speed=s}setAmplitude(a){this._amp=a}
+  getTime(){return this._time}getAmplitude(){return this._amp}update(dt){if(this._running)this._time+=dt*this._speed}
+}
+
+class DiagnosticsLayer{
+  constructor(el){this._el=el;this._vis=false;this._d={}}
+  toggle(){this._vis=!this._vis;this._el.classList.toggle('open',this._vis)}
+  update(d){Object.assign(this._d,d);if(!this._vis)return;const v=this._d;
+    this._el.innerHTML=`<b>${v.mode||'-'}</b> | Glyphs:${v.glyphCount||0} Verts:${v.vertexCount||0} | Frame:${(v.frameTime||0).toFixed(1)}ms Deform:${(v.deformTime||0).toFixed(2)}ms | Voronoi:${v.voronoiCells||0} Vectors:${v.vectorCount||0} Skeletons:${v.skeletonCount||0} | Font:${v.fontName||'-'}`}
+}
+
+// ================================================================
+// VECTOR CLASSES
+// ================================================================
+class DrawnVector{static _n=0;constructor(pp){this.id=DrawnVector._n++;this.paperPath=pp;this.text='';this.selected=false}}
+
+class VectorStore{
+  constructor(){this._vs=[];this._sel=null}
+  add(v){this._vs.push(v)}remove(id){const v=this._vs.find(x=>x.id===id);if(v&&v.paperPath)v.paperPath.remove();this._vs=this._vs.filter(x=>x.id!==id);if(this._sel&&this._sel.id===id)this._sel=null}
+  clear(){for(const v of this._vs)if(v.paperPath)v.paperPath.remove();this._vs=[];this._sel=null}
+  getAll(){return this._vs}getSelected(){return this._sel}
+  select(id){for(const v of this._vs)v.selected=(v.id===id);this._sel=this._vs.find(v=>v.id===id)||null}
+  deselectAll(){for(const v of this._vs)v.selected=false;this._sel=null}
+  findAt(pt,tol){for(const v of this._vs){const n=v.paperPath.getNearestPoint(pt);if(n&&n.getDistance(pt)<tol)return v}return null}
+  count(){return this._vs.length}
+}
+
+class VectorDrawTool{
+  constructor(ps,store,cb){this._s=ps;this._st=store;this._cb=cb;this._mode='free';this._active=false;this._cp=null;this._simp=5;
+    this._tool=new ps.Tool();this._tool.onMouseDown=e=>this._down(e);this._tool.onMouseDrag=e=>this._drag(e);this._tool.onMouseUp=e=>this._up(e);this._tool.minDistance=3}
+  setDrawMode(m){this._mode=m}setActive(a){this._active=a}setSimplify(v){this._simp=v}activate(){this._tool.activate()}
+  _down(e){if(!this._active)return;if(this._mode==='select'){const h=this._st.findAt(e.point,15);if(h)this._st.select(h.id);else this._st.deselectAll();this.refreshDisplay();this._cb();return}
+    if(this._mode==='free'){this._cp=new this._s.Path({strokeColor:'#000',strokeWidth:2});this._cp.add(e.point)}
+    if(this._mode==='line'){if(!this._cp){this._cp=new this._s.Path({strokeColor:'#000',strokeWidth:2});this._cp.add(e.point)}else this._cp.add(e.point)}}
+  _drag(e){if(!this._active||!this._cp||this._mode!=='free')return;this._cp.add(e.point)}
+  _up(e){if(!this._active)return;
+    if(this._mode==='free'&&this._cp){this._cp.simplify(this._simp);this._cp.closed=true;this._fin(this._cp);this._cp=null;this._cb()}
+    if(this._mode==='line'&&this._cp&&e.event.detail>=2){this._cp.simplify(this._simp);this._cp.closed=true;this._fin(this._cp);this._cp=null;this._cb()}}
+  _fin(p){p.strokeColor='#666';p.strokeWidth=1;p.dashArray=[4,3];const v=new DrawnVector(p);this._st.add(v);this._st.select(v.id);this.refreshDisplay()}
+  refreshDisplay(){for(const v of this._st.getAll()){v.paperPath.strokeColor=v.selected?'#06f':'#666';v.paperPath.strokeWidth=v.selected?2.5:1}}
+}
+
+/** Extracts the medial axis / through-line of a Paper.js closed path */
+class ThroughLineFinder{
+  find(paperPath,numSamples){
+    if(!paperPath||paperPath.length<10)return[];
+    const len=paperPath.length;const pts=[];
+    // Sample pairs of opposite boundary points and take midpoints
+    for(let i=0;i<numSamples;i++){
+      const t=i/numSamples;const offset=t*len;
+      const pt=paperPath.getPointAt(offset);
+      if(!pt)continue;
+      // Cast ray inward from this point, find opposite intersection
+      const normal=paperPath.getNormalAt(offset);
+      if(!normal)continue;
+      // Walk inward along the normal to find the centerline point
+      // Use bisection: find the point equidistant from nearest boundary points
+      const center=this._findCenter(paperPath,pt,normal);
+      if(center)pts.push(center);
+    }
+    // Sort points along principal axis
+    if(pts.length<2)return pts;
+    const cx=pts.reduce((s,p)=>s+p.x,0)/pts.length;
+    const cy=pts.reduce((s,p)=>s+p.y,0)/pts.length;
+    pts.sort((a,b)=>(a.x-cx)-(b.x-cx)||(a.y-cy)-(b.y-cy));
+    // Remove duplicates
+    const clean=[pts[0]];
+    for(let i=1;i<pts.length;i++){const dx=pts[i].x-clean[clean.length-1].x,dy=pts[i].y-clean[clean.length-1].y;
+      if(dx*dx+dy*dy>4)clean.push(pts[i])}
+    return clean;
+  }
+  _findCenter(path,pt,normal){
+    // Walk along normal direction, find point where distance to boundary is maximised (medial point)
+    let bestDist=0,bestPt=null;
+    for(let step=2;step<200;step+=2){
+      const testPt=new paper.Point(pt.x+normal.x*step,pt.y+normal.y*step);
+      if(!path.contains(testPt))break;
+      const nearest=path.getNearestPoint(testPt);
+      const dist=nearest?nearest.getDistance(testPt):0;
+      if(dist>bestDist){bestDist=dist;bestPt={x:testPt.x,y:testPt.y}}
+    }
+    return bestPt;
+  }
+}
+
+class VectorTextRenderer{
+  constructor(ps){this._s=ps;this._g=new ps.Group();this._fitter=new CellLetterFitter();this._tlf=new ThroughLineFinder();this._tlGroup=new ps.Group()}
+  getGroup(){return this._g}getThroughLineGroup(){return this._tlGroup}
+  render(vecs,font,fillRatio,letterGap,glyphRes,subdivs,showThroughLine){
+    this._g.removeChildren();this._tlGroup.removeChildren();if(!font)return;const S=this._s;
+    for(const vec of vecs){
+      const pp=vec.paperPath;if(!pp)continue;
+      if(showThroughLine){const tl=this._tlf.find(pp,60);
+        if(tl.length>1){const tlPath=new S.Path({strokeColor:'#f06',strokeWidth:1.5,dashArray:[4,2]});
+          for(const pt of tl)tlPath.add(new S.Point(pt.x,pt.y));this._tlGroup.addChild(tlPath)}}
+      if(!vec.text||!vec.text.trim())continue;
+      const polygon=[];const len=pp.length;if(len<10)continue;
+      const steps=Math.max(24,Math.min(100,Math.round(len/4)));
+      for(let i=0;i<steps;i++){const pt=pp.getPointAt(len*i/steps);if(pt)polygon.push({x:pt.x,y:pt.y})}
+      if(polygon.length<3)continue;
+      const result=this._fitter.fit(polygon,vec.text,font,fillRatio||0.88,letterGap||0,0.06,glyphRes||12,subdivs||1);
+      if(!result||!result.lines)continue;
+      const clip=pp.clone({insert:false});
+      for(const line of result.lines){
+        for(let gi=0;gi<line.geom.perGlyph.length;gi++){
+          const pg=line.geom.perGlyph[gi];const cp=new S.CompoundPath({fillColor:'#000',fillRule:'evenodd'});
+          for(let ci=0;ci<pg.contourCount;ci++){const cr=line.geom.contourRanges[pg.contourStart+ci];const p=new S.Path();
+            for(let v=0;v<cr.count;v++){const idx=(cr.start+v)*2;p.add(new S.Point(line.deformed[idx],line.deformed[idx+1]))}p.closed=true;cp.addChild(p)}
+          const clipped=cp.intersect(clip);clipped.fillColor='#000';this._g.addChild(clipped);cp.remove()}}
+      clip.remove()}}
+}
+
+// ================================================================
+// VORONOI + POLYGON BOUNDARY FITTING
+// ================================================================
+class VoronoiEngine{
+  constructor(){this._base=[];this._seeds=[];this._cells=[];this._words=[];this._bounds={x:0,y:0,w:800,h:600};this._jitter=.3}
+  setBounds(x,y,w,h){this._bounds={x,y,w,h}}setWords(a){this._words=a.filter(w=>w.trim().length>0);if(!this._words.length)this._words=['VOID']}setJitter(j){this._jitter=j}
+  generate(n){const b=this._bounds;this._base=[];for(let i=0;i<n;i++)this._base.push({x:b.x+Math.random()*b.w,y:b.y+Math.random()*b.h,
+    phX:Math.random()*Math.PI*2,phY:Math.random()*Math.PI*2,frX:.3+Math.random()*.7,frY:.3+Math.random()*.7});
+    this._seeds=this._base.map(s=>({x:s.x,y:s.y}));this._build()}
+  animate(t){this._seeds=this._base.map(s=>({x:s.x+Math.sin(t*s.frX+s.phX)*this._jitter*40,y:s.y+Math.sin(t*s.frY+s.phY)*this._jitter*40}));this._build()}
+  getCells(){return this._cells}
+  _build(){const seeds=this._seeds,b=this._bounds,n=seeds.length;this._cells=[];
+    for(let i=0;i<n;i++){let poly=[{x:b.x,y:b.y},{x:b.x+b.w,y:b.y},{x:b.x+b.w,y:b.y+b.h},{x:b.x,y:b.y+b.h}];
+      for(let j=0;j<n;j++){if(i===j)continue;poly=this._clip(poly,seeds[i],seeds[j]);if(poly.length<3)break}
+      this._cells.push({seed:seeds[i],polygon:poly,word:this._words[i%this._words.length]})}}
+  _clip(poly,a,b){const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,nx=a.x-b.x,ny=a.y-b.y;const out=[];
+    for(let i=0;i<poly.length;i++){const cur=poly[i],nxt=poly[(i+1)%poly.length];const dC=(cur.x-mx)*nx+(cur.y-my)*ny,dN=(nxt.x-mx)*nx+(nxt.y-my)*ny;
+      if(dC>=0)out.push(cur);if((dC>=0)!==(dN>=0)){const t=dC/(dC-dN);out.push({x:cur.x+t*(nxt.x-cur.x),y:cur.y+t*(nxt.y-cur.y)})}}return out}
+}
+
+class PolygonBoundarySampler{
+  sample(polygon,numSamples,fillRatio,margin){
+    if(polygon.length<3)return null;
+    let xn=Infinity,yn=Infinity,xx=-Infinity,yx=-Infinity;
+    for(const p of polygon){if(p.x<xn)xn=p.x;if(p.x>xx)xx=p.x;if(p.y<yn)yn=p.y;if(p.y>yx)yx=p.y}
+    const bw=xx-xn,bh=yx-yn;if(bw<4||bh<4)return null;
+    const mg=margin||0;const insetX=bw*mg;const insetY=bh*mg;
+    const x0=xn+insetX,x1=xx-insetX;if(x1-x0<3)return null;
+    const samples=[];let minH=Infinity,totalH=0;
+    for(let i=0;i<numSamples;i++){
+      const t=i/(numSamples-1);const x=x0+t*(x1-x0);
+      const ys=[];const n=polygon.length;
+      for(let j=0;j<n;j++){const a=polygon[j],b=polygon[(j+1)%n];
+        if((a.x<=x&&b.x>x)||(b.x<=x&&a.x>x)){const f=(x-a.x)/(b.x-a.x);ys.push(a.y+f*(b.y-a.y))}}
+      if(ys.length<2){samples.push({x,yTop:yn+insetY,yBot:yx-insetY});continue}
+      ys.sort((a,b)=>a-b);
+      const yT=ys[0]+bh*mg*(1-fillRatio);const yB=ys[ys.length-1]-bh*mg*(1-fillRatio);
+      const h=yB-yT;samples.push({x,yTop:yT,yBot:yB});if(h<minH)minH=h;totalH+=h}
+    if(!samples.length||minH<2)return null;
+    return{xMin:x0,xMax:x1,samples,minH,avgH:totalH/samples.length,width:x1-x0}}
+}
+
+class CellLetterFitter{
+  constructor(){this._ts=new TextShaper();this._gb=new GlyphGeometryBuilder();this._de=new DeformationEngine();this._sampler=new PolygonBoundarySampler()}
+
+  /**
+   * Fit text into polygon cell. Supports multi-line: spaces in the word split into lines.
+   * Each line gets an equal vertical share of the boundary.
+   */
+  fit(polygon,word,font,fillRatio,letterGap,margin,glyphRes,subdivs,lineHeight){
+    if(polygon.length<3||!word||!word.trim())return null;
+    const boundary=this._sampler.sample(polygon,48,fillRatio,margin||.06);
+    if(!boundary||boundary.minH<3||boundary.width<4)return null;
+
+    // Split into lines on spaces
+    const lines=word.trim().split(/\s+/);
+    const numLines=lines.length;
+    const lh=lineHeight||1.2;
+
+    // Each line gets a vertical fraction of the boundary
+    const allGeoms=[];const allDeformed=[];const allCells=[];
+    const tolerance=Math.max(0.05,1.5/Math.max(1,glyphRes||12));
+    const gapFrac=(letterGap||0)/100;
+
+    for(let li=0;li<numLines;li++){
+      const lineText=lines[li];
+      if(!lineText)continue;
+
+      // Vertical range for this line: divide boundary height into numLines strips
+      const lineFracTop=li/numLines;
+      const lineFracBot=(li+1)/numLines;
+
+      // Create sub-samples for this line's vertical strip
+      const lineSamples=boundary.samples.map(s=>{
+        const fullH=s.yBot-s.yTop;
+        return{
+          x:s.x,
+          yTop:s.yTop+fullH*lineFracTop,
+          yBot:s.yTop+fullH*lineFracBot
+        };
+      });
+      const lineMinH=Math.min(...lineSamples.map(s=>s.yBot-s.yTop));
+      if(lineMinH<2)continue;
+
+      // Font size fills this line's height
+      const fontSize=Math.max(3,lineMinH*0.88);
+
+      const shaped=this._ts.shapeText(lineText,font,fontSize,0);
+      if(!shaped.glyphs.length)continue;
+
+      const geom=this._gb.buildGeometry(shaped,font,fontSize,{tolerance});
+      if(!geom.totalVertices)continue;
+
+      // Build per-glyph cells for this line
+      const totalAdv=shaped.totalAdvance||1;
+      const numS=lineSamples.length;
+      const cells=[];
+      let tCursor=0;
+      const numGaps=Math.max(0,shaped.glyphs.length-1);
+      const totalGapFrac=gapFrac*numGaps;
+      const textFrac=Math.max(0.1,1-totalGapFrac);
+
+      for(let gi=0;gi<shaped.glyphs.length;gi++){
+        const g=shaped.glyphs[gi];
+        const glyphW=(g.advance/totalAdv)*textFrac;
+        const tL=tCursor,tR=tCursor+glyphW;
+        const sL=this._sampleAt(lineSamples,numS,tL);
+        const sR=this._sampleAt(lineSamples,numS,tR);
+        cells.push({p00x:sL.x,p00y:sL.yTop,p10x:sR.x,p10y:sR.yTop,
+          p01x:sL.x,p01y:sL.yBot,p11x:sR.x,p11y:sR.yBot,
+          area:Math.abs((sR.x-sL.x)*((sL.yBot-sL.yTop+sR.yBot-sR.yTop)/2)),valid:true});
+        tCursor=tR;
+        if(gi<shaped.glyphs.length-1)tCursor+=gapFrac;
+      }
+
+      const deformed=new Float32Array(geom.positions.length);
+      this._de.deform(geom.uvs,cells,geom.perGlyph,deformed);
+
+      allGeoms.push(geom);
+      allDeformed.push(deformed);
+      allCells.push(cells);
+    }
+
+    if(!allGeoms.length)return null;
+
+    // Merge all lines into a single result
+    // For rendering, we return arrays of per-line data
+    return{lines:allGeoms.map((geom,i)=>({geom,deformed:allDeformed[i],cells:allCells[i]})),boundary};
+  }
+
+  _sampleAt(s,n,t){
+    t=Math.max(0,Math.min(1,t));
+    const idx=t*(n-1);const lo=Math.max(0,Math.min(n-2,Math.floor(idx)));const f=idx-lo;
+    const a=s[lo],b=s[lo+1]||s[lo];
+    return{x:a.x+f*(b.x-a.x),yTop:a.yTop+f*(b.yTop-a.yTop),yBot:a.yBot+f*(b.yBot-a.yBot)}}
+}
+
+class VoronoiRenderer{
+  constructor(ps){this._s=ps;this._g=new ps.Group();this._cg=new ps.Group();this._tg=new ps.Group();this._g.addChild(this._cg);this._g.addChild(this._tg);this._fitter=new CellLetterFitter()}
+  getGroup(){return this._g}
+  render(cells,font,fillRatio,letterGap,margin,glyphRes,subdivs,debug){
+    this._cg.removeChildren();this._tg.removeChildren();if(!font||!cells.length)return;const S=this._s;
+    for(const cell of cells){if(cell.polygon.length<3)continue;
+      this._cg.addChild(new S.Path({segments:cell.polygon.map(p=>[p.x,p.y]),closed:true,strokeColor:'#000',strokeWidth:1}));
+      const clip=new S.Path({segments:cell.polygon.map(p=>[p.x,p.y]),closed:true});
+      const result=this._fitter.fit(cell.polygon,cell.word,font,fillRatio,letterGap,margin,glyphRes,subdivs);
+      if(!result||!result.lines){clip.remove();continue}
+
+      // Render each line
+      for(const line of result.lines){
+        for(let gi=0;gi<line.geom.perGlyph.length;gi++){
+          const pg=line.geom.perGlyph[gi];
+          const cp=new S.CompoundPath({fillColor:'#000',fillRule:'evenodd'});
+          for(let ci=0;ci<pg.contourCount;ci++){const cr=line.geom.contourRanges[pg.contourStart+ci];const p=new S.Path();
+            for(let v=0;v<cr.count;v++){const idx=(cr.start+v)*2;p.add(new S.Point(line.deformed[idx],line.deformed[idx+1]))}p.closed=true;cp.addChild(p)}
+          const clipped=cp.intersect(clip);clipped.fillColor='#000';this._tg.addChild(clipped);cp.remove()}}
+
+      clip.remove();
+      if(debug&&result.boundary){const samps=result.boundary.samples;
+        const uP=new S.Path({strokeColor:'#0a0',strokeWidth:.5,dashArray:[2,2]});const lP=new S.Path({strokeColor:'#06f',strokeWidth:.5,dashArray:[2,2]});
+        for(const s of samps){uP.add(new S.Point(s.x,s.yTop));lP.add(new S.Point(s.x,s.yBot))}this._cg.addChild(uP);this._cg.addChild(lP);
+        this._cg.addChild(new S.Path.Circle({center:[cell.seed.x,cell.seed.y],radius:2,fillColor:'#f00'}))}}}
+}
+
+// ================================================================
+// SKELETON — Distance-to-edge + column/row peak chains + RDP
+// ================================================================
+class SkeletonExtractor{
+  constructor(){
+    this._cache=new Map();
+    this._canvas=document.getElementById('skeleton-canvas');
+    this._ctx=this._canvas.getContext('2d');
+  }
+
+  /**
+   * Extract skeleton: rasterise glyph, compute distance-to-edge,
+   * find centerline by walking column peaks, simplify with RDP.
+   *
+   * The coordinate system: glyph is rendered into an NxN grid.
+   * Both the heatmap and the outline share the same transform so
+   * the caller can map grid coords (0..1) to screen by:
+   *   screenX = ox + gridX * size
+   *   screenY = oy + gridY * size
+   *
+   * The glyph is rendered with opentype's getPath centered in the grid.
+   */
+  extract(char, font, res, simplifyTol){
+    const cacheKey=(font.names.fontFamily?.en||'f')+'/'+char+'/'+res+'/'+simplifyTol;
+    if(this._cache.has(cacheKey))return this._cache.get(cacheKey);
+    res=res||80;
+    this._canvas.width=res;this._canvas.height=res;
+    const ctx=this._ctx;ctx.clearRect(0,0,res,res);
+
+    const glyph=font.charToGlyph(char);
+    if(!glyph||glyph.index===0){
+      const empty={distField:new Float32Array(res*res),inside:new Uint8Array(res*res),chains:[],endpoints:[],branches:[],res};
+      this._cache.set(cacheKey,empty);return empty}
+
+    // Get glyph path at a large reference size, then compute its bbox
+    const refSize=res*0.85;
+    const glyphPath=glyph.getPath(0,0,refSize);
+    const bb=glyphPath.getBoundingBox();
+    const gw=bb.x2-bb.x1||1, gh=bb.y2-bb.y1||1;
+
+    // Compute transform to center glyph in res×res grid with padding
+    const pad=res*0.08;
+    const availW=res-pad*2, availH=res-pad*2;
+    const scale=Math.min(availW/gw, availH/gh);
+    const txOff=pad+(availW-gw*scale)/2 - bb.x1*scale;
+    const tyOff=pad+(availH-gh*scale)/2 - bb.y1*scale;
+
+    // Render to offscreen canvas
+    ctx.save();ctx.translate(txOff,tyOff);ctx.scale(scale,scale);
+    ctx.fillStyle='black';glyphPath.fill='black';glyphPath.draw(ctx);
+    ctx.restore();
+
+    // Store the transform so _renderSkeleton can draw the outline in the same space
+    const transform={txOff,tyOff,scale,bb,refSize};
+
+    // Binary image
+    const imgData=ctx.getImageData(0,0,res,res);const px=imgData.data;
+    const inside=new Uint8Array(res*res);
+    for(let i=0;i<res*res;i++)inside[i]=px[i*4+3]>128?1:0;
+
+    // Distance-to-edge (chamfer distance transform)
+    const dt=new Float32Array(res*res);
+    for(let i=0;i<res*res;i++)dt[i]=inside[i]?1e6:0;
+    for(let y=1;y<res;y++)for(let x=1;x<res-1;x++){const i=y*res+x;
+      dt[i]=Math.min(dt[i],dt[(y-1)*res+x-1]+1.414,dt[(y-1)*res+x]+1,dt[(y-1)*res+x+1]+1.414,dt[y*res+x-1]+1)}
+    for(let y=res-2;y>=0;y--)for(let x=res-2;x>=1;x--){const i=y*res+x;
+      dt[i]=Math.min(dt[i],dt[(y+1)*res+x+1]+1.414,dt[(y+1)*res+x]+1,dt[(y+1)*res+x-1]+1.414,dt[y*res+x+1]+1)}
+
+    // ---- Find centerline: column-peak approach ----
+    // For each column x, find all contiguous runs of inside pixels.
+    // For each run, find the y with maximum dt. That's a center point.
+    // Only keep if dt at peak >= 1.2 (not a sliver).
+    // Then connect adjacent columns' peaks into chains.
+
+    // Step 1: collect all column peaks
+    const colPeaks=[]; // colPeaks[x] = [{y, d}, ...] sorted by y
+    for(let x=0;x<res;x++){
+      const peaks=[];
+      let inRun=false, runStart=0;
+      for(let y=0;y<=res;y++){
+        const isIn=y<res && inside[y*res+x];
+        if(isIn&&!inRun){inRun=true;runStart=y}
+        if(!isIn&&inRun){
+          // Find peak in run [runStart, y-1]
+          let bestD=0,bestY=runStart;
+          for(let ry=runStart;ry<y;ry++){const d=dt[ry*res+x];if(d>bestD){bestD=d;bestY=ry}}
+          if(bestD>=1.2)peaks.push({y:bestY,d:bestD});
+          inRun=false;
+        }
+      }
+      colPeaks.push(peaks);
+    }
+
+    // Step 2: build chains by connecting adjacent column peaks
+    // For each peak at column x, find the nearest peak at column x+1
+    // within a vertical distance threshold. Chain them together.
+    const vChains=this._buildChains(colPeaks,res,'vertical');
+
+    // Step 3: same for rows (to catch horizontal strokes like crossbar of A/H)
+    const rowPeaks=[];
+    for(let y=0;y<res;y++){
+      const peaks=[];
+      let inRun=false,runStart=0;
+      for(let x=0;x<=res;x++){
+        const isIn=x<res&&inside[y*res+x];
+        if(isIn&&!inRun){inRun=true;runStart=x}
+        if(!isIn&&inRun){
+          let bestD=0,bestX=runStart;
+          for(let rx=runStart;rx<x;rx++){const d=dt[y*res+rx];if(d>bestD){bestD=d;bestX=rx}}
+          if(bestD>=1.2)peaks.push({y:bestX,d:bestD}); // store x in .y for uniform handling
+          inRun=false;
+        }
+      }
+      rowPeaks.push(peaks);
+    }
+    const hChains=this._buildChains(rowPeaks,res,'horizontal');
+
+    // Step 4: merge vertical and horizontal chains, remove duplicates
+    let allChains=[...vChains,...hChains];
+
+    // Step 5: RDP simplify
+    const tol=(simplifyTol||1.5)/res;
+    allChains=allChains.map(c=>this._rdp(c,tol)).filter(c=>c.length>=2);
+
+    // Endpoints = first and last point of each chain
+    const endpoints=[];
+    for(const c of allChains){
+      if(c.length>=2){endpoints.push(c[0]);endpoints.push(c[c.length-1])}}
+
+    const result={distField:dt,inside,chains:allChains,endpoints,branches:[],res,transform};
+    this._cache.set(cacheKey,result);
+    return result;
+  }
+
+  /** Build chains from per-column (or per-row) peak arrays */
+  _buildChains(peaksByAxis, res, direction){
+    // peaksByAxis[i] = [{y, d}, ...] — peaks at axis position i
+    // For vertical: axis=x, y=y. For horizontal: axis=y, y=x (swapped).
+    const chains=[];
+    const used=new Map(); // "axis,peakIdx" -> true
+
+    for(let i=0;i<peaksByAxis.length;i++){
+      for(let pi=0;pi<peaksByAxis[i].length;pi++){
+        const key=i+','+pi;
+        if(used.has(key))continue;
+
+        // Start a new chain from this peak
+        const chain=[];
+        let ci=i, cpi=pi;
+        while(ci<peaksByAxis.length){
+          const pk=peaksByAxis[ci][cpi];
+          if(!pk)break;
+          const k2=ci+','+cpi;
+          if(used.has(k2))break;
+          used.set(k2,true);
+
+          if(direction==='vertical') chain.push({x:ci/res,y:pk.y/res});
+          else chain.push({x:pk.y/res,y:ci/res}); // swap back for horizontal
+
+          // Find best match in next axis position
+          const nextI=ci+1;
+          if(nextI>=peaksByAxis.length)break;
+          const nextPeaks=peaksByAxis[nextI];
+          if(!nextPeaks.length)break;
+
+          // Find closest peak in next column within threshold
+          let bestDist=Infinity,bestIdx=-1;
+          for(let j=0;j<nextPeaks.length;j++){
+            const dy=Math.abs(nextPeaks[j].y-pk.y);
+            if(dy<bestDist){bestDist=dy;bestIdx=j}}
+
+          // Max jump: 3 pixels vertically between adjacent columns
+          if(bestDist>3||bestIdx<0)break;
+          ci=nextI;cpi=bestIdx;
+        }
+        if(chain.length>=3)chains.push(chain);
+      }
+    }
+    return chains;
+  }
+
+  /** Ramer-Douglas-Peucker simplification */
+  _rdp(pts,epsilon){
+    if(pts.length<=2)return pts;
+    let maxD=0,maxI=0;
+    const a=pts[0],b=pts[pts.length-1];
+    const dx=b.x-a.x,dy=b.y-a.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+    for(let i=1;i<pts.length-1;i++){
+      const d=Math.abs((pts[i].y-a.y)*dx-(pts[i].x-a.x)*dy)/len;
+      if(d>maxD){maxD=d;maxI=i}}
+    if(maxD>epsilon){
+      const left=this._rdp(pts.slice(0,maxI+1),epsilon);
+      const right=this._rdp(pts.slice(maxI),epsilon);
+      return left.slice(0,-1).concat(right)}
+    return[pts[0],pts[pts.length-1]];
+  }
+
+  extractAlphabet(font,res,tol){
+    for(const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789?!')this.extract(c,font,res,tol);
+    return this._cache.size}
+  getCacheCount(){return this._cache.size}
+}
+
+// ================================================================
+// ENGINE
+// ================================================================
+class Engine{
+  constructor(){
+    this.fontManager=new FontManager();this.textShaper=new TextShaper();this.geomBuilder=new GlyphGeometryBuilder();
+    this.containerModel=new ContainerModel();this.sliceAllocator=new SliceAllocator();this.latticeBuilder=new LatticeBuilder();
+    this.deformEngine=new DeformationEngine();this.renderSync=new RenderSynchroniser();this.animCtrl=new AnimationController();
+    this.diagnostics=new DiagnosticsLayer(document.getElementById('diagnostics'));
+    this.vectorStore=new VectorStore();this.vectorDrawTool=null;this.vecTextRenderer=null;
+    this.voronoiEngine=new VoronoiEngine();this.voronoiRenderer=null;this.voronoiAnimating=false;
+    this.skeletonExtractor=new SkeletonExtractor();this.skeletonGroup=null;
+    this.dirty=new DirtyFlags();this.showDebug=false;this.mode='container';
+    this.text='DEFORM';this.glyphRes=12;this.letterGap=0;this.subdivisions=1;this.lineHeight=1.2;
+    this.margin=.06;this.maxSkew=45;this.fillRatio=.92;
+    this.currentLOD=1;this.showThroughLine=false;
+    this.shapedRun=null;this.lodGeoms=null;this.activeGeom=null;this.sliceAlloc=null;this.cells=null;this.containerSample=null;this.defPos=null}
+
+  async init(){
+    paper.setup(document.getElementById('viewport'));this.renderSync.init(paper);
+    this.vectorDrawTool=new VectorDrawTool(paper,this.vectorStore,()=>{this._updateVecList();this._renderVecs()});
+    this.vectorDrawTool.setActive(false);this.vecTextRenderer=new VectorTextRenderer(paper);
+    this.voronoiRenderer=new VoronoiRenderer(paper);this.skeletonGroup=new paper.Group();
+    this.vecTextRenderer.getGroup().visible=false;this.vecTextRenderer.getThroughLineGroup().visible=false;
+    this.voronoiRenderer.getGroup().visible=false;this.skeletonGroup.visible=false;
+    // Populate font selector
+    const sel=document.getElementById('inp-font-select');
+    GOOGLE_FONTS.forEach((f,i)=>{const o=document.createElement('option');o.value=i;o.textContent=f.name+' '+f.w;sel.appendChild(o)});
+    // Load first font
+    try{await this.fontManager.loadFont(GOOGLE_FONTS[0].url,GOOGLE_FONTS[0].name+' '+GOOGLE_FONTS[0].w);
+      document.getElementById('font-name').textContent=GOOGLE_FONTS[0].name+' '+GOOGLE_FONTS[0].w}
+    catch(e){console.error(e)}
+    this._updBounds();this.dirty.setAll();this._loop();this._bindUI();this._setMode('container')}
+
+  _updBounds(){const c=document.getElementById('viewport');this.containerModel.setBounds(40,40,c.width-80,c.height-80);this.voronoiEngine.setBounds(0,0,c.width,c.height)}
+
+  _setMode(m){this.mode=m;
+    ['container','vectors','voronoi','skeleton','info'].forEach(n=>{
+      const p=document.getElementById('panel-'+n);if(p)p.classList.toggle('hidden',m!==n);
+      const b=document.getElementById('btn-mode-'+n);if(b)b.classList.toggle('active',m===n)});
+    this.renderSync.getGlyphGroup().visible=(m==='container');this.renderSync.getDebugGroup().visible=(m==='container'&&this.showDebug);
+    this.vectorDrawTool.setActive(m==='vectors');this.vecTextRenderer.getGroup().visible=(m==='vectors');
+    this.vecTextRenderer.getThroughLineGroup().visible=(m==='vectors'&&this.showThroughLine);
+    this.voronoiRenderer.getGroup().visible=(m==='voronoi');this.skeletonGroup.visible=(m==='skeleton');
+    for(const v of this.vectorStore.getAll())v.paperPath.visible=(m==='vectors');
+    if(m==='vectors'){this.vectorDrawTool.activate();this._renderVecs()}
+    if(m==='voronoi')this._genVoronoi();
+    if(m==='info')this._populateInfoPanel();
+    this.dirty.setAll();this.diagnostics.update({mode:m})}
+
+  _genVoronoi(){const n=+document.getElementById('inp-seeds').value||20;
+    this.voronoiEngine.setWords((document.getElementById('inp-words').value||'VOID').split(',').map(w=>w.trim()));
+    this._updBounds();this.voronoiEngine.generate(n);this._renderVoronoi()}
+  _renderVoronoi(){
+    const font=this.fontManager.getActive();
+    if(!font){console.warn('No font loaded');return}
+    this.voronoiRenderer.render(this.voronoiEngine.getCells(),font,this.fillRatio,this.letterGap,this.margin,this.glyphRes,this.subdivisions,this.showDebug);
+    this.diagnostics.update({voronoiCells:this.voronoiEngine.getCells().length,fontName:this.fontManager.getActiveKey()})}
+
+  /** Debounced render — waits 150ms after last call before rendering */
+  _scheduleRender(){
+    if(this._renderTimer)clearTimeout(this._renderTimer);
+    this._renderTimer=setTimeout(()=>{
+      if(this.mode==='voronoi')this._renderVoronoi();
+      if(this.mode==='vectors')this._renderVecs();
+    },150)}
+  _renderVecs(){
+    const font=this.fontManager.getActive();
+    this.vecTextRenderer.render(this.vectorStore.getAll(),font,this.fillRatio,this.letterGap,this.glyphRes,this.subdivisions,this.showThroughLine);
+    this.vectorDrawTool.refreshDisplay();this.diagnostics.update({vectorCount:this.vectorStore.count()})}
+  _updateVecList(){const l=document.getElementById('vec-list');
+    l.innerHTML=this.vectorStore.getAll().map(v=>`<div class="vec-item${v.selected?' sel':''}" data-id="${v.id}">V${v.id} ${v.text?'"'+v.text+'"':''}</div>`).join('');
+    const s=this.vectorStore.getSelected();document.getElementById('inp-vec-text').value=s?s.text:''}
+
+  _renderSkeleton(char){
+    this.skeletonGroup.removeChildren();const font=this.fontManager.getActive();if(!font)return;
+    const res=+document.getElementById('inp-skel-res').value||80;
+    const simplifyTol=+document.getElementById('inp-skel-thresh').value||1.5;
+    this.skeletonExtractor._cache.clear();
+    const result=this.skeletonExtractor.extract(char,font,res,simplifyTol);
+    const canvas=document.getElementById('viewport');const vw=canvas.width,vh=canvas.height;
+    const dispSize=Math.min(vw,vh)*.8;
+    const dispOx=(vw-dispSize)/2, dispOy=(vh-dispSize)/2;
+    const cellW=dispSize/res, cellH=dispSize/res;
+
+    // Draw distance field heatmap — grid coords map directly to display
+    const maxDt=Math.max(1,...result.distField);
+    for(let y=0;y<res;y++){for(let x=0;x<res;x++){
+      const i=y*res+x;if(!result.inside[i])continue;
+      const d=result.distField[i];const t=d/maxDt;
+      const r2=Math.min(255,Math.floor(t*2*255));
+      const g=Math.min(255,Math.floor(t<.5?t*2*255:(1-t)*2*255));
+      const b2=Math.min(255,Math.floor((1-t)*255));
+      this.skeletonGroup.addChild(new paper.Path.Rectangle({
+        point:[dispOx+x*cellW,dispOy+y*cellH],size:[cellW+.5,cellH+.5],
+        fillColor:new paper.Color(r2/255,g/255,b2/255,0.55)}))}}
+
+    // Draw glyph outline — use the SAME transform that was used to rasterise
+    // The rasteriser rendered into res×res with a stored transform.
+    // We scale that res×res grid up to dispSize×dispSize on screen.
+    const glyph=font.charToGlyph(char);
+    if(glyph&&result.transform){
+      const T=result.transform;
+      const glyphPath=glyph.getPath(0,0,T.refSize);
+      const contours=new GlyphGeometryBuilder()._pc(glyphPath,{tolerance:.2});
+      const pp=new paper.CompoundPath({strokeColor:'#000',strokeWidth:1.5,fillColor:null,fillRule:'evenodd'});
+      for(const c of contours){
+        const p=new paper.Path();
+        for(let i=0;i<c.length;i+=2){
+          // Apply the same transform: translate(txOff,tyOff) + scale
+          const gx=c[i]*T.scale+T.txOff;
+          const gy=c[i+1]*T.scale+T.tyOff;
+          // Map from res×res grid to display
+          const sx=dispOx+gx/res*dispSize;
+          const sy=dispOy+gy/res*dispSize;
+          p.add(new paper.Point(sx,sy));
+        }
+        p.closed=true;pp.addChild(p)}
+      this.skeletonGroup.addChild(pp)}
+
+    // Draw skeleton chains — normalised coords 0..1 → display
+    let totalPts=0;
+    for(const chain of result.chains){
+      if(chain.length<2)continue;totalPts+=chain.length;
+      const p1=new paper.Path({strokeColor:'#fff',strokeWidth:3.5});
+      const p2=new paper.Path({strokeColor:'#e00',strokeWidth:2});
+      for(const pt of chain){
+        const sx=dispOx+pt.x*dispSize, sy=dispOy+pt.y*dispSize;
+        p1.add(new paper.Point(sx,sy));p2.add(new paper.Point(sx,sy))}
+      this.skeletonGroup.addChild(p1);this.skeletonGroup.addChild(p2);
+      for(const pt of chain){
+        const sx=dispOx+pt.x*dispSize,sy=dispOy+pt.y*dispSize;
+        this.skeletonGroup.addChild(new paper.Path.Circle({center:[sx,sy],radius:3,fillColor:'#fff',strokeColor:'#c00',strokeWidth:1}))}}
+
+    // Endpoints (green)
+    for(const pt of result.endpoints){
+      const sx=dispOx+pt.x*dispSize,sy=dispOy+pt.y*dispSize;
+      this.skeletonGroup.addChild(new paper.Path.Circle({center:[sx,sy],radius:5,fillColor:'#0f0',strokeColor:'#000',strokeWidth:1}))}
+
+    document.getElementById('skel-cache-count').textContent=
+      `${result.chains.length} chains, ${totalPts} pts, ${result.endpoints.length} endpoints`;
+    this.diagnostics.update({skeletonCount:this.skeletonExtractor.getCacheCount()})}
+
+  _populateInfoPanel(){
+    const el=document.getElementById('panel-info');
+    if(el.innerHTML.length>100)return; // already populated
+    el.innerHTML=`
+<h2>System Overview</h2>
+<p>This is a <b>real-time typographic quadrilateral deformation engine</b>. It maps glyph geometry into dynamically shaped containers using per-glyph bilinear interpolation. The system operates across four modes: preset container deformation, vector shape filling, Voronoi tessellation with per-cell text fitting, and medial axis skeleton extraction.</p>
+
+<h2>Architecture</h2>
+<p>The system is built as 22 OOP classes organised into a one-way pipeline. No render-layer object ever mutates source geometry. State flows strictly downward through cold → warm → hot tiers.</p>
+<h3>Cold State (rebuilt on text/font change)</h3>
+<p>Font handle, shaped glyph run, glyph metrics, master polyline geometry, UV coordinates, contour ranges, LOD caches. These are immutable once generated and persist across animation frames.</p>
+<h3>Warm State (rebuilt on container/layout change)</h3>
+<p>Container boundary samples, slice allocations, per-glyph deformation cells, validity flags. Rebuilt when the container shape changes or layout policy updates.</p>
+<h3>Hot State (rebuilt every frame)</h3>
+<p>Deformed vertex positions, runtime timings, debug overlays. Only these change during live animation.</p>
+
+<h2>Pipeline Stages</h2>
+
+<h3>1. Font Loading (FontManager)</h3>
+<p>Fonts are loaded asynchronously via OpenType.js. The manager caches parsed font objects by key and exposes the active font handle. 35 Google Fonts are available via jsdelivr CDN, plus custom upload support for .ttf/.otf/.woff files. The font is parsed into an OpenType Font object which provides glyph access, advance widths, kerning tables, and path generation.</p>
+
+<h3>2. Text Shaping (TextShaper)</h3>
+<p>Converts input text into a shaped glyph sequence. For each character, the shaper resolves the glyph index, computes the advance width scaled to font size, and applies kerning between adjacent glyph pairs. Letter gap is added as inter-glyph spacing included in the advance.</p>
+<p>The output is a <code>GlyphRun</code>: an ordered array of glyph entries, each with glyph ID, advance width, kern value, x-offset, and slots for vertex/contour indices that are filled in the next stage.</p>
+<span class="eq">advance_i = (glyph.advanceWidth / unitsPerEm) × fontSize + gap</span>
+<span class="eq">totalAdvance = Σ advance_i + Σ kern_i</span>
+<p><b>Limitation:</b> Simple Latin shaping only. No complex script support (Arabic, Devanagari, etc.), limited ligature handling, no BiDi. Full shaping would require HarfBuzz WASM integration.</p>
+
+<h3>3. Glyph Geometry Building (GlyphGeometryBuilder)</h3>
+<p>Extracts Bézier outlines from OpenType.js path commands (M, L, Q, C, Z), flattens curves to polylines via recursive adaptive subdivision, and computes immutable UV coordinates.</p>
+<h3>Curve Flattening</h3>
+<p>Quadratic and cubic Bézier curves are recursively subdivided until the midpoint deviation from the chord falls below a tolerance threshold. The tolerance is controlled by the <b>Glyph Resolution</b> slider:</p>
+<span class="eq">tolerance = 1.5 / glyphRes</span>
+<p>At glyphRes=3, tolerance=0.5 (coarse, few vertices). At glyphRes=40, tolerance=0.0375 (very smooth, many vertices).</p>
+<h3>Quadratic subdivision test</h3>
+<span class="eq">midpoint = (P0 + 2·P1 + P2) / 4</span>
+<span class="eq">chord_mid = (P0 + P2) / 2</span>
+<span class="eq">if |chord_mid - midpoint|² &lt; tolerance² → emit endpoint</span>
+<span class="eq">else → split at midpoint, recurse both halves</span>
+<h3>Cubic subdivision test</h3>
+<span class="eq">midpoint = (P0 + 3·P1 + 3·P2 + P3) / 8</span>
+<span class="eq">chord_mid = (P0 + P3) / 2</span>
+<span class="eq">same deviation test, de Casteljau split if exceeded</span>
+<h3>UV Normalisation</h3>
+<p>Each glyph's flattened vertices are normalised to [0,1]² UV space relative to the glyph's outline bounding box:</p>
+<span class="eq">u = (x - xMin) / (xMax - xMin)</span>
+<span class="eq">v = (y - yMin) / (yMax - yMin)</span>
+<p>UVs are immutable once generated. Degenerate glyphs (near-zero width punctuation) use epsilon fallbacks to prevent division by zero. UVs are stored in Float32Array for cache-friendly access in the deformation loop.</p>
+<h3>Contour Preservation</h3>
+<p>Glyphs with holes (O, B, A, P, R, 8) have multiple contours. Each M...Z command sequence produces a separate contour. Contour identity is preserved through the full pipeline. Paper.js CompoundPath with evenodd fill rule correctly renders the holes.</p>
+
+<h3>4. Container Sampling (ContainerModel + PolygonBoundarySampler)</h3>
+<h3>Preset Containers</h3>
+<p>Five parametric container shapes are defined as functions mapping domain parameter s∈[0,1] to upper/lower boundary fractions:</p>
+<ul>
+<li><b>Rectangle:</b> top=0, bottom=1 (identity)</li>
+<li><b>Trapezoid:</b> top/bottom pinch toward center proportional to |s−0.5|</li>
+<li><b>Lens:</b> sinusoidal bulge: top = 0.5 − (0.15 + bulge·sin(πs)), bottom = mirror</li>
+<li><b>Wave:</b> dual-frequency sinusoidal: top = 0.2 + A·sin(3πs+t), bottom = 0.8 + A·sin(2πs−0.6t)</li>
+<li><b>Arch:</b> top = 0.5 − H·sin(πs), bottom = 0.85 (flat base)</li>
+</ul>
+<p>Motion amplitude and time modulate these functions for animation.</p>
+<h3>Polygon Boundary Sampling</h3>
+<p>For Voronoi cells and vector shapes, the <code>PolygonBoundarySampler</code> extracts upper and lower boundaries by scanning vertical lines across the polygon:</p>
+<span class="eq">For each sample x in [xMin+margin, xMax-margin]:</span>
+<span class="eq">  Find all y-intersections of vertical line x=const with polygon edges</span>
+<span class="eq">  yTop = min(intersections) + inset</span>
+<span class="eq">  yBot = max(intersections) − inset</span>
+<p>The inset is controlled by <b>Fill</b> (how much of the boundary to use) and <b>Cell Margin</b> (distance from polygon edges). 48 samples are taken across the polygon width.</p>
+<p><b>Key property:</b> This produces a monotonic strip — for each x, there is exactly one upper and one lower boundary value. This is what makes bilinear deformation possible. Concave polygons with overhangs or self-intersections that yield multiple upper/lower values per x would break this assumption.</p>
+
+<h3>5. Slice Allocation (SliceAllocator)</h3>
+<p>Distributes the container domain among glyphs proportional to their shaped advance widths:</p>
+<span class="eq">w_i = advance_i</span>
+<span class="eq">ŵ_i = w_i / Σ w_j</span>
+<span class="eq">tStart_i = Σ(k&lt;i) ŵ_k</span>
+<span class="eq">tEnd_i = tStart_i + ŵ_i</span>
+<p>This ensures each glyph receives a proportional share of the container width based on its typographic advance, not its visual aspect ratio. The <b>Letter Gap</b> control reserves a percentage of the total width as empty space between glyphs.</p>
+
+<h3>6. Lattice Building (LatticeBuilder + CellLetterFitter)</h3>
+<p>For each glyph, a quadrilateral deformation cell is constructed by sampling the container boundaries at the glyph's tStart and tEnd positions:</p>
+<span class="eq">P₀₀ = boundary_upper(tStart)  — top-left</span>
+<span class="eq">P₁₀ = boundary_upper(tEnd)   — top-right</span>
+<span class="eq">P₀₁ = boundary_lower(tStart)  — bottom-left</span>
+<span class="eq">P₁₁ = boundary_lower(tEnd)   — bottom-right</span>
+<p>Each cell is validated: positive signed area above epsilon, consistent winding, no top/bottom crossing. Invalid cells freeze the last valid state.</p>
+<h3>Multi-Line Support</h3>
+<p>When a word contains spaces, it is split into lines. The boundary height is divided equally among lines. Each line gets its own vertical strip:</p>
+<span class="eq">lineFracTop = lineIndex / numLines</span>
+<span class="eq">lineFracBot = (lineIndex + 1) / numLines</span>
+<span class="eq">lineYTop = yTop + (yBot − yTop) × lineFracTop</span>
+<span class="eq">lineYBot = yTop + (yBot − yTop) × lineFracBot</span>
+
+<h3>7. Bilinear Deformation (DeformationEngine)</h3>
+<p>The core deformation. For each glyph vertex with immutable UV coordinates (u,v), the world-space position is computed via bilinear interpolation of the cell's four corners:</p>
+<span class="eq">P(u,v) = (1−u)(1−v)·P₀₀ + u(1−v)·P₁₀ + (1−u)v·P₀₁ + u·v·P₁₁</span>
+<p>This maps the unit square [0,1]² to the quadrilateral. It is affine along each edge but not globally affine — interior points follow a hyperbolic surface. This produces smooth deformation for moderate curvature but does not preserve stroke thickness (a known v1 limitation).</p>
+<p><b>Performance:</b> The deformation loop uses typed arrays (Float32Array) exclusively. No Paper.js point math, no object allocation per vertex. Pure scalar arithmetic in the hot loop. Target: 20k-40k vertices at 60 FPS.</p>
+
+<h3>8. Render Synchronisation (RenderSynchroniser)</h3>
+<p>Paper.js CompoundPath objects are created once per glyph contour and reused. Each frame, only segment point coordinates are updated — no path object creation or destruction during animation. This eliminates GC pressure and DOM churn.</p>
+<p>The render layer receives deformed vertex positions and writes them into existing Paper.js path segments. It never reads back from display paths, never modifies source geometry, never recreates path objects during live motion.</p>
+
+<h2>Voronoi Tessellation</h2>
+
+<h3>Cell Generation (VoronoiEngine)</h3>
+<p>Random seed points are generated within the canvas bounds. For each seed, its Voronoi cell is computed by iteratively clipping a bounding rectangle against the perpendicular bisector half-plane of every other seed:</p>
+<span class="eq">For seeds A and B:</span>
+<span class="eq">  midpoint M = (A + B) / 2</span>
+<span class="eq">  normal N = A − B</span>
+<span class="eq">  Keep points P where (P − M) · N ≥ 0</span>
+<p>This uses Sutherland-Hodgman polygon clipping. Each clip reduces the polygon to the half-plane closer to seed A than seed B. After clipping against all other seeds, the remaining polygon is A's Voronoi cell.</p>
+
+<h3>Per-Cell Text Fitting (CellLetterFitter)</h3>
+<p>For each Voronoi cell polygon:</p>
+<ul>
+<li>Sample the polygon boundary (48 vertical scanlines)</li>
+<li>Set font size to 92% of the minimum boundary height</li>
+<li>Shape the text and build glyph geometry</li>
+<li>Allocate per-glyph deformation quads across the full boundary width</li>
+<li>Bilinear-deform each glyph into its quad</li>
+<li>Boolean-intersect each deformed glyph with the cell polygon (Paper.js <code>path.intersect()</code>) to guarantee no overflow</li>
+</ul>
+<p>Text always fills the full cell width. Short words get wider letters, long words get narrower. The deformation handles the stretching/compression.</p>
+
+<h3>Animation</h3>
+<p>Voronoi seeds can be animated with per-seed sinusoidal jitter:</p>
+<span class="eq">x' = x₀ + sin(t · freqX + phaseX) × jitter × 40</span>
+<span class="eq">y' = y₀ + sin(t · freqY + phaseY) × jitter × 40</span>
+<p>Each seed has independent frequency and phase parameters, producing organic Brownian-like motion. The jitter slider controls amplitude.</p>
+
+<h2>Vector Shape Filling</h2>
+<p>Drawn shapes (freehand or polyline, auto-closed) are sampled into polygons (24-100 points depending on path length) and fed through the same CellLetterFitter pipeline. The through-line finder walks along the boundary casting normals inward to find the medial axis of drawn shapes.</p>
+
+<h2>Skeleton Extraction</h2>
+<p>The skeleton mode extracts the medial axis (centerline) of a character using distance-to-edge analysis:</p>
+
+<h3>Step 1: Rasterisation</h3>
+<p>The glyph is rendered to an offscreen canvas at the specified resolution (32-128px). The canvas transform is stored so the vector outline and heatmap align precisely.</p>
+
+<h3>Step 2: Distance Field (Chamfer Distance Transform)</h3>
+<p>For every inside pixel, compute the distance to the nearest outside (edge) pixel using a two-pass chamfer transform:</p>
+<span class="eq">Forward pass (top-left → bottom-right):</span>
+<span class="eq">  dt[y][x] = min(dt[y][x],</span>
+<span class="eq">    dt[y-1][x-1] + √2,  dt[y-1][x] + 1,  dt[y-1][x+1] + √2,</span>
+<span class="eq">    dt[y][x-1] + 1)</span>
+<span class="eq">Backward pass (bottom-right → top-left):</span>
+<span class="eq">  dt[y][x] = min(dt[y][x],</span>
+<span class="eq">    dt[y+1][x+1] + √2,  dt[y+1][x] + 1,  dt[y+1][x-1] + √2,</span>
+<span class="eq">    dt[y][x+1] + 1)</span>
+<p>The result is an approximate Euclidean distance field. Pixels at the center of thick strokes have the highest values. This is visualised as a heatmap: blue (edge, low distance) → yellow (mid) → red (center, high distance).</p>
+
+<h3>Step 3: Column/Row Peak Scanning</h3>
+<p>For each vertical column, find all contiguous runs of inside pixels. Within each run, select the pixel with the maximum distance value — this is the centerline point at that column. Repeat for horizontal rows to capture horizontal strokes (crossbars, etc.).</p>
+<span class="eq">For column x, run [yStart, yEnd]:</span>
+<span class="eq">  peak_y = argmax(dt[y][x]) for y ∈ [yStart, yEnd]</span>
+<span class="eq">  if dt[peak_y][x] ≥ 1.2: record center point (x, peak_y)</span>
+<p>The threshold of 1.2 pixels filters out slivers and noise.</p>
+
+<h3>Step 4: Chain Building</h3>
+<p>Adjacent column peaks are connected into chains. For each peak at column x, the algorithm finds the nearest peak at column x+1 within a 3-pixel vertical jump threshold. If found, the peaks are chained together. This produces ordered polylines that follow the stroke centerline.</p>
+<p>The same process runs on row peaks to capture horizontal strokes. Vertical and horizontal chains are merged.</p>
+
+<h3>Step 5: RDP Simplification</h3>
+<p>Each chain is simplified using the Ramer-Douglas-Peucker algorithm. The threshold slider controls the tolerance — higher values produce fewer points:</p>
+<span class="eq">For chain [P₀, P₁, ..., Pₙ]:</span>
+<span class="eq">  Find point Pᵢ with maximum perpendicular distance to line P₀Pₙ</span>
+<span class="eq">  If max_distance > ε: recurse on [P₀..Pᵢ] and [Pᵢ..Pₙ]</span>
+<span class="eq">  Else: replace entire chain with [P₀, Pₙ]</span>
+
+<h2>Invalidation Model</h2>
+<p>Four dirty flags control rebuild scope:</p>
+<ul>
+<li><b>textDirty:</b> text, font, or geometry source changed → rebuild shaped run, geometry caches, UVs, allocation widths, then cascade to layout + container + render</li>
+<li><b>containerDirty:</b> container geometry or motion changed → rebuild boundary samples, validity tests, glyph cells, then cascade to render</li>
+<li><b>layoutDirty:</b> tracking or allocation policy changed → rebuild slice allocation, then cascade to container + render</li>
+<li><b>renderDirty:</b> deformed positions changed → render sync only</li>
+</ul>
+<p>Cold geometry is never rebuilt during ordinary animation. The animation controller only sets containerDirty, triggering warm + hot rebuilds.</p>
+
+<h2>Performance Design</h2>
+<ul>
+<li>Typed arrays (Float32Array) for all deformation and cached geometry</li>
+<li>Paper.js path objects created once, segment coordinates updated in-place</li>
+<li>No object allocation per vertex in the hot loop</li>
+<li>LOD system: 3 levels with tolerance 0.15/0.4/1.2 for container mode</li>
+<li>Debounced re-render (150ms) for slider interactions to prevent UI freeze</li>
+<li>Voronoi boolean intersection (Paper.js <code>intersect()</code>) is the performance bottleneck — it runs per-glyph per-cell, O(glyphs × cells)</li>
+</ul>
+
+<h2>Known Limitations</h2>
+<ul>
+<li><b>Stroke distortion:</b> Bilinear FFD does not preserve typographic stroke thickness. Horizontal strokes get thinner in vertically compressed regions. Medial-axis deformation would fix this but is not implemented.</li>
+<li><b>Concave containers:</b> The boundary sampler requires monotonic strip-like containers. Deep crescents, spirals, or shapes with overhangs produce invalid (multi-valued) boundaries and are rejected.</li>
+<li><b>Simple Latin only:</b> No complex script shaping, limited ligature support, no RTL.</li>
+<li><b>Boolean intersection cost:</b> Paper.js <code>intersect()</code> is expensive for complex glyph outlines. High cell counts (>40) with high glyph resolution can cause multi-second render times.</li>
+<li><b>Skeleton accuracy:</b> The chamfer distance transform is an approximation of Euclidean distance. At low resolutions, the centerline can be off by ±1 pixel. Higher resolution improves accuracy at computational cost.</li>
+</ul>
+
+<h2>Class Reference</h2>
+<ul>
+<li><b>DirtyFlags</b> — 4-flag invalidation state</li>
+<li><b>FontManager</b> — async font loading + caching</li>
+<li><b>TextShaper</b> — glyph sequencing + advance/kern computation</li>
+<li><b>GlyphGeometryBuilder</b> — Bézier flattening + UV generation + LOD</li>
+<li><b>ContainerModel</b> — parametric container shape definitions</li>
+<li><b>SliceAllocator</b> — proportional domain subdivision by advance width</li>
+<li><b>LatticeBuilder</b> — per-glyph quad cell construction from boundary samples</li>
+<li><b>DeformationEngine</b> — bilinear interpolation (typed array hot loop)</li>
+<li><b>RenderSynchroniser</b> — Paper.js path sync without object churn</li>
+<li><b>AnimationController</b> — time/speed/amplitude state</li>
+<li><b>DiagnosticsLayer</b> — runtime timing + state readout</li>
+<li><b>DrawnVector</b> — single user-drawn path entity</li>
+<li><b>VectorStore</b> — vector collection + selection management</li>
+<li><b>VectorDrawTool</b> — Paper.js tool for freehand/polyline/select</li>
+<li><b>ThroughLineFinder</b> — medial axis of Paper.js closed paths via normal ray casting</li>
+<li><b>VectorTextRenderer</b> — polygon sampling + CellLetterFitter + clip</li>
+<li><b>VoronoiEngine</b> — Sutherland-Hodgman cell computation</li>
+<li><b>PolygonBoundarySampler</b> — vertical scanline upper/lower extraction</li>
+<li><b>CellLetterFitter</b> — font sizing + quad allocation + multi-line + deformation</li>
+<li><b>VoronoiRenderer</b> — cell outlines + fitted text + boolean clip</li>
+<li><b>SkeletonExtractor</b> — distance field + column peak + chain + RDP</li>
+<li><b>Engine</b> — orchestrator, pipeline scheduler, UI binding</li>
+</ul>
+`;
+  }
+
+  _downloadPNG(){const raster=paper.project.activeLayer.rasterize({resolution:144,insert:false});
+    const a=document.createElement('a');a.download='typo-deform-'+Date.now()+'.png';a.href=raster.toDataURL();document.body.appendChild(a);a.click();document.body.removeChild(a)}
+
+  _loop(){let lt=performance.now();const go=()=>{const now=performance.now();const dt=(now-lt)/1000;lt=now;
+    this.animCtrl.update(dt);
+    if(this.mode==='container'&&this.animCtrl.isRunning())this.dirty.containerDirty=true;
+    if(this.mode==='voronoi'&&this.voronoiAnimating){this.voronoiEngine.animate(this.animCtrl.getTime());this._renderVoronoi()}
+    const t0=performance.now();if(this.mode==='container')this._pipeline();const t1=performance.now();
+    this.diagnostics.update({frameTime:t1-t0,fontName:this.fontManager.getActiveKey(),
+      dirtyFlags:`t:${this.dirty.textDirty?1:0} c:${this.dirty.containerDirty?1:0}`});
+    this.dirty.reset();paper.view.update();requestAnimationFrame(go)};requestAnimationFrame(go)}
+
+  _pipeline(){const font=this.fontManager.getActive();if(!font)return;
+    if(this.dirty.textDirty){this.shapedRun=this.textShaper.shapeText(this.text,font,72,0);
+      this.lodGeoms=this.geomBuilder.buildLODs(this.shapedRun,font,72);
+      this.activeGeom=this.lodGeoms[this.currentLOD]||this.lodGeoms[1];this.defPos=new Float32Array(this.activeGeom.positions.length);
+      this.renderSync.rebuildPaths(this.activeGeom.contourRanges,this.activeGeom.perGlyph);
+      this.dirty.layoutDirty=true;this.dirty.containerDirty=true;
+      this.diagnostics.update({glyphCount:this.shapedRun.glyphs.length,vertexCount:this.activeGeom.totalVertices,lod:'LOD'+this.currentLOD})}
+    if(!this.dirty.textDirty&&this.lodGeoms&&this.activeGeom!==this.lodGeoms[this.currentLOD]){
+      this.activeGeom=this.lodGeoms[this.currentLOD]||this.lodGeoms[1];this.defPos=new Float32Array(this.activeGeom.positions.length);
+      this.renderSync.rebuildPaths(this.activeGeom.contourRanges,this.activeGeom.perGlyph);this.dirty.containerDirty=true;this.dirty.layoutDirty=true}
+    if(!this.shapedRun||!this.activeGeom)return;
+    if(this.dirty.layoutDirty){this.sliceAlloc=this.sliceAllocator.allocate(this.shapedRun.glyphs,0);this.dirty.containerDirty=true}
+    if(this.dirty.containerDirty){this._updBounds();
+      this.containerSample=this.containerModel.sample(64,this.animCtrl.getAmplitude(),this.animCtrl.getTime());
+      if(this.containerSample.valid&&this.sliceAlloc)this.cells=this.latticeBuilder.buildCells(this.containerSample,this.sliceAlloc);this.dirty.renderDirty=true}
+    if(this.dirty.renderDirty&&this.cells&&this.activeGeom){
+      const t0=performance.now();this.deformEngine.deform(this.activeGeom.uvs,this.cells,this.activeGeom.perGlyph,this.defPos);const t1=performance.now();
+      this.renderSync.syncPositions(this.defPos,this.activeGeom.contourRanges,this.activeGeom.perGlyph);const t2=performance.now();
+      this.renderSync.drawDebug(this.containerSample,this.cells,this.showDebug);
+      this.diagnostics.update({deformTime:t1-t0,syncTime:t2-t1})}}
+
+  _bindUI(){const $=id=>document.getElementById(id);
+    $('btn-mode-container').addEventListener('click',()=>this._setMode('container'));
+    $('btn-mode-vectors').addEventListener('click',()=>this._setMode('vectors'));
+    $('btn-mode-voronoi').addEventListener('click',()=>this._setMode('voronoi'));
+    $('btn-mode-skeleton').addEventListener('click',()=>this._setMode('skeleton'));
+    $('btn-mode-info').addEventListener('click',()=>this._setMode('info'));
+
+    $('inp-font-select').addEventListener('change',async e=>{const idx=+e.target.value;const f=GOOGLE_FONTS[idx];if(!f)return;
+      $('font-name').textContent='loading...';
+      try{await this.fontManager.loadFont(f.url,f.name+' '+f.w);
+        $('font-name').textContent=f.name+' '+f.w;this.dirty.textDirty=true;this.skeletonExtractor._cache.clear();
+        if(this.mode==='vectors')this._renderVecs();if(this.mode==='voronoi')this._renderVoronoi();
+        if(this.mode==='skeleton')this._renderSkeleton($('inp-skel-char').value||'A');
+      }catch(err){$('font-name').textContent='ERROR: '+err.message}});
+    $('inp-font').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
+      try{await this.fontManager.loadFont(await f.arrayBuffer(),'custom:'+f.name);$('font-name').textContent=f.name;this.dirty.textDirty=true;this.skeletonExtractor._cache.clear();
+        if(this.mode==='vectors')this._renderVecs();if(this.mode==='voronoi')this._renderVoronoi();
+        if(this.mode==='skeleton')this._renderSkeleton($('inp-skel-char').value||'A')}catch(err){$('font-name').textContent='ERROR'}});
+
+    $('inp-size').addEventListener('input',e=>{this.glyphRes=+e.target.value;$('v-size').textContent=this.glyphRes;this._scheduleRender()});
+    $('inp-track').addEventListener('input',e=>{this.letterGap=+e.target.value;$('v-track').textContent=this.letterGap;this._scheduleRender()});
+    $('inp-subdiv').addEventListener('input',e=>{this.subdivisions=+e.target.value;$('v-subdiv').textContent=this.subdivisions;this._scheduleRender()});
+    $('inp-leading').addEventListener('input',e=>{this.lineHeight=+e.target.value;$('v-leading').textContent=this.lineHeight;this._scheduleRender()});
+    $('inp-margin').addEventListener('input',e=>{this.margin=+e.target.value;$('v-margin').textContent=this.margin;this._scheduleRender()});
+    $('inp-skew').addEventListener('input',e=>{this.maxSkew=+e.target.value;$('v-skew').textContent=this.maxSkew;this._scheduleRender()});
+    $('inp-fill').addEventListener('input',e=>{this.fillRatio=+e.target.value;$('v-fill').textContent=this.fillRatio;this._scheduleRender()});
+
+    $('inp-text').addEventListener('input',e=>{this.text=e.target.value||' ';this.dirty.textDirty=true});
+    $('inp-container').addEventListener('change',e=>{this.containerModel.setType(e.target.value);this.dirty.containerDirty=true});
+    $('inp-lod').addEventListener('change',e=>{this.currentLOD=+e.target.value;this.dirty.renderDirty=true});
+    $('inp-motion').addEventListener('input',e=>{this.animCtrl.setAmplitude(+e.target.value);$('v-motion').textContent=e.target.value;this.dirty.containerDirty=true});
+    $('inp-speed').addEventListener('input',e=>{this.animCtrl.setSpeed(+e.target.value);$('v-speed').textContent=e.target.value});
+    $('btn-animate').addEventListener('click',()=>{const r=!this.animCtrl.isRunning();this.animCtrl.setRunning(r);$('btn-animate').textContent=r?'Stop':'Start Animation'});
+
+    const sVM=m=>{this.vectorDrawTool.setDrawMode(m);['free','line','select'].forEach(n=>$('btn-draw-'+n).classList.toggle('active',m===n))};
+    $('btn-draw-free').addEventListener('click',()=>sVM('free'));$('btn-draw-line').addEventListener('click',()=>sVM('line'));$('btn-draw-select').addEventListener('click',()=>sVM('select'));
+    $('inp-simplify').addEventListener('input',e=>{this.vectorDrawTool.setSimplify(+e.target.value);$('v-simplify').textContent=e.target.value});
+    $('inp-vec-text').addEventListener('input',e=>{const s=this.vectorStore.getSelected();if(s){s.text=e.target.value;this._renderVecs();this._updateVecList()}});
+    $('inp-show-throughline').addEventListener('change',e=>{this.showThroughLine=e.target.checked;this._renderVecs();this.vecTextRenderer.getThroughLineGroup().visible=this.showThroughLine});
+    $('vec-list').addEventListener('click',e=>{const it=e.target.closest('.vec-item');if(!it)return;this.vectorStore.select(+it.dataset.id);this._updateVecList();this.vectorDrawTool.refreshDisplay()});
+    $('btn-vec-delete').addEventListener('click',()=>{const s=this.vectorStore.getSelected();if(s){this.vectorStore.remove(s.id);this._updateVecList();this._renderVecs()}});
+    $('btn-vec-clear').addEventListener('click',()=>{this.vectorStore.clear();this._updateVecList();this._renderVecs()});
+
+    $('inp-seeds').addEventListener('input',e=>{$('v-seeds').textContent=e.target.value});
+    $('inp-seeds').addEventListener('change',()=>{if(this.mode==='voronoi')this._genVoronoi()});
+    $('btn-vor-regen').addEventListener('click',()=>{if(this.mode==='voronoi')this._genVoronoi()});
+    $('inp-jitter').addEventListener('input',e=>{this.voronoiEngine.setJitter(+e.target.value);$('v-jitter').textContent=e.target.value});
+    $('btn-vor-anim').addEventListener('click',()=>{this.voronoiAnimating=!this.voronoiAnimating;
+      if(this.voronoiAnimating&&!this.animCtrl.isRunning())this.animCtrl.setRunning(true);
+      $('btn-vor-anim').textContent=this.voronoiAnimating?'Stop Motion':'Start Motion'});
+
+    $('btn-skel-extract').addEventListener('click',()=>this._renderSkeleton($('inp-skel-char').value||'A'));
+    $('btn-skel-all').addEventListener('click',()=>{const font=this.fontManager.getActive();if(!font)return;
+      const res=+$('inp-skel-res').value||80;const thresh=+$('inp-skel-thresh').value||.5;
+      this.skeletonExtractor.extractAlphabet(font,res,thresh);$('skel-cache-count').textContent=this.skeletonExtractor.getCacheCount()+' cached';
+      this._renderSkeleton($('inp-skel-char').value||'A')});
+    $('inp-skel-char').addEventListener('input',e=>{if(this.mode==='skeleton')this._renderSkeleton(e.target.value||'A')});
+    $('inp-skel-thresh').addEventListener('input',e=>{$('v-skel-thresh').textContent=e.target.value;if(this.mode==='skeleton')this._renderSkeleton($('inp-skel-char').value||'A')});
+    $('inp-skel-res').addEventListener('input',e=>{$('v-skel-res').textContent=e.target.value});
+    $('inp-skel-res').addEventListener('change',e=>{if(this.mode==='skeleton')this._renderSkeleton($('inp-skel-char').value||'A')});
+
+    $('btn-download').addEventListener('click',()=>this._downloadPNG());
+    $('btn-diag').addEventListener('click',()=>this.diagnostics.toggle());
+    $('btn-debug').addEventListener('click',()=>{this.showDebug=!this.showDebug;this.dirty.renderDirty=true;if(this.mode==='voronoi')this._renderVoronoi()});
+    window.addEventListener('resize',()=>{this._updBounds();this.dirty.containerDirty=true;if(this.mode==='voronoi')this._renderVoronoi()})}
+}
+
+window.addEventListener('DOMContentLoaded',()=>{const e=new Engine();e.init().catch(err=>{console.error('Init:',err);
+  document.getElementById('diagnostics').classList.add('open');document.getElementById('diagnostics').textContent='ERROR: '+err.message})});
+</script>
+</body>
+</html>

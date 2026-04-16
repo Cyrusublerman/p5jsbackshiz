@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VORONOI STIPPLE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+body{margin:0;padding:0;font:11px/1.3 monospace;background:#fff}
+#top{border-bottom:1px solid #000;padding:5px 10px}
+#top b{font-size:13px}
+#bar{border-bottom:1px solid #000;padding:0;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center}
+#bar label{white-space:nowrap;padding:2px 0}
+#bar input[type="range"]{width:60px;vertical-align:middle}
+#bar input[type="text"]{width:32px;font-size:14px;text-align:center;padding:0 1px;border:1px solid #000}
+#bar select{font:inherit;border:1px solid #000}
+#bar button{font:inherit;padding:0 6px;cursor:pointer;border:1px solid #000;background:#fff}
+#bar button:active{background:#000;color:#fff}
+.br{width:100%;height:0;border-bottom:1px solid #ddd;margin:0}
+.g{font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding-left:8px}
+#drop{min-height:280px;border-bottom:1px solid #000;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.05);touch-action:manipulation}
+#drop.over{background:#eee}
+#drop.has-canvas{cursor:default}
+#prompt{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;color:#999;text-align:center;cursor:pointer;z-index:1;padding:20px}
+#canvasContainer{display:none}
+#canvasContainer.active{display:block}
+#st{padding:3px 10px;font-size:10px;color:#666}
+canvas{display:block;margin:0 auto}
+#fileInput{display:none}
+#docs{padding:16px 24px 40px;max-width:800px;margin:0 auto;font:12px/1.6 monospace;color:#333}
+#docs h2{font-size:14px;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid #000}
+#docs h3{font-size:12px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+#docs p{margin:0 0 8px;text-align:left}
+#docs i{font-style:normal;text-decoration:underline}
+</style>
+</head>
+<body>
+<div id="top"><b>VORONOI STIPPLE</b> — advanced stippling engine</div>
+<div id="bar">
+  <span class="g">image:</span>
+  <button id="loadBtn">load</button>
+  <label>scale <select id="scaleSel"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option><option value="4">4×</option></select></label>
+  <label><input type="checkbox" id="invertChk"> invert</label>
+  <div class="br"></div>
+  <span class="g">distribution:</span>
+  <label>dots <input type="range" id="dotCount" min="500" max="30000" value="6000" step="500"><span id="dotCountVal">6000</span></label>
+  <label>seed <select id="seedMode"><option value="rejection">rejection</option><option value="poisson" selected>poisson disk</option><option value="bluenoise">blue noise</option><option value="cdf">CDF</option><option value="jittered">jittered</option></select></label>
+  <label>edge <input type="range" id="edgeBoost" min="0" max="2" value="0" step="0.1"><span id="edgeBoostVal">0</span></label>
+  <label>min d <input type="range" id="minDist" min="1" max="30" value="3" step="0.5"><span id="minDistVal">3.0</span></label>
+  <label>max d <input type="range" id="maxDist" min="3" max="60" value="14" step="0.5"><span id="maxDistVal">14</span></label>
+  <div class="br"></div>
+  <span class="g">relaxation:</span>
+  <label>mode <select id="relaxMode"><option value="lloyd">lloyd</option><option value="momentum" selected>lloyd+momentum</option><option value="jfa">jump flood</option><option value="spring">spring</option></select></label>
+  <label>iters <input type="range" id="maxIter" min="10" max="300" value="80" step="10"><span id="maxIterVal">80</span></label>
+  <label>momentum <input type="range" id="momentum" min="0" max="0.8" value="0.3" step="0.05"><span id="momentumVal">0.30</span></label>
+  <label>samples <input type="range" id="samplesPerPt" min="4" max="40" value="20" step="2"><span id="samplesPerPtVal">20</span></label>
+  <label>damping <input type="range" id="damping" min="0.1" max="1.0" value="0.4" step="0.05"><span id="dampingVal">0.40</span></label>
+  <label><input type="checkbox" id="autoConvChk" checked> auto-stop</label>
+  <label><input type="checkbox" id="ccvtChk"> ccvt</label>
+  <div class="br"></div>
+  <span class="g">tone:</span>
+  <label>gamma <input type="range" id="gamma" min="0.2" max="4" value="1.0" step="0.1"><span id="gammaVal">1.0</span></label>
+  <label>min s <input type="range" id="minSize" min="0.2" max="10" value="1" step="0.1"><span id="minSizeVal">1.0</span></label>
+  <label>max s <input type="range" id="maxSize" min="1" max="40" value="10" step="0.5"><span id="maxSizeVal">10</span></label>
+  <label>jitter <input type="range" id="sizeJitter" min="0" max="0.5" value="0" step="0.02"><span id="sizeJitterVal">0</span></label>
+  <label>opacity <input type="range" id="opacityAmt" min="0" max="1" value="0" step="0.05"><span id="opacityAmtVal">0</span></label>
+  <div class="br"></div>
+  <span class="g">glyph:</span>
+  <label>1 <input type="text" id="glyphInput" value="●"></label>
+  <label>2 <input type="text" id="glyph2Input" value=""></label>
+  <label>3 <input type="text" id="glyph3Input" value=""></label>
+  <label><input type="checkbox" id="colorChk"> color</label>
+  <div class="br"></div>
+  <span class="g">flow field:</span>
+  <label>strength <input type="range" id="rotateAmt" min="0" max="1" value="0" step="0.05"><span id="rotateAmtVal">0</span></label>
+  <label>smooth <input type="range" id="flowSmooth" min="1" max="30" value="8" step="1"><span id="flowSmoothVal">8</span></label>
+  <label>dir <select id="flowDir"><option value="along" selected>along edge</option><option value="across">across edge</option></select></label>
+  <label><input type="checkbox" id="flowVisChk"> show field</label>
+  <div class="br"></div>
+  <span class="g">noise:</span>
+  <label><select id="noiseType"><option value="perlin">perlin</option><option value="curl">curl</option></select></label>
+  <label>amt <input type="range" id="noiseAmt" min="0" max="30" value="0" step="0.5"><span id="noiseAmtVal">0</span></label>
+  <label>scl <input type="range" id="noiseScale" min="0.001" max="0.05" value="0.01" step="0.001"><span id="noiseScaleVal">.010</span></label>
+  <div class="br"></div>
+  <button id="resetBtn">reset</button>
+  <button id="exportBtn">save svg</button>
+</div>
+<div id="drop">
+  <label id="prompt" for="fileInput2">tap here or drop image</label>
+  <input type="file" id="fileInput" accept="image/*">
+  <input type="file" id="fileInput2" accept="image/*" style="position:absolute;width:100%;height:100%;top:0;left:0;opacity:0;cursor:pointer">
+  <div id="canvasContainer"></div>
+</div>
+<div id="st"><span id="status">awaiting image</span></div>
+
+<div id="docs">
+<h2>VORONOI STIPPLE — documentation</h2>
+
+<p>A browser-based image stippling engine that converts photographs into arrangements of discrete marks (dots, symbols, or arbitrary unicode glyphs) whose size, spacing, rotation, colour and opacity encode the tonal information of the source image. The entire computation pipeline — image analysis, point distribution, iterative relaxation, and post-processing — runs in a Web Worker thread, keeping the UI responsive during heavy computation. Positions are transferred between threads as raw ArrayBuffers with zero-copy semantics.</p>
+
+<h3>Pipeline overview</h3>
+
+<p>The tool processes images through five sequential stages: image analysis, point seeding, iterative relaxation, post-processing, and rendering. Each stage is modular and configurable.</p>
+
+<p><b>Stage 1 — Image analysis (Worker thread).</b> The source image is resampled to the target canvas dimensions (original size × scale multiplier, capped at 3200px longest edge). Perceptual luminance is extracted per pixel using ITU-R BT.601 weights (0.299R + 0.587G + 0.114B). A Sobel operator computes horizontal and vertical gradients (Ix, Iy) using a 3×3 kernel with 0.25 normalisation. Edge magnitude is derived as √(Ix² + Iy²) and normalised to 0–1. A structure tensor is assembled from the gradient products (Jxx = Ix², Jxy = Ix·Iy, Jyy = Iy²), each component smoothed by a separable box blur (approximating Gaussian) at a user-configurable radius. The dominant orientation is extracted as 0.5·atan2(2·Jxy, Jxx − Jyy), yielding a per-pixel flow angle that follows image edges. Anisotropy magnitude is computed from the tensor eigenvalue difference. All results — edge magnitude, flow angles, flow magnitudes — are transferred back to the main thread.</p>
+
+<p><b>Stage 2 — Density map construction (Main thread).</b> A precomputed density map bakes together the luminance, gamma curve, inversion, and edge boost into a single Float32Array. Each pixel's density value is computed once as: d = pow(darkness, gamma) + edgeMag × edgeBoost, clamped to [0, 1]. This array is passed to the worker for seeding and relaxation, eliminating repeated per-pixel Math.pow() calls during the inner loops of relaxation (the single largest performance optimisation).</p>
+
+<p><b>Stage 3 — Point seeding (Worker thread).</b> An initial set of candidate points is distributed across the image. Five seeding strategies are available:</p>
+
+<p><i>Rejection sampling</i> — the simplest method. Random (x, y) candidates are accepted with probability proportional to the local density plus a small floor (0.02) ensuring light areas receive some points. Up to 120× the target count in attempts. Fast but produces uneven initial distributions requiring more relaxation iterations to converge.</p>
+
+<p><i>Poisson disk sampling</i> — variable-radius dart throwing. An average exclusion radius is estimated from the target point count and image area. For each candidate, the local exclusion radius is modulated by density: dark areas accept tighter spacing (0.2× base radius), light areas enforce wider spacing (1.0× base radius). A spatial grid accelerates the proximity test. Produces quasi-uniform initial distributions that converge in fewer Lloyd iterations. Up to 150× target count in attempts.</p>
+
+<p><i>Blue noise threshold</i> — a grid-stepping approach where a hash-based noise function (two interleaved sine hashes blended 70/30) is compared against the density map scaled by 1.5×. Points are placed at grid intersections with sub-cell jitter when the noise value falls below the density threshold. Produces blue-noise spectral properties without iterative refinement. Faster than Poisson but less controllable.</p>
+
+<p><i>CDF importance sampling</i> — builds a cumulative distribution function across all pixels (density + 0.001 floor), then samples from it via binary search. Each sample maps to a pixel position with sub-pixel jitter. Guarantees exact density-proportional distribution with no rejection waste. Best for very high point counts where rejection sampling's acceptance rate drops.</p>
+
+<p><i>Jittered grid</i> — divides the canvas into √(1.5 × count) cells per side, places one jittered point per cell, accepts/rejects based on local density plus a 0.05 floor. Gives stratified coverage with guaranteed spatial uniformity. The most predictable distribution but can look grid-like at low iteration counts.</p>
+
+<p><b>Stage 4 — Relaxation (Worker thread).</b> Points iteratively migrate toward weighted centroids of their Voronoi cells, producing the characteristic organic packing where dot spacing encodes image brightness. Four relaxation modes are available:</p>
+
+<p><i>Lloyd's algorithm</i> — the classic method. Each iteration: (1) build a spatial grid index, (2) for each sampled pixel, find its nearest point via expanding-ring search, (3) accumulate density-weighted centroid sums (Σ x·w, Σ y·w, Σ w) per point, (4) move each point to its weighted centroid. Pixel sampling density is controlled by the "samples" parameter (pixels per point per iteration, default 20). Higher values give more accurate Voronoi regions but cost proportionally more. The spatial grid uses cell sizes of ~1.2× the average inter-point distance for optimal bucket occupancy.</p>
+
+<p><i>Lloyd + momentum</i> — adds Nesterov-style acceleration. After computing the centroid, the displacement from the previous position is scaled by the momentum factor (default 0.3) and added: new_pos = centroid + momentum × (centroid − prev_pos). Converges 2–4× faster than plain Lloyd. Values above 0.5 can cause oscillation; above 0.7 is unstable for most configurations.</p>
+
+<p><i>Jump Flood Algorithm (JFA)</i> — approximates the Voronoi diagram on a 2× downsampled grid using the JFA propagation scheme. Starting from step = max(w,h)/2 and halving each pass, each pixel checks its 3×3 neighbourhood at the current step distance and adopts the nearest seed. After convergence, weighted centroids are accumulated from the ownership map. O(n log n) per iteration versus O(n × pixels/step²) for Lloyd. Less precise at boundaries but significantly faster for large images.</p>
+
+<p><i>Spring / force-directed</i> — treats points as particles. Each point experiences: (a) repulsion from neighbours within 2.5× the ideal inter-point distance, with force magnitude proportional to (ideal − actual) / ideal, scaled by 2.0; (b) attraction toward local density maxima, sampled by 6 random probes within 0.5× ideal distance, with 0.3× attraction strength. The damping parameter controls the timestep. Lower damping (0.1–0.2) gives stable but slow convergence; higher (0.6–1.0) is fast but can oscillate. Unlike Lloyd, spring relaxation doesn't compute Voronoi regions — it's a continuous force equilibrium that naturally handles boundaries.</p>
+
+<p>Convergence detection monitors per-point mean squared displacement between iterations. When this energy drops below 0.01 and at least 10 iterations have elapsed, relaxation halts early. This can be disabled with the "auto-stop" checkbox to force all iterations to run.</p>
+
+<p><b>Stage 5 — Post-processing (Worker + Main thread).</b> After relaxation completes, three operations are applied in sequence:</p>
+
+<p><i>Minimum distance enforcement</i> — points are sorted by local density (darkest first). A clean spatial grid is built incrementally: each point is accepted only if no previously accepted point exists within its local minimum distance. The local minimum interpolates between min_dist (at density = 1) and max_dist (at density = 0), so dark areas pack tightly and light areas thin out. Points failing the test are discarded. This runs on the worker thread.</p>
+
+<p><i>Capacity-constrained culling (CCVT)</i> — optional. Points in very light areas (density &lt; 0.15) are probabilistically removed with probability (1 − density − 0.1), balancing cell capacity across the image. A rough approximation of Balzer et al.'s full CCVT algorithm.</p>
+
+<p><i>Noise displacement</i> — applied on the main thread (requires p5.js noise function). Two modes: Perlin displacement adds independent x/y noise offsets; curl noise computes the curl of a scalar noise field for divergence-free (swirling) displacement that preserves point density. Both use configurable amplitude and frequency scale, with a random seed per run for variation. Points are clamped to canvas bounds after displacement.</p>
+
+<h3>Rendering</h3>
+
+<p>Every frame, the main thread computes per-point size, rotation, opacity, and colour from the current slider values (no re-run needed for these parameters).</p>
+
+<p><i>Size mapping</i> — size = min_size + pow(darkness, gamma) × (max_size − min_size). Gamma reshapes the tonal curve: values below 1.0 expand shadows (more points get large sizes), values above 1.0 expand highlights (more points stay small). Size jitter adds ±random variation per glyph per frame as a fraction of the computed size.</p>
+
+<p><i>Flow field rotation</i> — the structure tensor's dominant orientation is used to rotate glyphs. The "strength" slider blends from 0 (no rotation) to 1 (full alignment). Rotation is further modulated by local gradient magnitude (× 3, clamped to 1) so that flat regions (where orientation is undefined) don't receive arbitrary rotations. "Along edge" mode uses the tangent direction (perpendicular to gradient); "across edge" adds π/2 to follow the gradient itself.</p>
+
+<p><i>Opacity mapping</i> — when enabled, opacity = (1 − amount) + amount × pow(darkness, gamma). At amount = 0, all points are fully opaque. At amount = 1, light-area points fade to near-transparent. This provides additional tonal range beyond size alone.</p>
+
+<p><i>Colour from source</i> — samples the original image's RGB values at each point position (from the precomputed colorData Uint8Array) and renders the glyph in that colour.</p>
+
+<p><i>Multi-glyph mixing</i> — when multiple glyph inputs are filled, points are assigned glyphs by darkness tier. With 2 glyphs: glyph 1 for darkness 0–0.5, glyph 2 for 0.5–1.0. With 3 glyphs: thirds. The glyph input accepts any unicode character or emoji.</p>
+
+<p><i>Flow field visualisation</i> — when "show field" is checked, blue line segments are overlaid on the canvas at a regular grid, oriented along the flow direction with length proportional to gradient magnitude. For debugging and artistic preview.</p>
+
+<h3>Export</h3>
+
+<p>The SVG exporter writes one element per point — circles for ● glyph, &lt;text&gt; elements for all others — with fill colour, opacity, and rotation transform attributes matching the current render state. The SVG viewBox matches the internal canvas dimensions. Size jitter is re-randomised at export time so it won't exactly match the preview.</p>
+
+<h3>Controls reference</h3>
+
+<p><b>IMAGE</b> — load: opens file picker (also triggered by tapping the canvas area before an image is loaded). scale: multiplies source dimensions by 1–4×. invert: swaps light/dark mapping.</p>
+
+<p><b>DISTRIBUTION</b> — dots: target point count (actual count may be lower after distance enforcement). seed: seeding strategy. edge: Sobel edge magnitude boost added to density map (0 = off, higher values concentrate points on contours). min dist / max dist: inter-point spacing bounds after relaxation; dark areas use min, light areas use max.</p>
+
+<p><b>RELAXATION</b> — mode: algorithm selection. iters: maximum iterations. momentum: acceleration factor for Lloyd+momentum (0 = plain Lloyd). samples: pixels sampled per point per Lloyd iteration. damping: timestep for spring mode. auto-stop: halt on convergence. ccvt: capacity-constrained culling.</p>
+
+<p><b>TONE</b> — gamma: power curve on darkness-to-size mapping. min/max size: glyph size range in pixels. jitter: random size variation (0–50%). opacity: darkness-to-opacity mapping strength.</p>
+
+<p><b>GLYPH</b> — three text inputs for unicode glyphs, assigned by darkness tier. color: sample source image colour at each point.</p>
+
+<p><b>FLOW FIELD</b> — strength: rotation amount (0–1). smooth: Gaussian blur radius on structure tensor (1–30). dir: along edge (tangent) or across edge (gradient). show field: overlay debug visualisation.</p>
+
+<p><b>NOISE</b> — perlin or curl type. amount: displacement in pixels. scale: noise frequency.</p>
+
+<p>Structural parameters (dots, distances, edge boost, relaxation settings) trigger a debounced 350ms re-run of the full pipeline. Live parameters (size, gamma, opacity, jitter, rotation, glyph, colour) update every frame with no re-computation. Flow smooth recomputes only the structure tensor without re-running stippling.</p>
+
+<h2>FUTURE IMPROVEMENTS</h2>
+
+<h3>Frame sequence processing and animation</h3>
+
+<p>The most significant extension would be video and image sequence support. The current tool processes a single static image; a sequence mode would accept multiple frames (uploaded as a folder of PNGs, an image sequence, or a video file decoded via the WebCodecs API or an ffmpeg.wasm pipeline) and stipple each frame independently or — more interestingly — with temporal coherence between frames.</p>
+
+<p>Temporal coherence means that dots don't randomly jump between frames. The approach: use the previous frame's final point positions as the seed for the next frame's relaxation, then run N relaxation steps (user-configurable, perhaps 5–30) to allow the points to migrate toward the new frame's density map. With few steps, the transition is smooth and organic — dots drift like iron filings responding to a shifting magnetic field. With many steps, each frame converges more fully but the inter-frame movement is more abrupt. This creates an aesthetic spectrum from fluid morphing to discrete stipple-per-frame. The relaxation step count between frames becomes a creative parameter controlling the "viscosity" of the point cloud's response to changing content.</p>
+
+<p>For looping animations (GIF, loopable MP4), the last frame's points could relax back toward the first frame's density map, creating seamless loops. For longer sequences, a sliding window approach would process frames in batches, with each batch seeded from the previous batch's final state. Memory management becomes critical here — only the current frame's density map and the point positions need to be in memory at any time; previous frames' pixel data can be discarded after density extraction.</p>
+
+<p>A timeline scrubber UI would let the user preview specific frames, adjust per-frame parameters (or global parameters that apply to all frames), and set keyframes for parameter interpolation — for example, ramping the dot count up over the first 30 frames, or shifting the glyph character at specific points in the sequence. Export would produce numbered PNGs, a GIF (via gif.js), or an MP4 (via WebCodecs or ffmpeg.wasm).</p>
+
+<h3>Expanded glyph and character mapping</h3>
+
+<p>Currently the tool supports up to three glyphs assigned by darkness tier. This should expand to arbitrary-length character strings where each character in the string maps to a tonal band. Typing "·•●⬤" would create four tiers from lightest to darkest. Typing the entire ASCII printable range (" .:-=+*#%@") would approximate classic ASCII art density ramps. The mapping could be linear (equal-width bands) or perceptual (log-spaced bands matching human brightness perception). A character could also be selected by the closest match between its optical density (measured by rendering it to an offscreen canvas and computing fill ratio) and the local image density, creating a true ASCII-art mode where character selection is physically accurate rather than arbitrary.</p>
+
+<p>Beyond single characters, the tool could support short strings or words as stipple elements — each point renders a word from a provided list, selected by density tier or randomly. This crosses into concrete poetry territory. Multi-character elements would need width/height measurement (via offscreen canvas TextMetrics) to avoid overlap, and the min-distance enforcement would need to account for the bounding box of each element rather than a uniform radius.</p>
+
+<h3>Typography controls</h3>
+
+<p>The current glyph rendering treats each point as an isolated mark with only size and rotation. A full typography panel would add: font-family selection (with embedded web fonts or system font enumeration), font-weight mapping (light areas render in thin weights, dark areas in bold/black — a more typographically sophisticated alternative to size scaling), italic/oblique as a density-mapped boolean or as a continuous slant angle tied to the flow field, underline/strikethrough/overline as decorations mapped to edge regions or density thresholds, letter-spacing and line-height for multi-character elements, and text-shadow or outline stroke as additional tonal modulation. The rendering pipeline would need to handle each of these as independent channels that can be mapped to different image properties (density, edges, flow angle, colour hue, saturation, etc).</p>
+
+<p>A "size vs. character" toggle would let the user choose whether tonal variation is expressed through size changes (current behaviour), character substitution (all characters rendered at the same size, but different glyphs for different tones), or both. Pure character substitution at uniform size produces a distinctly different aesthetic — closer to traditional typewriter art or BBS-era ANSI art — while combined mode gives the richest tonal range.</p>
+
+<h3>Travelling salesman path and connectivity</h3>
+
+<p>An optional TSP (travelling salesman problem) solver would compute a single continuous path through all points. This transforms the stipple from a set of discrete marks into a single continuous line — a one-line drawing. The path could be rendered as a connected polyline with varying stroke width (mapped to density), or as a sequence of characters laid along the path (like text on a curve). TSP solutions can be approximated efficiently for thousands of points using nearest-neighbour heuristics, 2-opt local optimisation, or Christofides' algorithm. For artistic purposes, exact optimality doesn't matter — a "pretty good" path that avoids obvious crossings is sufficient.</p>
+
+<p>Beyond TSP, other connectivity modes could include: Delaunay triangulation (connecting each point to its natural neighbours, producing a mesh whose density encodes the image), minimum spanning tree (a single tree connecting all points with minimum total edge length), k-nearest-neighbour graphs (each point connected to its k closest neighbours, producing variable-density networks), and convex hull layers (nested outlines peeling inward). Each connectivity mode creates a different visual vocabulary — meshes, webs, trees, contours — from the same point set.</p>
+
+<p>Path-based rendering would also enable pen plotter output. The SVG export would contain a single <code>&lt;polyline&gt;</code> or <code>&lt;path&gt;</code> element with optimised drawing order to minimise pen-up travel. Stroke width modulation along the path would encode tonal information. For plotters, the tool could also output G-code directly.</p>
+
+<h3>Flow field improvements</h3>
+
+<p>The current flow field is derived solely from the image's luminance gradient via structure tensor. Additional flow sources would include: user-painted flow fields (click-drag on the canvas to define flow direction, interpolated across the image via RBF or diffusion), mathematical flow fields (radial, spiral, parallel, saddle, vortex — selectable from a library and composable via addition/multiplication), external vector field import (SVG path data interpreted as streamlines), and flow fields derived from image content other than luminance — for example, hue gradient (flow follows colour boundaries), saturation gradient, or a neural-network-derived saliency map.</p>
+
+<p>Flow field composition would let multiple sources be blended: 50% image gradient + 30% radial from centre + 20% Perlin noise, for example. The blending would operate on the angle field using circular mean (averaging angles correctly on the unit circle) rather than naive linear interpolation, which breaks at the ±π boundary. Flow magnitude from each source would be independently controllable.</p>
+
+<p>Streamline tracing would extend the flow field from a rotation source to a displacement source — points would be elongated into short curves following the flow, creating a hatching or engraving aesthetic. The streamline length could be mapped to density (long strokes in dark areas, short marks in light areas) and the streamline spacing would be controlled by the existing min/max distance parameters.</p>
+
+<h3>Export format expansion</h3>
+
+<p>Currently only SVG export is supported. The full export panel would include:</p>
+
+<p><i>PNG / JPEG</i> — straightforward canvas capture via <code>toDataURL()</code> or <code>toBlob()</code>. Resolution would be controllable independently of the preview canvas — the tool would render to an offscreen high-resolution canvas (up to 8192×8192) for print-quality output. JPEG quality slider for file size control.</p>
+
+<p><i>GIF</i> — for animated sequences (see frame sequence section), assembled via gif.js or a similar library. Frame delay, loop count, and colour quantisation (256-colour palette) would be configurable. Dithering within the GIF encoder would interact interestingly with the stipple pattern itself.</p>
+
+<p><i>MP4 / WebM</i> — for longer animations, encoded via the WebCodecs API (where supported) or ffmpeg.wasm as a fallback. Bitrate, codec (H.264, VP9, AV1), and framerate controls. Each frame would be rendered to an offscreen canvas and fed to the encoder.</p>
+
+<p><i>Plain text / ASCII</i> — when glyphs are locked to a monospace grid (see below), the output is a pure text file where each character position corresponds to a grid cell and the character is selected by density. Line breaks at row boundaries. This is traditional ASCII art generation. The text file could include ANSI colour escape codes for terminal rendering with colour.</p>
+
+<p><i>HTML / CSS</i> — each point rendered as an absolutely-positioned <code>&lt;span&gt;</code> element with inline styles for font-size, colour, opacity, and transform (rotation). The entire composition would be a single <code>&lt;div&gt;</code> with <code>position: relative</code>. This allows the stipple to be embedded in web pages as live DOM elements that can be styled, animated via CSS transitions, or manipulated with JavaScript. A CSS Grid variant would lock characters to a grid for ASCII-art-style layouts with the benefit of CSS styling (hover effects, animations, responsive scaling).</p>
+
+<p><i>CSV / JSON</i> — raw point data export for use in other tools. Each row: x, y, size, rotation, colour, glyph. JSON variant includes full metadata (image dimensions, all parameter values, algorithm choices) for reproducibility.</p>
+
+<h3>Grid-locked and line-locked modes</h3>
+
+<p>A "snap to grid" mode would constrain point positions to a regular monospace grid after relaxation. Each grid cell would be assigned the character whose density best matches the local image density. This bridges the gap between Voronoi stippling and traditional ASCII art — the spatial distribution is informed by Lloyd relaxation (so dense areas get more active cells) but the output is a regular text grid. Line height and column width would be configurable. The grid could be exported as plain text, HTML table, or a CSS grid layout.</p>
+
+<p>A "snap to lines" variant would constrain points to horizontal baselines only, with free horizontal positioning within each line. This produces typewriter-art-style output where characters sit on consistent baselines but with irregular horizontal spacing driven by the image content. The line spacing parameter would control vertical density. Export as a text file would place characters at their approximate horizontal positions using space padding.</p>
+
+<h3>Background and environment controls</h3>
+
+<p>The current white background is hardcoded. A background panel would include: solid colour picker (with alpha), background image (a second image composited behind the stipple layer — useful for stippling a portrait over a textured paper scan), gradient backgrounds (linear, radial, conic — with stops), pattern fills (crosshatch, dots, lines — at configurable scale and angle), and transparency (PNG export with alpha channel, SVG with no background rect). Dark-on-light and light-on-dark modes would swap the fill/background relationship. A "knockout" mode would render the stipple as transparent holes in an opaque background, creating a stencil effect.</p>
+
+<h3>Colour space and palette controls</h3>
+
+<p>The current "colour from source" mode samples RGB directly. Extended colour controls would include: palette quantisation (reduce the source image to N colours before sampling, producing a screen-print aesthetic), custom palette mapping (provide a list of hex colours; each point snaps to the nearest palette colour in CIELAB space), hue rotation and saturation adjustment applied to the sampled colours, separate colour channels rendered as separate stipple layers (CMYK separation — four overlaid stipple passes in cyan, magenta, yellow, and black, each driven by its respective channel's density, producing a halftone-style colour print effect), and monochrome tinting (all points rendered in a single user-selected colour with density mapped to opacity or size).</p>
+
+<h3>Interactivity and real-time modes</h3>
+
+<p>A webcam input mode would capture frames from the device camera and stipple them in real-time. With aggressive downsampling (200×150 luminance map), reduced point counts (~2000), and minimal relaxation (3–5 iterations of Lloyd per frame, seeded from the previous frame's positions), real-time stippling at 15–20fps is feasible on modern hardware. The temporal coherence approach described in the animation section applies directly — points drift organically in response to camera movement, creating a living stipple portrait.</p>
+
+<p>Interactive point editing would let the user click to add, remove, or drag individual points. A brush tool could paint density modifications onto the density map (boost or suppress points in regions), and a "freeze" tool could lock selected points in place during subsequent relaxation iterations. An undo/redo stack would track all edits.</p>
+
+<h3>Multi-layer composition</h3>
+
+<p>Multiple stipple layers could be composited, each with independent settings. For example: a base layer of small dense circles for overall tone, a second layer of larger triangles aligned to the flow field for texture, and a third layer of coloured emoji for highlights. Each layer would have its own point set, glyph, size range, and blending mode. Layers could be reordered, soloed, muted, and exported individually or merged. This approaches a full compositing engine built on stippling as the atomic operation.</p>
+
+<h3>Performance and scalability</h3>
+
+<p>For point counts above 30,000, the spatial grid's expanding-ring search becomes a bottleneck. A k-d tree with median-split construction would provide O(log n) nearest-neighbour queries. For the Lloyd centroid computation, the pixel-sampling approach could be replaced with GPU-accelerated Voronoi diagram generation using jump flood on a WebGL framebuffer — each pixel would be coloured by its nearest seed's index (encoded in the colour channels), and the centroid would be computed by reading back the framebuffer and accumulating per-seed weighted sums. This would shift the O(pixels) work to the GPU, leaving only the O(n) centroid update on the CPU. With WebGPU (where available), compute shaders could run the entire relaxation loop on the GPU, handling 100,000+ points at interactive rates.</p>
+
+<p>OffscreenCanvas in dedicated workers would allow rendering to happen off the main thread, eliminating frame drops during relaxation. SharedArrayBuffer (where available with correct COOP/COEP headers) would allow the point position array to be shared between the relaxation worker and the render worker without copying, further reducing memory bandwidth.</p>
+
+<p>For extremely large outputs (poster-size prints at 300dpi, which may involve 50,000–500,000 points), the rendering could be tiled — the canvas split into rectangular regions, each rendered independently and stitched into the final output. This avoids exceeding the browser's maximum canvas size limits (typically 16384×16384 or 32768×32768 depending on GPU).</p>
+
+<h3>Preset system and parameter serialisation</h3>
+
+<p>A preset system would save and restore complete parameter states as JSON objects. Built-in presets would cover common use cases: "classic stipple" (circles, Poisson seed, high iteration count, no colour), "ASCII art" (full character ramp, grid-locked, text export), "hatching" (elongated marks, strong flow field, along-edge direction), "pointillist" (colour from source, size jitter, medium dots), "one-line drawing" (TSP path, continuous polyline), "halftone" (regular grid, circles only, size-mapped). User presets could be saved to localStorage and exported/imported as JSON files. A randomise button would generate random parameter combinations within sensible bounds for creative exploration.</p>
+
+<h3>Accessibility and documentation</h3>
+
+<p>Parameter tooltips on hover/long-press would explain each control in one sentence. A guided tutorial mode would walk new users through loading an image and adjusting key parameters with before/after previews. The SVG export could include <code>&lt;title&gt;</code> and <code>&lt;desc&gt;</code> elements with alt-text describing the source image content (user-provided or auto-generated via a vision API). Keyboard shortcuts for common actions (reset, export, toggle preview) would improve workflow speed. A comparison mode would render two parameter sets side-by-side for A/B evaluation.</p>
+</div>
+
+<script id="workerSrc" type="text/worker">
+"use strict";
+const C={clamp:(v,lo,hi)=>v<lo?lo:v>hi?hi:v};
+
+const Conv={
+  boxBlur(d,w,h,r){
+    const o=new Float32Array(w*h),t=new Float32Array(w*h),sz=2*r+1;
+    for(let y=0;y<h;y++){let s=0;for(let x=0;x<Math.min(r+1,w);x++)s+=d[y*w+x];
+      for(let x=0;x<w;x++){if(x+r<w)s+=d[y*w+x+r];if(x-r-1>=0)s-=d[y*w+x-r-1];t[y*w+x]=s/sz;}}
+    for(let x=0;x<w;x++){let s=0;for(let y=0;y<Math.min(r+1,h);y++)s+=t[y*w+x];
+      for(let y=0;y<h;y++){if(y+r<h)s+=t[(y+r)*w+x];if(y-r-1>=0)s-=t[(y-r-1)*w+x];o[y*w+x]=s/sz;}}
+    return o;},
+  sobel(ld,w,h){
+    const Ix=new Float32Array(w*h),Iy=new Float32Array(w*h),mg=new Float32Array(w*h);let mx=0;
+    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+      const tl=ld[(y-1)*w+x-1],tc=ld[(y-1)*w+x],tr=ld[(y-1)*w+x+1],ml=ld[y*w+x-1],mr=ld[y*w+x+1],
+            bl=ld[(y+1)*w+x-1],bc=ld[(y+1)*w+x],br=ld[(y+1)*w+x+1],i=y*w+x;
+      const gx=(-tl+tr-2*ml+2*mr-bl+br)*.25,gy=(-tl-2*tc-tr+bl+2*bc+br)*.25;
+      Ix[i]=gx;Iy[i]=gy;const m=Math.sqrt(gx*gx+gy*gy);mg[i]=m;if(m>mx)mx=m;}
+    return{Ix,Iy,magnitude:mg,maxMag:mx};}
+};
+
+const ST={
+  compute(Ix,Iy,w,h,sr){
+    const n=w*h,Jxx=new Float32Array(n),Jxy=new Float32Array(n),Jyy=new Float32Array(n);
+    for(let i=0;i<n;i++){Jxx[i]=Ix[i]*Ix[i];Jxy[i]=Ix[i]*Iy[i];Jyy[i]=Iy[i]*Iy[i];}
+    const r=Math.max(1,Math.round(sr)),sxx=Conv.boxBlur(Jxx,w,h,r),sxy=Conv.boxBlur(Jxy,w,h,r),syy=Conv.boxBlur(Jyy,w,h,r);
+    const ang=new Float32Array(n),mag=new Float32Array(n);let mx=0;
+    for(let i=0;i<n;i++){ang[i]=.5*Math.atan2(2*sxy[i],sxx[i]-syy[i]);
+      const m=Math.sqrt((sxx[i]-syy[i])**2+4*sxy[i]*sxy[i]);mag[i]=m;if(m>mx)mx=m;}
+    if(mx>0)for(let i=0;i<n;i++)mag[i]/=mx;
+    return{angles:ang,magnitudes:mag};}
+};
+
+class SG{
+  constructor(w,h,cs){this.cs=Math.max(1,cs);this.cols=Math.ceil(w/this.cs);this.rows=Math.ceil(h/this.cs);this.cells=[];this.clear();}
+  clear(){this.cells=[];for(let i=0;i<this.cols*this.rows;i++)this.cells.push([]);}
+  _ci(x,y){return C.clamp((y/this.cs)|0,0,this.rows-1)*this.cols+C.clamp((x/this.cs)|0,0,this.cols-1);}
+  ins(i,x,y){this.cells[this._ci(x,y)].push(i);}
+  nearest(x,y,p){
+    const c0=C.clamp((x/this.cs)|0,0,this.cols-1),r0=C.clamp((y/this.cs)|0,0,this.rows-1);
+    let b=Infinity,bi=0;
+    for(let ring=0;ring<=Math.max(this.cols,this.rows);ring++){
+      const rA=r0-ring,rB=r0+ring,cA=c0-ring,cB=c0+ring;
+      for(let r=Math.max(0,rA);r<=Math.min(this.rows-1,rB);r++)
+        for(let c=Math.max(0,cA);c<=Math.min(this.cols-1,cB);c++){
+          if(ring>0&&r>rA&&r<rB&&c>cA&&c<cB)continue;
+          const bk=this.cells[r*this.cols+c];
+          for(let k=0;k<bk.length;k++){const i=bk[k],dx=x-p[i*2],dy=y-p[i*2+1],d2=dx*dx+dy*dy;if(d2<b){b=d2;bi=i;}}}
+      if(b<=(ring*this.cs)**2)break;}return bi;}
+  hasW(x,y,r,p,sk){
+    const r2=r*r,rm=Math.ceil(r/this.cs),c0=(x/this.cs)|0,r0=(y/this.cs)|0;
+    for(let rr=Math.max(0,r0-rm);rr<=Math.min(this.rows-1,r0+rm);rr++)
+      for(let cc=Math.max(0,c0-rm);cc<=Math.min(this.cols-1,c0+rm);cc++){
+        const bk=this.cells[rr*this.cols+cc];
+        for(let k=0;k<bk.length;k++){const i=bk[k];if(i===sk)continue;const dx=x-p[i*2],dy=y-p[i*2+1];if(dx*dx+dy*dy<r2)return true;}}
+    return false;}
+  nbrs(x,y,r,p,sk){
+    const r2=r*r,rm=Math.ceil(r/this.cs),c0=(x/this.cs)|0,r0=(y/this.cs)|0,out=[];
+    for(let rr=Math.max(0,r0-rm);rr<=Math.min(this.rows-1,r0+rm);rr++)
+      for(let cc=Math.max(0,c0-rm);cc<=Math.min(this.cols-1,c0+rm);cc++){
+        const bk=this.cells[rr*this.cols+cc];
+        for(let k=0;k<bk.length;k++){const i=bk[k];if(i===sk)continue;const dx=x-p[i*2],dy=y-p[i*2+1];if(dx*dx+dy*dy<r2)out.push(i);}}
+    return out;}
+}
+
+const Seed={
+  _hn(x,y){const h=Math.sin(x*12.9898+y*78.233)*43758.5453;return h-Math.floor(h);},
+  rejection(d,w,h,cnt){const p=new Float32Array(cnt*2);let n=0,a=0;while(n<cnt&&a<cnt*120){const x=Math.random()*w,y=Math.random()*h;if(Math.random()<d[C.clamp(y|0,0,h-1)*w+C.clamp(x|0,0,w-1)]+.02){p[n*2]=x;p[n*2+1]=y;n++;}a++;}return{p,n};},
+  poisson(d,w,h,cnt){const p=new Float32Array(cnt*2),bR=Math.sqrt(w*h/cnt/Math.PI)*.8,g=new SG(w,h,Math.max(4,bR));let n=0,a=0;
+    while(n<cnt&&a<cnt*150){const x=Math.random()*w,y=Math.random()*h,dd=d[(y|0)*w+(x|0)]||0,mr=bR*(.2+.8*(1-dd));
+      if(!g.hasW(x,y,mr,p,-1)){p[n*2]=x;p[n*2+1]=y;g.ins(n,x,y);n++;}a++;}return{p,n};},
+  bluenoise(d,w,h,cnt){const p=new Float32Array(cnt*2);let n=0;const s=Math.max(1,Math.floor(Math.sqrt(w*h/(cnt*2))));
+    for(let y=0;y<h&&n<cnt;y+=s)for(let x=0;x<w&&n<cnt;x+=s){if(Seed._hn(x,y)<(d[(y|0)*w+(x|0)]||0)*1.5){
+      const jx=x+(Math.random()-.5)*s,jy=y+(Math.random()-.5)*s;if(jx>=0&&jx<w&&jy>=0&&jy<h){p[n*2]=jx;p[n*2+1]=jy;n++;}}}return{p,n};},
+  cdf(d,w,h,cnt){const p=new Float32Array(cnt*2),t=w*h,cdf=new Float64Array(t+1);cdf[0]=0;
+    for(let i=0;i<t;i++)cdf[i+1]=cdf[i]+d[i]+.001;const s=cdf[t];let n=0;
+    for(let i=0;i<cnt;i++){const tg=Math.random()*s;let lo=0,hi=t;while(lo<hi){const m=(lo+hi)>>1;if(cdf[m+1]<tg)lo=m+1;else hi=m;}
+      p[n*2]=C.clamp(lo%w+Math.random(),0,w-1);p[n*2+1]=C.clamp((lo/w|0)+Math.random(),0,h-1);n++;}return{p,n};},
+  jittered(d,w,h,cnt){const p=new Float32Array(cnt*2),cs=Math.ceil(Math.sqrt(cnt*1.5)),cw=w/cs,ch=h/cs;let n=0;
+    for(let gy=0;gy<cs&&n<cnt;gy++)for(let gx=0;gx<cs&&n<cnt;gx++){const cx=(gx+Math.random())*cw,cy=(gy+Math.random())*ch;
+      const ix=C.clamp(cx|0,0,w-1),iy=C.clamp(cy|0,0,h-1);if(Math.random()<(d[iy*w+ix]||0)+.05){p[n*2]=C.clamp(cx,0,w-1);p[n*2+1]=C.clamp(cy,0,h-1);n++;}}return{p,n};}
+};
+
+const Relax={
+  lloyd(p,n,d,w,h,g,pp,mom,spp){
+    g.clear();for(let i=0;i<n;i++)g.ins(i,p[i*2],p[i*2+1]);
+    const sx=new Float64Array(n),sy=new Float64Array(n),sw=new Float64Array(n);
+    const st=Math.max(1,Math.floor(Math.sqrt(w*h/(n*spp))));
+    for(let py=0;py<h;py+=st){const ro=py*w;for(let px=0;px<w;px+=st){const ni=g.nearest(px,py,p),wt=d[ro+px]+.001;sx[ni]+=px*wt;sy[ni]+=py*wt;sw[ni]+=wt;}}
+    for(let i=0;i<n;i++){if(sw[i]>0){const cx=sx[i]/sw[i],cy=sy[i]/sw[i];let nx=cx,ny=cy;
+      if(mom>0&&pp){nx=cx+(cx-pp[i*2])*mom;ny=cy+(cy-pp[i*2+1])*mom;}
+      if(pp){pp[i*2]=p[i*2];pp[i*2+1]=p[i*2+1];}p[i*2]=C.clamp(nx,0,w-1);p[i*2+1]=C.clamp(ny,0,h-1);}}},
+  jfa(p,n,d,w,h){
+    const ds=2,gw=Math.ceil(w/ds),gh=Math.ceil(h/ds),ow=new Int32Array(gw*gh).fill(-1);
+    for(let i=0;i<n;i++){ow[C.clamp((p[i*2+1]/ds)|0,0,gh-1)*gw+C.clamp((p[i*2]/ds)|0,0,gw-1)]=i;}
+    for(let st=Math.max(gw,gh)>>1;st>=1;st>>=1){const nw=new Int32Array(ow);
+      for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let bD=Infinity,bI=ow[y*gw+x];
+        if(bI>=0){const dx=x*ds-p[bI*2],dy=y*ds-p[bI*2+1];bD=dx*dx+dy*dy;}
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=x+dx*st,ny=y+dy*st;
+          if(nx<0||nx>=gw||ny<0||ny>=gh)continue;const oi=ow[ny*gw+nx];if(oi<0)continue;
+          const ddx=x*ds-p[oi*2],ddy=y*ds-p[oi*2+1],d2=ddx*ddx+ddy*ddy;if(d2<bD){bD=d2;bI=oi;}}
+        nw[y*gw+x]=bI;}ow.set(nw);}
+    const sx=new Float64Array(n),sy=new Float64Array(n),sw=new Float64Array(n);
+    for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const oi=ow[y*gw+x];if(oi<0)continue;const px=x*ds,py=y*ds;
+      const wt=d[C.clamp(py,0,h-1)*w+C.clamp(px,0,w-1)]+.001;sx[oi]+=px*wt;sy[oi]+=py*wt;sw[oi]+=wt;}
+    for(let i=0;i<n;i++){if(sw[i]>0){p[i*2]=C.clamp(sx[i]/sw[i],0,w-1);p[i*2+1]=C.clamp(sy[i]/sw[i],0,h-1);}}},
+  spring(p,n,d,w,h,g,damp){
+    g.clear();for(let i=0;i<n;i++)g.ins(i,p[i*2],p[i*2+1]);
+    const id=Math.sqrt(w*h/n)*.9,sr=id*2.5;
+    for(let i=0;i<n;i++){const x=p[i*2],y=p[i*2+1];let fx=0,fy=0;
+      const nb=g.nbrs(x,y,sr,p,i);for(const j of nb){let dx=x-p[j*2],dy=y-p[j*2+1];const ds=Math.sqrt(dx*dx+dy*dy)||.01;
+        const f=Math.max(0,(id-ds))/id;fx+=(dx/ds)*f*2;fy+=(dy/ds)*f*2;}
+      let bD=-1,bx=x,by=y;for(let s=0;s<6;s++){const sx=x+(Math.random()-.5)*id,sy=y+(Math.random()-.5)*id;
+        const dd=d[C.clamp(sy|0,0,h-1)*w+C.clamp(sx|0,0,w-1)];if(dd>bD){bD=dd;bx=sx;by=sy;}}
+      fx+=(bx-x)*.3;fy+=(by-y)*.3;p[i*2]=C.clamp(x+fx*damp,0,w-1);p[i*2+1]=C.clamp(y+fy*damp,0,h-1);}},
+  energy(p,s,n){let e=0;for(let i=0;i<n*2;i++){const d=p[i]-s[i];e+=d*d;}return e/n;},
+  enforceDist(p,n,d,w,h,mnD,mxD){
+    const ord=new Array(n);for(let i=0;i<n;i++)ord[i]=i;
+    ord.sort((a,b)=>d[C.clamp(p[b*2+1]|0,0,h-1)*w+C.clamp(p[b*2]|0,0,w-1)]-d[C.clamp(p[a*2+1]|0,0,h-1)*w+C.clamp(p[a*2]|0,0,w-1)]);
+    const kg=new SG(w,h,Math.max(6,Math.max(mnD,mxD))),kp=new Uint8Array(n);
+    for(const i of ord){const x=p[i*2],y=p[i*2+1],dd=d[C.clamp(y|0,0,h-1)*w+C.clamp(x|0,0,w-1)];
+      const lm=mnD+(1-dd)*(mxD-mnD);if(!kg.hasW(x,y,lm,p,-1)){kp[i]=1;kg.ins(i,x,y);}}
+    let wr=0;for(let i=0;i<n;i++){if(kp[i]){p[wr*2]=p[i*2];p[wr*2+1]=p[i*2+1];wr++;}}return wr;},
+  ccvt(p,n,d,w,h){const kp=new Uint8Array(n);kp.fill(1);
+    for(let i=0;i<n;i++){const dd=d[C.clamp(p[i*2+1]|0,0,h-1)*w+C.clamp(p[i*2]|0,0,w-1)];
+      if(dd<.15&&Math.random()>dd+.1)kp[i]=0;}
+    let wr=0;for(let i=0;i<n;i++){if(kp[i]){p[wr*2]=p[i*2];p[wr*2+1]=p[i*2+1];wr++;}}return wr;}
+};
+
+let st=null;
+self.onmessage=function(e){const m=e.data;switch(m.type){
+  case'processImage':{const{lumData:ld,w,h,smoothRadius:sr}=m;const sb=Conv.sobel(ld,w,h);
+    if(sb.maxMag>0)for(let i=0;i<sb.magnitude.length;i++)sb.magnitude[i]/=sb.maxMag;
+    const t=ST.compute(sb.Ix,sb.Iy,w,h,sr);
+    self.postMessage({type:'imageProcessed',edgeMag:sb.magnitude,flowAngles:t.angles,flowMagnitudes:t.magnitudes},
+      [sb.magnitude.buffer,t.angles.buffer,t.magnitudes.buffer]);break;}
+  case'initRelax':{const{density:d,w,h,count:cnt,seedMode:sm,relaxMode:rm,momentum:mom,samplesPerPt:spp,damping:dmp,autoConv:ac,maxIter:mi}=m;
+    let r;switch(sm){case'poisson':r=Seed.poisson(d,w,h,cnt);break;case'bluenoise':r=Seed.bluenoise(d,w,h,cnt);break;
+      case'cdf':r=Seed.cdf(d,w,h,cnt);break;case'jittered':r=Seed.jittered(d,w,h,cnt);break;default:r=Seed.rejection(d,w,h,cnt);}
+    const cs=Math.max(6,Math.sqrt(w*h/r.n)*1.2);
+    st={pos:r.p,n:r.n,w,h,density:d,relaxMode:rm,momentum:mom,samplesPerPt:spp,damping:dmp,autoConv:ac,maxIter:mi,
+      grid:new SG(w,h,cs),prevPos:new Float32Array(r.p.length),energySnap:new Float32Array(r.p.length),iteration:0,converged:false};
+    st.prevPos.set(st.pos);const pc=new Float32Array(st.pos.subarray(0,st.n*2));
+    self.postMessage({type:'relaxUpdate',pos:pc,n:st.n,iteration:0,converged:false,done:false},[pc.buffer]);break;}
+  case'relaxBatch':{if(!st)return;const s=st,bs=m.batchSize||1;
+    for(let b=0;b<bs;b++){if(s.converged||s.iteration>=s.maxIter)break;s.energySnap.set(s.pos.subarray(0,s.n*2));
+      switch(s.relaxMode){case'jfa':Relax.jfa(s.pos,s.n,s.density,s.w,s.h);break;
+        case'spring':Relax.spring(s.pos,s.n,s.density,s.w,s.h,s.grid,s.damping);break;
+        case'momentum':Relax.lloyd(s.pos,s.n,s.density,s.w,s.h,s.grid,s.prevPos,s.momentum,s.samplesPerPt);break;
+        default:Relax.lloyd(s.pos,s.n,s.density,s.w,s.h,s.grid,null,0,s.samplesPerPt);}
+      s.iteration++;if(s.autoConv&&Relax.energy(s.pos,s.energySnap,s.n)<.0005&&s.iteration>20)s.converged=true;}
+    const dn=s.converged||s.iteration>=s.maxIter,pc=new Float32Array(s.pos.subarray(0,s.n*2));
+    self.postMessage({type:'relaxUpdate',pos:pc,n:s.n,iteration:s.iteration,converged:s.converged,done:dn},[pc.buffer]);break;}
+  case'finalize':{if(!st)return;const s=st;s.n=Relax.enforceDist(s.pos,s.n,s.density,s.w,s.h,m.minDist,m.maxDist);
+    if(m.ccvt)s.n=Relax.ccvt(s.pos,s.n,s.density,s.w,s.h);
+    const pc=new Float32Array(s.pos.subarray(0,s.n*2));self.postMessage({type:'finalized',pos:pc,n:s.n},[pc.buffer]);break;}
+}};
+</script>
+
+<script>
+"use strict";
+
+class ImageLoader{static fromFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const ctx=c.getContext('2d');
+    ctx.drawImage(img,0,0);res({width:c.width,height:c.height,pixels:ctx.getImageData(0,0,c.width,c.height).data});};
+  img.onerror=rej;img.src=r.result;};r.onerror=rej;r.readAsDataURL(f);});}}
+
+class LuminanceExtractor{static extract(imgData,tw,th){
+  const sx=imgData.width/tw,sy=imgData.height/th,px=imgData.pixels;
+  const ld=new Float32Array(tw*th),cd=new Uint8Array(tw*th*3);
+  for(let y=0;y<th;y++)for(let x=0;x<tw;x++){const idx=((y*sy|0)*imgData.width+(x*sx|0))*4;
+    const r=px[idx],g=px[idx+1],b=px[idx+2];ld[y*tw+x]=(.299*r+.587*g+.114*b)/255;
+    const ci=(y*tw+x)*3;cd[ci]=r;cd[ci+1]=g;cd[ci+2]=b;}
+  return{lumData:ld,colorData:cd,w:tw,h:th};}}
+
+class DensityBuilder{static build(ld,em,w,h,inv,gamma,eb){
+  const n=w*h,d=new Float32Array(n);
+  for(let i=0;i<n;i++){let v=inv?ld[i]:1-ld[i];v=Math.pow(v,gamma);if(eb>0&&em)v=Math.min(1,v+em[i]*eb);d[i]=v;}return d;}}
+
+class NoiseDisplacer{static apply(p,n,type,amt,scl,seed,w,h){if(amt<=0)return;const eps=.5;
+  for(let i=0;i<n;i++){const x=p[i*2],y=p[i*2+1];let dx,dy;
+    if(type==='curl'){const nx=x*scl+seed,ny=y*scl;dx=(noise(nx,ny+eps)-noise(nx,ny-eps))*amt/eps;dy=-(noise(nx+eps,ny)-noise(nx-eps,ny))*amt/eps;}
+    else{dx=(noise(x*scl+seed,y*scl)*2-1)*amt;dy=(noise(x*scl,y*scl+seed+100)*2-1)*amt;}
+    p[i*2]=Math.max(0,Math.min(w-1,x+dx));p[i*2+1]=Math.max(0,Math.min(h-1,y+dy));}}}
+
+class FlowFieldData{constructor(a,m,w,h){this.a=a;this.m=m;this.w=w;this.h=h;}
+  angle(x,y,perp){const i=Math.max(0,Math.min(this.h-1,y|0))*this.w+Math.max(0,Math.min(this.w-1,x|0));let a=this.a[i];if(!perp)a+=Math.PI*.5;return a;}
+  mag(x,y){return this.m[Math.max(0,Math.min(this.h-1,y|0))*this.w+Math.max(0,Math.min(this.w-1,x|0))];}}
+
+class GlyphRenderer{constructor(){this.gl=['●'];this._co=true;}
+  setGlyphs(a,b,c){this.gl=[a||'●'];if(b)this.gl.push(b);if(c)this.gl.push(c);this._co=this.gl.length===1&&(this.gl[0]==='●'||this.gl[0]==='⬤');}
+  _pk(d){return this.gl.length===1?this.gl[0]:this.gl[Math.min(this.gl.length-1,Math.floor(d*this.gl.length))];}
+  draw(x,y,sz,d,ang,jit){const s=sz*(1+(Math.random()*2-1)*jit);if(s<.3)return;push();translate(x,y);if(ang)rotate(ang);
+    if(this._co&&this.gl.length===1)ellipse(0,0,s,s);else{textAlign(CENTER,CENTER);textSize(s*1.1);text(this._pk(d),0,-s*.05);}pop();}
+  toSVG(x,y,sz,d,ang,op,jit,fill){const s=sz*(1+(Math.random()*2-1)*jit);if(s<.3)return'';
+    const os=op<1?` opacity="${op.toFixed(2)}"`:'',ts=ang?` transform="rotate(${(ang*180/Math.PI).toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})"`:'';
+    if(this._co&&this.gl.length===1)return`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(s/2).toFixed(2)}" fill="${fill}"${os}${ts}/>`;
+    const g=this._pk(d),e=g.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    return`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${(s*1.1).toFixed(1)}" text-anchor="middle" dominant-baseline="central" fill="${fill}"${os}${ts}>${e}</text>`;}}
+
+class WorkerBridge{
+  constructor(){this._h={};this._worker=null;
+    try{const s=document.getElementById('workerSrc').textContent;
+      this._worker=new Worker(URL.createObjectURL(new Blob([s],{type:'application/javascript'})));
+      this._worker.onmessage=e=>{const h=this._h[e.data.type];if(h)h(e.data);};
+      this._worker.onerror=()=>{this._worker=null;console.log('Worker failed, using inline fallback');};
+    }catch(e){this._worker=null;}}
+  on(t,fn){this._h[t]=fn;}
+  post(m,tr){
+    if(this._worker){try{this._worker.postMessage(m,tr||[]);return;}catch(e){this._worker=null;}}
+    // Inline fallback — run worker logic on main thread via setTimeout
+    setTimeout(()=>this._inline(m),0);}
+  _inline(m){
+    const C={clamp:(v,lo,hi)=>v<lo?lo:v>hi?hi:v};
+    switch(m.type){
+      case'processImage':{
+        const{lumData:ld,w,h,smoothRadius:sr}=m;
+        // Sobel
+        const Ix=new Float32Array(w*h),Iy=new Float32Array(w*h),mg=new Float32Array(w*h);let mx=0;
+        for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+          const tl=ld[(y-1)*w+x-1],tc=ld[(y-1)*w+x],tr=ld[(y-1)*w+x+1],ml=ld[y*w+x-1],mr=ld[y*w+x+1],
+                bl=ld[(y+1)*w+x-1],bc=ld[(y+1)*w+x],br=ld[(y+1)*w+x+1],i=y*w+x;
+          const gx=(-tl+tr-2*ml+2*mr-bl+br)*.25,gy=(-tl-2*tc-tr+bl+2*bc+br)*.25;
+          Ix[i]=gx;Iy[i]=gy;const mm=Math.sqrt(gx*gx+gy*gy);mg[i]=mm;if(mm>mx)mx=mm;}
+        if(mx>0)for(let i=0;i<mg.length;i++)mg[i]/=mx;
+        // Structure tensor
+        const n=w*h,Jxx=new Float32Array(n),Jxy=new Float32Array(n),Jyy=new Float32Array(n);
+        for(let i=0;i<n;i++){Jxx[i]=Ix[i]*Ix[i];Jxy[i]=Ix[i]*Iy[i];Jyy[i]=Iy[i]*Iy[i];}
+        const blur=(d,r)=>{const o=new Float32Array(w*h),t=new Float32Array(w*h),sz=2*r+1;
+          for(let y=0;y<h;y++){let s=0;for(let x=0;x<Math.min(r+1,w);x++)s+=d[y*w+x];
+            for(let x=0;x<w;x++){if(x+r<w)s+=d[y*w+x+r];if(x-r-1>=0)s-=d[y*w+x-r-1];t[y*w+x]=s/sz;}}
+          for(let x=0;x<w;x++){let s=0;for(let y=0;y<Math.min(r+1,h);y++)s+=t[y*w+x];
+            for(let y=0;y<h;y++){if(y+r<h)s+=t[(y+r)*w+x];if(y-r-1>=0)s-=t[(y-r-1)*w+x];o[y*w+x]=s/sz;}}return o;};
+        const r=Math.max(1,Math.round(sr)),sxx=blur(Jxx,r),sxy=blur(Jxy,r),syy=blur(Jyy,r);
+        const ang=new Float32Array(n),fmag=new Float32Array(n);let fmx=0;
+        for(let i=0;i<n;i++){ang[i]=.5*Math.atan2(2*sxy[i],sxx[i]-syy[i]);
+          const mm=Math.sqrt((sxx[i]-syy[i])**2+4*sxy[i]*sxy[i]);fmag[i]=mm;if(mm>fmx)fmx=mm;}
+        if(fmx>0)for(let i=0;i<n;i++)fmag[i]/=fmx;
+        const cb=this._h['imageProcessed'];if(cb)cb({type:'imageProcessed',edgeMag:mg,flowAngles:ang,flowMagnitudes:fmag});
+        break;}
+      case'initRelax':{
+        const{density:d,w,h,count:cnt,seedMode:sm,relaxMode:rm,momentum:mom,samplesPerPt:spp,damping:dmp,autoConv:ac,maxIter:mi}=m;
+        // Inline seeder
+        const seed=(mode)=>{const p=new Float32Array(cnt*2);let nn=0;
+          if(mode==='poisson'){const bR=Math.sqrt(w*h/cnt/Math.PI)*.8,g=this._mkGrid(w,h,Math.max(4,bR));let a=0;
+            while(nn<cnt&&a<cnt*150){const x=Math.random()*w,y=Math.random()*h,dd=d[(y|0)*w+(x|0)]||0,mr=bR*(.2+.8*(1-dd));
+              if(!this._gridHas(g,x,y,mr,p,-1,w,h)){p[nn*2]=x;p[nn*2+1]=y;this._gridIns(g,nn,x,y,w,h);nn++;}a++;}
+          }else if(mode==='cdf'){const tot=w*h,cdf=new Float64Array(tot+1);cdf[0]=0;
+            for(let i=0;i<tot;i++)cdf[i+1]=cdf[i]+d[i]+.001;const sum=cdf[tot];
+            for(let i=0;i<cnt;i++){const tg=Math.random()*sum;let lo=0,hi=tot;while(lo<hi){const mid=(lo+hi)>>1;if(cdf[mid+1]<tg)lo=mid+1;else hi=mid;}
+              p[nn*2]=C.clamp(lo%w+Math.random(),0,w-1);p[nn*2+1]=C.clamp((lo/w|0)+Math.random(),0,h-1);nn++;}
+          }else{let a=0;while(nn<cnt&&a<cnt*120){const x=Math.random()*w,y=Math.random()*h;
+            if(Math.random()<(d[C.clamp(y|0,0,h-1)*w+C.clamp(x|0,0,w-1)]||0)+.02){p[nn*2]=x;p[nn*2+1]=y;nn++;}a++;}}
+          return{p,n:nn};};
+        const res=seed(sm);
+        this._rs={pos:res.p,n:res.n,w,h,density:d,relaxMode:rm,momentum:mom,samplesPerPt:spp,damping:dmp,autoConv:ac,maxIter:mi,
+          prevPos:new Float32Array(res.p.length),energySnap:new Float32Array(res.p.length),iteration:0,converged:false};
+        this._rs.prevPos.set(this._rs.pos);
+        const pc=new Float32Array(this._rs.pos.subarray(0,this._rs.n*2));
+        const cb=this._h['relaxUpdate'];if(cb)cb({type:'relaxUpdate',pos:pc,n:this._rs.n,iteration:0,converged:false,done:false});
+        break;}
+      case'relaxBatch':{
+        if(!this._rs)return;const s=this._rs,bs=m.batchSize||1;
+        for(let b=0;b<bs;b++){if(s.converged||s.iteration>=s.maxIter)break;
+          s.energySnap.set(s.pos.subarray(0,s.n*2));
+          this._lloydInline(s);s.iteration++;
+          if(s.autoConv){let e=0;for(let i=0;i<s.n*2;i++){const dd=s.pos[i]-s.energySnap[i];e+=dd*dd;}
+            if(e/s.n<.0005&&s.iteration>20)s.converged=true;}}
+        const dn=s.converged||s.iteration>=s.maxIter;
+        const pc=new Float32Array(s.pos.subarray(0,s.n*2));
+        const cb=this._h['relaxUpdate'];if(cb)cb({type:'relaxUpdate',pos:pc,n:s.n,iteration:s.iteration,converged:s.converged,done:dn});
+        break;}
+      case'finalize':{
+        if(!this._rs)return;const s=this._rs;
+        // Enforce min dist
+        const{minDist:mnD,maxDist:mxD,ccvt}=m;
+        const ord=new Array(s.n);for(let i=0;i<s.n;i++)ord[i]=i;
+        ord.sort((a,b)=>s.density[C.clamp(s.pos[b*2+1]|0,0,s.h-1)*s.w+C.clamp(s.pos[b*2]|0,0,s.w-1)]
+                       -s.density[C.clamp(s.pos[a*2+1]|0,0,s.h-1)*s.w+C.clamp(s.pos[a*2]|0,0,s.w-1)]);
+        const kg=this._mkGrid(s.w,s.h,Math.max(6,Math.max(mnD,mxD))),kp=new Uint8Array(s.n);
+        for(const i of ord){const x=s.pos[i*2],y=s.pos[i*2+1];
+          const dd=s.density[C.clamp(y|0,0,s.h-1)*s.w+C.clamp(x|0,0,s.w-1)];
+          const lm=mnD+(1-dd)*(mxD-mnD);
+          if(!this._gridHas(kg,x,y,lm,s.pos,-1,s.w,s.h)){kp[i]=1;this._gridIns(kg,i,x,y,s.w,s.h);}}
+        let wr=0;for(let i=0;i<s.n;i++){if(kp[i]){s.pos[wr*2]=s.pos[i*2];s.pos[wr*2+1]=s.pos[i*2+1];wr++;}}s.n=wr;
+        if(ccvt){const kp2=new Uint8Array(s.n);kp2.fill(1);
+          for(let i=0;i<s.n;i++){const dd=s.density[C.clamp(s.pos[i*2+1]|0,0,s.h-1)*s.w+C.clamp(s.pos[i*2]|0,0,s.w-1)];
+            if(dd<.15&&Math.random()>dd+.1)kp2[i]=0;}
+          wr=0;for(let i=0;i<s.n;i++){if(kp2[i]){s.pos[wr*2]=s.pos[i*2];s.pos[wr*2+1]=s.pos[i*2+1];wr++;}}s.n=wr;}
+        const pc=new Float32Array(s.pos.subarray(0,s.n*2));
+        const cb=this._h['finalized'];if(cb)cb({type:'finalized',pos:pc,n:s.n});break;}
+    }}
+  // Inline Lloyd relaxation (simplified, no spring/jfa in fallback)
+  _lloydInline(s){
+    const{pos:p,n,density:d,w,h,momentum:mom,samplesPerPt:spp,prevPos:pp}=s;
+    const cs=Math.max(6,Math.sqrt(w*h/n)*1.2),g=this._mkGrid(w,h,cs);
+    for(let i=0;i<n;i++)this._gridIns(g,i,p[i*2],p[i*2+1],w,h);
+    const sx=new Float64Array(n),sy=new Float64Array(n),sw=new Float64Array(n);
+    const st=Math.max(1,Math.floor(Math.sqrt(w*h/(n*spp))));
+    for(let py=0;py<h;py+=st){const ro=py*w;for(let px=0;px<w;px+=st){
+      const ni=this._gridNearest(g,px,py,p,w,h);const wt=d[ro+px]+.001;sx[ni]+=px*wt;sy[ni]+=py*wt;sw[ni]+=wt;}}
+    for(let i=0;i<n;i++){if(sw[i]>0){const cx=sx[i]/sw[i],cy=sy[i]/sw[i];let nx=cx,ny=cy;
+      if(mom>0&&pp){nx=cx+(cx-pp[i*2])*mom;ny=cy+(cy-pp[i*2+1])*mom;pp[i*2]=p[i*2];pp[i*2+1]=p[i*2+1];}
+      p[i*2]=Math.max(0,Math.min(w-1,nx));p[i*2+1]=Math.max(0,Math.min(h-1,ny));}}}
+  // Minimal grid helpers for inline fallback
+  _mkGrid(w,h,cs){cs=Math.max(1,cs);const cols=Math.ceil(w/cs),rows=Math.ceil(h/cs),cells=[];
+    for(let i=0;i<cols*rows;i++)cells.push([]);return{cs,cols,rows,cells};}
+  _gridIns(g,idx,x,y){g.cells[Math.max(0,Math.min(g.rows-1,(y/g.cs)|0))*g.cols+Math.max(0,Math.min(g.cols-1,(x/g.cs)|0))].push(idx);}
+  _gridHas(g,x,y,r,pos,sk){const r2=r*r,rm=Math.ceil(r/g.cs),c0=(x/g.cs)|0,r0=(y/g.cs)|0;
+    for(let rr=Math.max(0,r0-rm);rr<=Math.min(g.rows-1,r0+rm);rr++)
+      for(let cc=Math.max(0,c0-rm);cc<=Math.min(g.cols-1,c0+rm);cc++){const bk=g.cells[rr*g.cols+cc];
+        for(let k=0;k<bk.length;k++){const i=bk[k];if(i===sk)continue;const dx=x-pos[i*2],dy=y-pos[i*2+1];if(dx*dx+dy*dy<r2)return true;}}
+    return false;}
+  _gridNearest(g,x,y,pos){const c0=Math.max(0,Math.min(g.cols-1,(x/g.cs)|0)),r0=Math.max(0,Math.min(g.rows-1,(y/g.cs)|0));
+    let best=Infinity,bi=0;
+    for(let ring=0;ring<=Math.max(g.cols,g.rows);ring++){const rA=r0-ring,rB=r0+ring,cA=c0-ring,cB=c0+ring;
+      for(let r=Math.max(0,rA);r<=Math.min(g.rows-1,rB);r++)for(let c=Math.max(0,cA);c<=Math.min(g.cols-1,cB);c++){
+        if(ring>0&&r>rA&&r<rB&&c>cA&&c<cB)continue;const bk=g.cells[r*g.cols+c];
+        for(let k=0;k<bk.length;k++){const i=bk[k],dx=x-pos[i*2],dy=y-pos[i*2+1],d2=dx*dx+dy*dy;if(d2<best){best=d2;bi=i;}}}
+      if(best<=(ring*g.cs)**2)break;}return bi;}
+}
+
+class App{
+  constructor(){this.imgData=null;this.lumData=null;this.colorData=null;this.edgeMag=null;this.density=null;this.ff=null;
+    this.pos=null;this.n=0;this.sizes=null;this.cw=600;this.ch=400;this.iW=0;this.iH=0;
+    this.relaxing=false;this.iter=0;this.conv=false;this.final=false;this.nSeed=0;
+    this.gr=new GlyphRenderer();this.br=new WorkerBridge();this._bw();this._bu();}
+  _el(id){return document.getElementById(id);}
+
+  _bw(){
+    this.br.on('imageProcessed',d=>{this.edgeMag=d.edgeMag;this.ff=new FlowFieldData(d.flowAngles,d.flowMagnitudes,this.iW,this.iH);this._bdr();});
+    this.br.on('relaxUpdate',d=>{this.pos=d.pos;this.n=d.n;this.iter=d.iteration;this.conv=d.converged;
+      if(d.done)this._fin();else{const b=this.n<3000?5:this.n<8000?3:this.n<15000?2:1;this.br.post({type:'relaxBatch',batchSize:b});}});
+    this.br.on('finalized',d=>{this.pos=d.pos;this.n=d.n;const na=parseFloat(this.ui.noiseAmt.value);
+      if(na>0)NoiseDisplacer.apply(this.pos,this.n,this.ui.noiseType.value,na,parseFloat(this.ui.noiseScale.value),this.nSeed,this.iW,this.iH);
+      this.relaxing=false;this.final=true;this.sizes=new Float32Array(this.n);});}
+
+  _bu(){this.ui={};
+    ['dotCount','minDist','maxDist','minSize','maxSize','gamma','noiseAmt','noiseScale','sizeJitter','opacityAmt','rotateAmt','edgeBoost',
+     'maxIter','momentum','samplesPerPt','damping','flowSmooth'].forEach(id=>{this.ui[id]=this._el(id);this.ui[id+'V']=this._el(id+'Val');});
+    ['seedMode','relaxMode','noiseType','scaleSel','glyphInput','glyph2Input','glyph3Input',
+     'invertChk','colorChk','ccvtChk','autoConvChk','flowDir','flowVisChk'].forEach(id=>{this.ui[id]=this._el(id);});
+    this.ui.st=this._el('status');this.ui.pr=this._el('prompt');this.ui.dz=this._el('drop');
+    ['minSize','maxSize','gamma','noiseAmt','noiseScale','sizeJitter','opacityAmt','rotateAmt'].forEach(id=>{
+      this.ui[id].oninput=()=>{const v=parseFloat(this.ui[id].value);this.ui[id+'V'].textContent=id==='noiseScale'?v.toFixed(3):v%1===0?String(v):v.toFixed(1);};});
+    ['dotCount','minDist','maxDist','edgeBoost','maxIter','momentum','samplesPerPt','damping'].forEach(id=>{
+      this.ui[id].oninput=()=>{const v=parseFloat(this.ui[id].value);this.ui[id+'V'].textContent=['momentum','damping'].includes(id)?v.toFixed(2):v%1===0?String(v):v.toFixed(1);this._sr();};});
+    this.ui.flowSmooth.oninput=()=>{const v=parseInt(this.ui.flowSmooth.value);this.ui.flowSmoothV.textContent=v;if(this.lumData)this._rf(v);};
+    ['seedMode','relaxMode','invertChk','ccvtChk','autoConvChk'].forEach(id=>{this.ui[id].onchange=()=>this._sr();});
+    this.ui.scaleSel.onchange=()=>{if(this.imgData)this._ii();};
+    ['glyphInput','glyph2Input','glyph3Input'].forEach(id=>{this.ui[id].oninput=()=>this.gr.setGlyphs(this.ui.glyphInput.value,this.ui.glyph2Input.value,this.ui.glyph3Input.value);});
+    this.gr.setGlyphs(this.ui.glyphInput.value,this.ui.glyph2Input.value,this.ui.glyph3Input.value);
+    this._el('loadBtn').onclick=()=>this._el('fileInput').click();
+    this._el('fileInput').onchange=e=>{if(e.target.files[0])this.loadFile(e.target.files[0]);};
+    this._el('fileInput2').onchange=e=>{if(e.target.files[0])this.loadFile(e.target.files[0]);};
+    this._el('resetBtn').onclick=()=>{if(this.lumData)this._sp();};
+    this._el('exportBtn').onclick=()=>this._ex();
+    const dz=this.ui.dz;
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))this.loadFile(f);});}
+
+  _sr(){if(this._rt)clearTimeout(this._rt);this._rt=setTimeout(()=>{if(this.lumData)this._sp();},350);}
+  async loadFile(f){this.ui.st.textContent='loading...';try{this.imgData=await ImageLoader.fromFile(f);this._ii();}catch(e){this.ui.st.textContent='error: '+e.message;}}
+
+  _ii(){const s=parseInt(this.ui.scaleSel.value);this.cw=this.imgData.width*s;this.ch=this.imgData.height*s;
+    const mx=3200;if(Math.max(this.cw,this.ch)>mx){const f=mx/Math.max(this.cw,this.ch);this.cw=Math.round(this.cw*f);this.ch=Math.round(this.ch*f);}
+    resizeCanvas(this.cw,this.ch);this.ui.pr.style.display='none';this._el('fileInput2').style.display='none';this._el('canvasContainer').classList.add('active');this.ui.dz.classList.add('has-canvas');
+    const ex=LuminanceExtractor.extract(this.imgData,this.cw,this.ch);this.lumData=ex.lumData;this.colorData=ex.colorData;this.iW=ex.w;this.iH=ex.h;this._sp();}
+
+  _sp(){this.relaxing=true;this.final=false;this.iter=0;this.conv=false;this.nSeed=Math.random()*1000;this.ui.st.textContent='processing...';
+    const lc=new Float32Array(this.lumData);this.br.post({type:'processImage',lumData:lc,w:this.iW,h:this.iH,smoothRadius:parseInt(this.ui.flowSmooth.value)},[lc.buffer]);}
+
+  _rf(r){const lc=new Float32Array(this.lumData);const oh=this.br._h['imageProcessed'];
+    this.br.on('imageProcessed',d=>{this.edgeMag=d.edgeMag;this.ff=new FlowFieldData(d.flowAngles,d.flowMagnitudes,this.iW,this.iH);this.br.on('imageProcessed',oh);});
+    this.br.post({type:'processImage',lumData:lc,w:this.iW,h:this.iH,smoothRadius:r},[lc.buffer]);}
+
+  _bdr(){const inv=this.ui.invertChk.checked,gm=parseFloat(this.ui.gamma.value),eb=parseFloat(this.ui.edgeBoost.value);
+    this.density=DensityBuilder.build(this.lumData,this.edgeMag,this.iW,this.iH,inv,gm,eb);
+    const dc=new Float32Array(this.density);
+    this.br.post({type:'initRelax',density:dc,w:this.iW,h:this.iH,count:parseInt(this.ui.dotCount.value),
+      seedMode:this.ui.seedMode.value,relaxMode:this.ui.relaxMode.value,momentum:parseFloat(this.ui.momentum.value),
+      samplesPerPt:parseInt(this.ui.samplesPerPt.value),damping:parseFloat(this.ui.damping.value),
+      autoConv:this.ui.autoConvChk.checked,maxIter:parseInt(this.ui.maxIter.value)},[dc.buffer]);
+    this.density=DensityBuilder.build(this.lumData,this.edgeMag,this.iW,this.iH,inv,gm,eb);this.ui.st.textContent='seeding...';}
+
+  _fin(){this.br.post({type:'finalize',minDist:parseFloat(this.ui.minDist.value),maxDist:parseFloat(this.ui.maxDist.value),ccvt:this.ui.ccvtChk.checked});}
+
+  _ex(){if(!this.pos||!this.final)return;this._us();const gm=parseFloat(this.ui.gamma.value),jit=parseFloat(this.ui.sizeJitter.value),
+    ra=parseFloat(this.ui.rotateAmt.value),ob=parseFloat(this.ui.opacityAmt.value),uc=this.ui.colorChk.checked,fp=this.ui.flowDir.value==='along',inv=this.ui.invertChk.checked,ff=this.ff;
+    const pts=[`<svg xmlns="http://www.w3.org/2000/svg" width="${this.iW}" height="${this.iH}" viewBox="0 0 ${this.iW} ${this.iH}">`,`<rect width="100%" height="100%" fill="white"/>`];
+    for(let i=0;i<this.n;i++){if(this.sizes[i]<.3)continue;const x=this.pos[i*2],y=this.pos[i*2+1],
+      ix=Math.max(0,Math.min(this.iW-1,x|0)),iy=Math.max(0,Math.min(this.iH-1,y|0)),li=iy*this.iW+ix,d=inv?this.lumData[li]:1-this.lumData[li];
+      let ang=0;if(ra>0&&ff)ang=ff.angle(x,y,fp)*ra*Math.min(1,ff.mag(x,y)*3);
+      const op=ob>0?(1-ob)+ob*Math.pow(d,gm):1;let fl='black';if(uc){const ci=li*3;fl=`rgb(${this.colorData[ci]},${this.colorData[ci+1]},${this.colorData[ci+2]})`;}
+      const s=this.gr.toSVG(x,y,this.sizes[i],d,ang,op,jit,fl);if(s)pts.push(s);}
+    pts.push('</svg>');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([pts.join('\n')],{type:'image/svg+xml'}));a.download='stipple.svg';a.click();}
+
+  _us(){if(!this.pos)return;if(!this.sizes||this.sizes.length<this.n)this.sizes=new Float32Array(this.n);
+    const gm=parseFloat(this.ui.gamma.value),mn=parseFloat(this.ui.minSize.value),mx=parseFloat(this.ui.maxSize.value),inv=this.ui.invertChk.checked;
+    for(let i=0;i<this.n;i++){const ix=Math.max(0,Math.min(this.iW-1,this.pos[i*2]|0)),iy=Math.max(0,Math.min(this.iH-1,this.pos[i*2+1]|0));
+      const d=inv?this.lumData[iy*this.iW+ix]:1-this.lumData[iy*this.iW+ix];this.sizes[i]=mn+Math.pow(d,gm)*(mx-mn);}}
+
+  render(){if(!this.pos||this.n===0){background(240);this.ui.st.textContent=this.relaxing?`relaxing ${this.iter}...`:'awaiting image';return;}
+    this._us();const gm=parseFloat(this.ui.gamma.value),jit=parseFloat(this.ui.sizeJitter.value),ra=parseFloat(this.ui.rotateAmt.value),
+      ob=parseFloat(this.ui.opacityAmt.value),uc=this.ui.colorChk.checked,fp=this.ui.flowDir.value==='along',sf=this.ui.flowVisChk.checked,inv=this.ui.invertChk.checked,ff=this.ff;
+    background(255);noStroke();if(!uc&&ob<=0)fill(0);
+    for(let i=0;i<this.n;i++){if(this.sizes[i]<.3)continue;const x=this.pos[i*2],y=this.pos[i*2+1],
+      ix=Math.max(0,Math.min(this.iW-1,x|0)),iy=Math.max(0,Math.min(this.iH-1,y|0)),li=iy*this.iW+ix,d=inv?this.lumData[li]:1-this.lumData[li];
+      let ang=0;if(ra>0&&ff)ang=ff.angle(x,y,fp)*ra*Math.min(1,ff.mag(x,y)*3);
+      if(uc||ob>0){const op=ob>0?(1-ob)+ob*Math.pow(d,gm):1;if(uc){const ci=li*3;fill(this.colorData[ci],this.colorData[ci+1],this.colorData[ci+2],op*255);}else fill(0,0,0,op*255);}
+      this.gr.draw(x,y,this.sizes[i],d,ang,jit);}
+    if(sf&&ff){const st=Math.max(12,Math.min(30,Math.floor(Math.min(this.cw,this.ch)/40))),ln=st*.4;
+      stroke(0,0,200,80);strokeWeight(1);
+      for(let y=st/2;y<this.ch;y+=st)for(let x=st/2;x<this.cw;x+=st){const a=ff.angle(x,y,fp),m=ff.mag(x,y),l=ln*Math.min(1,m*3),
+        dx=Math.cos(a)*l,dy=Math.sin(a)*l;line(x-dx,y-dy,x+dx,y+dy);}noStroke();}
+    this.ui.st.textContent=(this.relaxing?`relaxing ${this.iter}/${this.ui.maxIter.value}${this.conv?' [converged]':''}`:`done ${this.iter} iters`)+` | ${this.n} pts | ${this.cw}×${this.ch}`;}}
+
+let app;
+function setup(){app=new App();createCanvas(app.cw,app.ch).parent('canvasContainer');noStroke();frameRate(30);pixelDensity(1);}
+function draw(){app.render();}
+</script>
+</body>
+</html>
